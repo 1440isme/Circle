@@ -795,7 +795,7 @@ export class CircleToolsService {
       .map((r, i) => `🏆 ${r.wheelTitle || `Vòng quay ${i + 1}`}: ${r.winner}`)
       .join('\n');
 
-    const content = `🎯 [KẾT QUẢ VÒNG QUAY MAY MẮN]\n━━━━━━━━━━━━━━━━━━━━\n${resultsListText}\n━━━━━━━━━━━━━━━━━━━━\n(Được chia sẻ bởi ${senderName})`;
+    const content = `🎯 [KẾT QUẢ VÒNG QUAY NGẪU NHIÊN]\n━━━━━━━━━━━━━━━━━━━━\n${resultsListText}\n━━━━━━━━━━━━━━━━━━━━\n(Được chia sẻ bởi ${senderName})`;
 
     const rawMessage = await this.prisma.message.create({
       data: {
@@ -932,7 +932,7 @@ export class CircleToolsService {
               circleId,
               creatorId: payload.creatorId,
               channelId: payload.channelId,
-              wheelTitle: payload.wheelTitle || 'Vòng quay may mắn',
+              wheelTitle: payload.wheelTitle || 'Vòng quay ngẫu nhiên',
               options: wheelsList[0]?.options || [],
               winningIndex: 0,
               winningOption: wheelsList[0]?.options[0] || { optionLabel: '', color: '#0D9488' },
@@ -1075,7 +1075,7 @@ export class CircleToolsService {
       member.nickname ||
       'Thành viên';
 
-    const wheelTitle = 'Vòng quay may mắn';
+    const wheelTitle = 'Vòng quay ngẫu nhiên';
 
     const participants: LiveWheelParticipant[] = [
       {
@@ -1256,7 +1256,7 @@ export class CircleToolsService {
       session = {
         id: sessionId || `live-wheel-${Date.now()}`,
         circleId,
-        wheelTitle: 'Vòng quay may mắn',
+        wheelTitle: 'Vòng quay ngẫu nhiên',
         options: wheelsList[0]?.options || [],
         winningIndex: 0,
         winningOption: wheelsList[0]?.options[0] || { optionLabel: '', color: '#0D9488' },
@@ -1434,7 +1434,7 @@ export class CircleToolsService {
       };
     });
 
-    const wheelTitle = dto.title?.trim() || 'Vòng quay may mắn';
+    const wheelTitle = dto.title?.trim() || 'Vòng quay ngẫu nhiên';
     let options: { optionLabel: string; color: string }[] = [];
     let winningIndex = 0;
 
@@ -1482,7 +1482,7 @@ export class CircleToolsService {
       const summaryLines = wheelsList
         .map((w, idx) => `🎡 Vòng ${idx + 1} (${w.wheelTitle}): ${w.winningOption?.optionLabel}`)
         .join('\n');
-      const content = `🎯 [VÒNG QUAY MAY MẮN TRỰC TIẾP]\n━━━━━━━━━━━━━━━━━━━━\n${summaryLines}\n━━━━━━━━━━━━━━━━━━━━\n🏆 Kết quả: ${combinedWinners}\n👤 Lượt quay của: ${senderName}\n━━━━━━━━━━━━━━━━━━━━`;
+      const content = `🎯 [VÒNG QUAY NGẪU NHIÊN TRỰC TIẾP]\n━━━━━━━━━━━━━━━━━━━━\n${summaryLines}\n━━━━━━━━━━━━━━━━━━━━\n🏆 Kết quả: ${combinedWinners}\n👤 Lượt quay của: ${senderName}\n━━━━━━━━━━━━━━━━━━━━`;
       const rawMessage = await this.prisma.message.create({
         data: {
           channelId: channel.id,

@@ -250,7 +250,6 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [activeTab, setActiveTab] = useState<string>('results');
   const [isFullscreen, setIsFullscreen] = useState(true);
-  const [showResultsPopup, setShowResultsPopup] = useState(false);
 
   // Lịch sử kết quả ghi theo từng dòng (Read-only)
   const [resultsText, setResultsText] = useState<string>('');
@@ -821,7 +820,7 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
         <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-amber-500/15 rounded-full blur-3xl pointer-events-none" />
 
         {/* ============================================================== */}
-        {/* HEADER: "Vòng quay may mắn" + QUAY TẤT CẢ + ÂM THANH + PHÓNG TO + ĐÓNG */}
+        {/* HEADER: "Vòng quay ngẫu nhiên" + QUAY TẤT CẢ + ÂM THANH + PHÓNG TO + ĐÓNG */}
         {/* ============================================================== */}
         <div className="w-full flex items-center justify-between pb-3.5 border-b border-circle-hairline dark:border-circle-dark-hairline shrink-0">
           <div className="flex items-center gap-2.5">
@@ -829,7 +828,7 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
               <Compass className="w-4.5 h-4.5" />
             </div>
             <h3 className="text-base sm:text-lg font-black text-circle-charcoal dark:text-circle-dark-text tracking-tight">
-              {locale === 'vi' ? 'Vòng quay may mắn' : 'Lucky Wheel'}
+              {locale === 'vi' ? 'Vòng quay ngẫu nhiên' : 'Random Wheel'}
             </h3>
           </div>
 
@@ -897,87 +896,11 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
         {/* ============================================================== */}
         <div className="w-full flex-1 flex flex-col lg:flex-row items-stretch gap-5 pt-4 overflow-y-auto min-h-0">
           {/* CỘT BÊN TRÁI: HIỂN THỊ 4 VÒNG XOAY (LƯỚI 2x2 CÓ NHÃN TÊN VÒNG) */}
-          <div className="flex-1 flex flex-col items-center justify-center p-2 min-h-0 relative">
-            {/* 1. NÚT FLOATING Ở TRÊN CÙNG: NÚT KẾT QUẢ */}
-            <div className="absolute top-1 sm:top-2 left-1/2 -translate-x-1/2 z-30 pointer-events-auto">
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTab('results');
-                  setShowResultsPopup(true);
-                }}
-                className="inline-flex items-center gap-2 px-3.5 py-1.5 sm:px-4.5 sm:py-2 rounded-full bg-gradient-to-r from-amber-500 via-amber-600 to-amber-500 hover:from-amber-600 hover:to-amber-700 text-white font-extrabold text-xs sm:text-sm shadow-lg shadow-amber-500/25 border border-amber-300/40 transition-all hover:scale-105 active:scale-95 cursor-pointer backdrop-blur-sm"
-                title={locale === 'vi' ? 'Xem bảng kết quả các lượt quay' : 'View spin results history'}
-              >
-                <Trophy className="w-4 h-4 text-amber-200 fill-amber-300/20 shrink-0" />
-                <span>{locale === 'vi' ? 'Kết quả' : 'Results'}</span>
-                {resultLines.length > 0 && (
-                  <span className="px-1.5 py-0.2 rounded-full bg-white/25 text-[10px] sm:text-[11px] font-mono font-bold">
-                    {resultLines.length}
-                  </span>
-                )}
-              </button>
-            </div>
-
-            {/* 2. BẢNG NHỎ Ở GÓC DƯỚI BÊN PHẢI CÓ MẶT NGƯỜI ĐANG XEM */}
-            <div className="absolute bottom-2 right-2 sm:bottom-3 sm:right-3 z-30 pointer-events-auto max-w-[240px]">
-              <div className="bg-white/95 dark:bg-circle-dark-surface/95 backdrop-blur-md rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline shadow-xl p-2 sm:p-2.5 flex flex-col gap-1.5 animate-in fade-in slide-in-from-bottom-2 duration-200">
-                <div className="flex items-center justify-between gap-2 border-b border-circle-hairline/60 dark:border-circle-dark-hairline pb-1">
-                  <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-bold text-circle-charcoal dark:text-circle-dark-text">
-                    <Users className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
-                    <span>{locale === 'vi' ? 'Người đang xem' : 'Watching'}</span>
-                    <span className="px-1.5 py-0.2 rounded-full bg-teal-500/15 text-teal-700 dark:text-teal-300 text-[9px] sm:text-[10px] font-bold">
-                      {participants.length}
-                    </span>
-                  </div>
-                  <span className="inline-flex items-center gap-1 text-[8px] sm:text-[9px] font-bold text-emerald-600 dark:text-emerald-400">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    LIVE
-                  </span>
-                </div>
-
-                {/* Hàng khuôn mặt avatar người đang xem */}
-                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 max-w-[210px]">
-                  {participants.length > 0 ? (
-                    participants.slice(0, 6).map((p) => (
-                      <div
-                        key={p.userId}
-                        className="relative group shrink-0"
-                        title={p.displayName}
-                      >
-                        {p.avatarUrl ? (
-                          <img
-                            src={p.avatarUrl}
-                            alt={p.displayName}
-                            className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover border-2 border-emerald-500/60 shadow-xs transition-transform group-hover:scale-110"
-                          />
-                        ) : (
-                          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-circle-primary/20 text-circle-primary font-bold text-xs flex items-center justify-center border-2 border-emerald-500/60 shadow-xs transition-transform group-hover:scale-110">
-                            {p.displayName?.charAt(0) || 'U'}
-                          </div>
-                        )}
-                        <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-500 border border-white dark:border-circle-dark-surface" />
-                      </div>
-                    ))
-                  ) : (
-                    <div className="flex items-center gap-1.5 text-[10px] text-circle-slate dark:text-circle-dark-muted italic py-0.5">
-                      <User className="w-3 h-3 text-circle-primary" />
-                      <span className="truncate max-w-[120px]">{spunByName}</span>
-                    </div>
-                  )}
-                  {participants.length > 6 && (
-                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-circle-wash dark:bg-circle-dark-wash text-circle-slate dark:text-circle-dark-muted font-bold text-[10px] flex items-center justify-center border border-circle-hairline shrink-0">
-                      +{participants.length - 6}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
+          <div className="flex-1 flex flex-col items-center justify-center p-2 min-h-0">
             <div
               className={`grid grid-cols-2 gap-4 ${
                 isFullscreen ? 'sm:gap-8 max-w-2xl' : 'sm:gap-6 max-w-lg'
-              } justify-items-center w-full mx-auto pt-6 sm:pt-4`}
+              } justify-items-center w-full mx-auto`}
             >
               {wheelsList.map((wheel, idx) => {
                 const rot = wheelRotations[idx] || 0;
@@ -1467,115 +1390,6 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
           </div>
         </div>
       </div>
-
-      {/* MODAL POPUP KẾT QUẢ KHI BẤM NÚT FLOATING "KẾT QUẢ" */}
-      {showResultsPopup && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="relative w-full max-w-lg bg-white dark:bg-circle-dark-surface rounded-3xl border border-circle-hairline dark:border-circle-dark-hairline shadow-2xl p-5 flex flex-col gap-3.5 animate-in zoom-in-95 duration-200 max-h-[85vh]">
-            {/* Header modal kết quả */}
-            <div className="flex items-center justify-between pb-2.5 border-b border-circle-hairline dark:border-circle-dark-hairline">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-amber-500/15 text-amber-500 flex items-center justify-center">
-                  <Trophy className="w-4 h-4" />
-                </div>
-                <div>
-                  <h4 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
-                    {locale === 'vi' ? 'Bảng kết quả các lượt quay' : 'Spin Results'}
-                  </h4>
-                  <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted">
-                    {resultLines.length} {locale === 'vi' ? 'lượt quay đã ghi nhận' : 'recorded spins'}
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowResultsPopup(false)}
-                className="p-1.5 rounded-full hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate dark:text-circle-dark-muted cursor-pointer"
-                title={locale === 'vi' ? 'Đóng' : 'Close'}
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Textarea kết quả chỉ đọc */}
-            <div className="flex-1 flex flex-col gap-1 min-h-[160px]">
-              <textarea
-                value={resultsText}
-                readOnly
-                placeholder={
-                  locale === 'vi'
-                    ? 'Chưa có kết quả quay nào. Hãy bấm "Quay tất cả" để bắt đầu!'
-                    : 'No results recorded yet. Press "Spin All" to start!'
-                }
-                className="w-full flex-1 p-3 text-xs sm:text-sm rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas text-circle-charcoal dark:text-circle-dark-text focus:outline-none resize-none font-mono leading-relaxed select-text"
-              />
-              <p className="text-[10px] text-circle-slate dark:text-circle-dark-muted">
-                {locale === 'vi' ? 'Kết quả ghi theo từng dòng và không thể sửa.' : 'Recorded line-by-line and read-only.'}
-              </p>
-            </div>
-
-            {/* Cúp vàng lượt quay gần nhất nếu có */}
-            {isFinished && session.winningOption && (
-              <div className="p-2.5 rounded-xl bg-gradient-to-r from-amber-500/15 via-amber-400/20 to-amber-500/15 border border-amber-500/30 text-center">
-                <div className="text-[10px] font-extrabold text-amber-600 uppercase mb-0.5">
-                  {t.luckyWheel.winnerAnnounce}
-                </div>
-                <div className="text-sm font-black text-amber-700 dark:text-amber-400 break-words">
-                  {session.winningOption.optionLabel}
-                </div>
-                <div className="text-[10px] text-circle-slate dark:text-circle-dark-muted mt-0.5">
-                  {t.luckyWheel.spunBy.replace('{name}', spunByName)}
-                </div>
-              </div>
-            )}
-
-            {/* Dải nút tác vụ dưới modal */}
-            <div className="flex items-center justify-between gap-2 pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline">
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={handleSortResults}
-                  disabled={resultLines.length < 2}
-                  className="p-2 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline hover:bg-circle-wash dark:hover:bg-circle-dark-wash disabled:opacity-40 cursor-pointer"
-                  title="Sắp xếp A-Z"
-                >
-                  <ArrowDownAZ className="w-4 h-4 text-indigo-500" />
-                </button>
-                <button
-                  type="button"
-                  onClick={handleShareResultsManually}
-                  disabled={resultLines.length === 0 || isSharingResults}
-                  className="p-2 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline hover:bg-circle-wash dark:hover:bg-circle-dark-wash disabled:opacity-40 cursor-pointer"
-                  title="Gửi vào chat"
-                >
-                  {shareSuccess ? (
-                    <Check className="w-4 h-4 text-emerald-500" />
-                  ) : (
-                    <Share2 className="w-4 h-4 text-emerald-500" />
-                  )}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleClearResults}
-                  disabled={resultLines.length === 0}
-                  className="p-2 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline hover:bg-rose-500/10 text-rose-500 disabled:opacity-40 cursor-pointer"
-                  title="Xoá lịch sử"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setShowResultsPopup(false)}
-                className="px-4 py-2 rounded-xl bg-circle-primary hover:bg-circle-sage text-white font-bold text-xs cursor-pointer"
-              >
-                {locale === 'vi' ? 'Đóng' : 'Close'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

@@ -49,7 +49,7 @@ export const LiveWheelChatEmbed: React.FC<LiveWheelChatEmbedProps> = ({
           </div>
           <div>
             <h4 className="text-sm font-black text-circle-charcoal dark:text-circle-dark-text tracking-tight">
-              {payload.wheelTitle || (locale === 'vi' ? 'Vòng quay may mắn' : 'Lucky Wheel')}
+              {payload.wheelTitle || (locale === 'vi' ? 'Vòng quay ngẫu nhiên' : 'Random Wheel')}
             </h4>
             <span className="text-[10px] text-teal-600 dark:text-teal-400 font-semibold uppercase tracking-wider">
               {locale === 'vi' ? 'Tương tác trực tiếp' : 'Live Interactive'}
@@ -81,7 +81,7 @@ export const LiveWheelChatEmbed: React.FC<LiveWheelChatEmbedProps> = ({
             <span className="font-bold text-circle-charcoal dark:text-circle-dark-text">
               {payload.creatorName}
             </span>{' '}
-            {locale === 'vi' ? 'đã mở phiên vòng quay may mắn' : 'started a lucky wheel session'}
+            {locale === 'vi' ? 'đã mở phiên vòng quay ngẫu nhiên' : 'started a random wheel session'}
           </p>
           <div className="flex items-center gap-1.5 mt-1 text-[11px] text-circle-slate dark:text-circle-dark-muted font-medium">
             <Users className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />

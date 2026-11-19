@@ -299,12 +299,6 @@ export const Sidebar: React.FC = () => {
           onClick={() => setActiveCircleView('polls')}
         />
         <NavItem
-          icon={<Compass className="h-4 w-4" />}
-          label={t.nav.luckyWheel}
-          active={activeCircleView === 'wheel'}
-          onClick={() => setActiveCircleView('wheel')}
-        />
-        <NavItem
           icon={<HelpCircle className="h-4 w-4" />}
           label={t.nav.reflectionMailbox}
           active={activeCircleView === 'anonymous'}

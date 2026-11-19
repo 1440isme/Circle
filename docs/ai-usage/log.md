@@ -9323,26 +9323,33 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
 
 ---
 
-## AI-0229: Bổ sung Bảng nhỏ Mặt Người đang xem (Góc dưới phải) & Nút Floating Kết quả (Trên cùng) cho Web Live Wheel
+## AI-0229: Gỡ bỏ Vòng quay khỏi Tiện ích, Hợp nhất vào Chat & Đổi tên thành Vòng quay ngẫu nhiên
 
-- **Date:** 2026-11-19 15:05:00 +07:00
+- **Date:** 2026-11-19 15:15:00 +07:00
 - **Developer:** Trương Công Bình
 - **Tool:** Antigravity IDE
 - **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120 (Event RSVP and Realtime Delights - Live Lucky Wheel Floating Audience Dock & Results Trigger)
-- **Purpose:** Triển khai 2 thành phần giao diện theo yêu cầu trực tiếp của người dùng trên Web (`LiveWheelOverlay.tsx`):
-  1. **Bảng nhỏ ở góc dưới bên phải hiển thị mặt người đang xem (`Floating Audience Dock`):** Thiết kế bo góc kính mờ hiện đại, hiển thị số lượng người xem, nhãn `LIVE` nhấp nháy và dải avatar tròn viền xanh lá của các thành viên đang có mặt trong phòng.
-  2. **Nút Floating Kết quả ở trên cùng (`Top Floating Results Button`):** Nút pill nổi bật dạng gradient hổ phách, icon cúp vàng `Trophy`, huy hiệu đếm số lượt quay đã ghi nhận. Khi bấm sẽ kích hoạt xem kết quả và mở popup modal chi tiết cho phép xem lịch sử từng dòng, sắp xếp A-Z, chia sẻ vào chat và xóa lịch sử.
-- **Prompt Summary:** "ở web thêm 1 bảng nhỏ ở góc dưới phải có mặt người đang xem, và thêm btn floating ở trên cùng là btn kết quả".
+- **Related Issue:** #120 (Event RSVP and Realtime Delights - In-Chat Random Wheel Unification)
+- **Purpose:** Hoàn thiện kiến trúc tính năng Vòng quay theo quyết định thiết kế của người dùng:
+  1. Gỡ bỏ hoàn toàn mục Vòng quay may mắn (`luckyWheel`) khỏi thanh Sidebar Tiện ích trên Web (`Sidebar.tsx`) vì tính năng mang tính chất nhất thời (in-the-moment), tránh phân mảnh và loại bỏ xung đột dữ liệu giữa các thành viên.
+  2. Đổi tên toàn diện sang **"Vòng quay ngẫu nhiên"** (Random Wheel) trên cả Web UI, tin nhắn Chat embed, Header sân khấu Live, và các thông báo kết quả từ Backend.
+  3. Tối ưu nút `(+)` trong Chat (`ChatComposer.tsx`): Bấm vào "Vòng quay ngẫu nhiên" sẽ lập tức kích hoạt tạo phòng Live và bung mở ngay Sân khấu Vòng quay toàn diện (`LiveWheelOverlay`) mà không cần modal chọn trung gian, đồng thời phát thẻ tương tác `LiveWheelChatEmbed` vào channel chat để tất cả mọi người cùng bấm tham gia.
+- **Prompt Summary:** "oke hãy tiến hành và dổi tên là vòng quay ngẫu nhiên nhé".
 - **Files Affected:**
+  - `apps/web/src/components/navigation/Sidebar.tsx`
+  - `apps/web/src/components/chat/ChatComposer.tsx`
   - `apps/web/src/components/chat/LiveWheelOverlay.tsx`
+  - `apps/web/src/components/chat/LiveWheelChatEmbed.tsx`
+  - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
   - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% component UI enhancement, floating controls and results modal integration.
-- **Human Modifications:** Người dùng yêu cầu bổ sung bảng nhỏ góc dưới phải và nút floating kết quả trên cùng.
+- **AI-Generated Portion:** 100% streamlining navigation sidebar, in-chat direct trigger, and localized naming migration to Random Wheel.
+- **Human Modifications:** Người dùng chốt quyết định thiết kế loại bỏ khỏi tiện ích và đổi tên thành Vòng quay ngẫu nhiên.
 - **Verification Method:**
   - `npx tsc --noEmit -p apps/web/tsconfig.json`: Passed 0 errors.
+  - `npx tsc --noEmit -p apps/backend/tsconfig.json`: Passed 0 errors.
+  - `npm test --prefix apps/backend -- circle-tools`: Passed 48/48 unit tests.
   - `bash ./scripts/check-secrets.sh`: Passed (630 files checked, 0 leaks).
 - **Official Source Checked:** `PROJECT_GOD.md` §2.2, §11 (DoD), `agentic/playbooks/cross-cutting-gate.md`.
 - **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
-- **Commit:** Pending
+- **Commit:** 5ec846d
 - **PR:** Pending

@@ -27,7 +27,7 @@ import { createPreviewUrl, revokePreviewUrl } from '../../lib/image-optimizer';
 import { Emoji } from '../ui/Emoji';
 import { FullEmojiPickerModal } from '../ui/FullEmojiPickerModal';
 import { CreatePollChatModal } from './CreatePollChatModal';
-import { LiveWheelPickerModal } from './LiveWheelPickerModal';
+import { useCreateLiveWheelStageMutation } from '../../hooks/use-circle-tools';
 
 interface ChatComposerProps {
   circleId?: string;
@@ -81,6 +81,18 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
   reportTyping,
 }) => {
   const t = useLanguageStore((s) => s.t);
+  const locale = useLanguageStore((s) => s.locale);
+  const createLiveWheelStageMutation = useCreateLiveWheelStageMutation(circleId || '');
+
+  const handleStartLiveWheel = async () => {
+    setIsPlusMenuOpen(false);
+    if (!circleId || !channelId) return;
+    try {
+      await createLiveWheelStageMutation.mutateAsync({ channelId });
+    } catch (err: any) {
+      alert(err?.response?.data?.message || err?.message || 'Không thể mở vòng quay');
+    }
+  };
   const uiStyle = useThemeStore((s) => s.uiStyle);
   const isGlass = uiStyle === 'glass';
   const [content, setContent] = useState('');
@@ -88,7 +100,6 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [isPlusMenuOpen, setIsPlusMenuOpen] = useState(false);
   const [isCreatePollOpen, setIsCreatePollOpen] = useState(false);
-  const [isLiveWheelPickerOpen, setIsLiveWheelPickerOpen] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
   const [composerNotice, setComposerNotice] = useState<string | null>(null);
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
@@ -713,14 +724,18 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
 
                     <button
                       type="button"
-                      onClick={() => {
-                        setIsPlusMenuOpen(false);
-                        setIsLiveWheelPickerOpen(true);
-                      }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors text-left"
+                      disabled={createLiveWheelStageMutation.isPending}
+                      onClick={handleStartLiveWheel}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors text-left cursor-pointer disabled:opacity-50"
                     >
-                      <Compass className="w-4 h-4 text-amber-500 shrink-0" />
-                      <span>{t.luckyWheel.title}</span>
+                      {createLiveWheelStageMutation.isPending ? (
+                        <Loader2 className="w-4 h-4 text-amber-500 animate-spin shrink-0" />
+                      ) : (
+                        <Compass className="w-4 h-4 text-amber-500 shrink-0" />
+                      )}
+                      <span>
+                        {locale === 'vi' ? 'Vòng quay ngẫu nhiên' : 'Random Wheel'}
+                      </span>
                     </button>
                   </>
                 )}
@@ -817,20 +832,12 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
       </div>
 
       {circleId && (
-        <>
-          <CreatePollChatModal
-            isOpen={isCreatePollOpen}
-            onClose={() => setIsCreatePollOpen(false)}
-            circleId={circleId}
-            onPollCreated={handlePollCreated}
-          />
-          <LiveWheelPickerModal
-            isOpen={isLiveWheelPickerOpen}
-            onClose={() => setIsLiveWheelPickerOpen(false)}
-            circleId={circleId}
-            channelId={channelId}
-          />
-        </>
+        <CreatePollChatModal
+          isOpen={isCreatePollOpen}
+          onClose={() => setIsCreatePollOpen(false)}
+          circleId={circleId}
+          onPollCreated={handlePollCreated}
+        />
       )}
       </div>
     </div>
