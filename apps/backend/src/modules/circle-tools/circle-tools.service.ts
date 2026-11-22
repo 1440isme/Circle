@@ -1782,51 +1782,7 @@ export class CircleToolsService {
       this.chatGateway.broadcastLiveWheelClosed(circleId);
     }
 
-    // 5. Dọn dẹp các vòng quay tạm thời, hoàn nguyên về 1 vòng mặc định tinh gọn cho phiên tiếp theo
-    try {
-      const existingWheels = await this.prisma.decisionWheel.findMany({
-        where: { circleId },
-        orderBy: { createdAt: 'asc' },
-      });
-
-      if (existingWheels.length > 1) {
-        const extraIds = existingWheels.slice(1).map((w) => w.id);
-        await this.prisma.decisionWheel.deleteMany({
-          where: { id: { in: extraIds } },
-        });
-      }
-
-      const template = DEFAULT_FOUR_WHEELS_DATA[0]!;
-      if (existingWheels.length > 0) {
-        const firstWheel = existingWheels[0]!;
-        await this.prisma.wheelOption.deleteMany({ where: { wheelId: firstWheel.id } });
-        await this.prisma.wheelOption.createMany({
-          data: template.options.map((optLabel, oIdx) => ({
-            wheelId: firstWheel.id,
-            optionLabel: optLabel,
-            color: PASTEL_WHEEL_COLORS[oIdx % PASTEL_WHEEL_COLORS.length]!,
-          })),
-        });
-        await this.prisma.decisionWheel.update({
-          where: { id: firstWheel.id },
-          data: { title: template.title },
-        });
-      } else {
-        await this.prisma.decisionWheel.create({
-          data: {
-            circleId,
-            title: template.title,
-            options: {
-              create: template.options.map((optLabel, oIdx) => ({
-                optionLabel: optLabel,
-                color: PASTEL_WHEEL_COLORS[oIdx % PASTEL_WHEEL_COLORS.length]!,
-              })),
-            },
-          },
-        });
-      }
-    } catch {}
-
+    // Bảo tồn nguyên vẹn danh sách các vòng quay và các phương án hiện có cho phiên tạo tiếp theo
     return { success: true };
   }
 

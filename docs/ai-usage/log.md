@@ -9649,3 +9649,37 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
 - **AI Errors / Hallucinations Found:** Không có.
 - **Commit:** 7340d80
 - **PR:** #120
+
+---
+
+## AI-0239: Gom quyền chỉnh sửa & âm thanh vào nút 3 chấm và bảo tồn toàn bộ vòng quay khi tạo lại
+
+- **Date:** 2026-11-22 15:17:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120 (Event RSVP & Realtime Delights)
+- **Purpose:** 
+  1. Tích hợp nút 3 chấm (`MoreHorizontal`) trên thanh Floating Pill Header để gom toàn bộ các tùy chọn cài đặt phòng quay:
+     - Mục Bật/Tắt âm thanh quay & chúc mừng (`Volume2` / `VolumeX`).
+     - Mục Bật/Tắt quyền chỉnh sửa nội dung (`LockOpen` / `Lock`) cho chủ phòng (hoặc hiển thị trạng thái quyền cho người xem).
+     - Gỡ bỏ nút Floating Pill "Cho phép sửa" riêng rẽ ở ngoài Header và gỡ bỏ các nút âm thanh/cho phép sửa rải rác ở đáy các tab trong Cái Bảng (chỉ giữ lại nút Xóa tất cả căn phải tinh gọn).
+  2. Bảo tồn 100% tất cả các vòng quay hiện có khi đóng và tạo lại phòng:
+     - Gỡ bỏ hoàn toàn logic xóa các vòng quay phụ (`deleteMany`) và logic reset options về mẫu mặc định trong `closeLiveWheelStage`.
+     - Giữ nguyên vẹn toàn bộ các vòng quay (1, 2, 3, 4 vòng) và nội dung phương án của người dùng, đảm bảo khi ấn tạo lại phòng quay thì hệ thống tái sử dụng đúng danh sách vòng đã có sẵn thay vì bị reset về 1 vòng.
+- **Prompt Summary:** Tinh chỉnh thêm 1 btn 3 chấm gom quyền chỉnh sửa, âm thanh vào nút 3 chấm và xóa ở ngoài đi; khi ấn tạo lại vòng quay thì giữ các vòng trước đó đã có sẵn chứ không reset về 1 vòng.
+- **Files Affected:**
+  - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
+  - `apps/web/src/components/chat/LiveWheelOverlay.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% logic menu popover 3 chấm, click-outside handling, và loại bỏ logic xóa vòng dọn dẹp ở backend.
+- **Human Modifications:** Người dùng trực tiếp yêu cầu tối ưu UX gom nút vào menu 3 chấm và giữ nguyên cấu hình các vòng quay đã tạo.
+- **Verification Method:** 
+  - `npx tsc --noEmit` pass 0 errors cả web và backend.
+  - `npx jest src/modules/circle-tools/circle-tools.service.spec.ts` pass 51/51 tests.
+  - `./scripts/check-secrets.sh` pass 0 secret leaks.
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn, không chứa secret.
+- **AI Errors / Hallucinations Found:** Không có.
+- **Commit:** Pending
+- **PR:** #120

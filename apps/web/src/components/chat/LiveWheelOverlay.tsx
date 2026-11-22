@@ -27,6 +27,7 @@ import {
   LockOpen,
   LogOut,
   ShieldCheck,
+  MoreHorizontal,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguageStore } from '../../stores/language.store';
@@ -316,6 +317,24 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
   };
 
   const [shareSuccess, setShareSuccess] = useState(false);
+
+  // Menu 3 chấm (Cài đặt phòng quay: Quyền sửa & Âm thanh)
+  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(event.target as Node)) {
+        setIsMoreMenuOpen(false);
+      }
+    };
+    if (isMoreMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isMoreMenuOpen]);
 
   // Active Tab: Selected Wheel ID or 'results'
   const [activeTab, setActiveTab] = useState<string>('wheel');
@@ -1198,59 +1217,158 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
             </button>
           )}
 
-          {/* Floating Pill: Nút "Cho phép sửa" */}
-          {isHost ? (
+          {/* Menu 3 Chấm: Gom Quyền chỉnh sửa & Âm thanh */}
+          <div className="relative shrink-0" ref={moreMenuRef}>
             <button
               type="button"
-              onClick={handleToggleAllowEdit}
-              disabled={updateSettingsMutation.isPending}
-              className={`inline-flex items-center gap-1.5 px-3.5 h-9 rounded-full backdrop-blur-xl border shadow-sm font-bold text-xs sm:text-sm transition-all active:scale-95 cursor-pointer shrink-0 ${
-                allowMembersToEdit
-                  ? 'bg-emerald-500 text-white border-emerald-600 hover:bg-emerald-600 shadow-emerald-500/20'
+              onClick={() => setIsMoreMenuOpen((prev) => !prev)}
+              className={`inline-flex items-center justify-center w-9 h-9 rounded-full backdrop-blur-xl border shadow-sm transition-all active:scale-95 cursor-pointer shrink-0 ${
+                isMoreMenuOpen
+                  ? 'bg-circle-primary text-white border-circle-primary shadow-md'
                   : 'bg-white/92 dark:bg-circle-dark-surface/90 border-circle-hairline/80 dark:border-white/12 hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text'
               }`}
-              title={
-                allowMembersToEdit
-                  ? (locale === 'vi' ? 'Nhấp để khóa quyền chỉnh sửa (chỉ bạn có quyền sửa)' : 'Click to lock edit permission')
-                  : (t.luckyWheel.allowEditDesc || (locale === 'vi' ? 'Nhấp để cho phép tất cả thành viên cùng sửa' : 'Click to allow all members to edit'))
-              }
+              title={locale === 'vi' ? 'Cài đặt phòng quay (Âm thanh & Quyền sửa)' : 'Stage settings'}
+              aria-label={locale === 'vi' ? 'Cài đặt phòng quay' : 'Stage settings'}
             >
-              {allowMembersToEdit ? (
-                <LockOpen className="w-4 h-4" />
-              ) : (
-                <Lock className="w-4 h-4 text-amber-500" />
-              )}
-              <span>
-                {allowMembersToEdit
-                  ? (t.luckyWheel.allowEditEnabled || (locale === 'vi' ? 'Cho phép sửa: Bật' : 'Allow Edit: On'))
-                  : (t.luckyWheel.allowEditDisabled || (locale === 'vi' ? 'Cho phép sửa: Tắt' : 'Allow Edit: Off'))}
-              </span>
+              <MoreHorizontal className="w-4.5 h-4.5" />
             </button>
-          ) : (
-            <div
-              className={`inline-flex items-center gap-1.5 px-3 h-9 rounded-full backdrop-blur-xl border shadow-2xs font-bold text-xs sm:text-sm select-none shrink-0 ${
-                allowMembersToEdit
-                  ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300'
-                  : 'bg-slate-100 dark:bg-white/5 border-circle-hairline/80 dark:border-white/10 text-circle-slate dark:text-circle-dark-muted'
-              }`}
-              title={
-                allowMembersToEdit
-                  ? (t.luckyWheel.collabEditDesc || (locale === 'vi' ? 'Chủ phòng đã cho phép bạn chỉnh sửa nội dung' : 'Host has allowed you to edit'))
-                  : (t.luckyWheel.viewOnlyDesc || (locale === 'vi' ? 'Chỉ chủ phòng mới có quyền chỉnh sửa' : 'View only'))
-              }
-            >
-              {allowMembersToEdit ? (
-                <LockOpen className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-              ) : (
-                <Lock className="w-4 h-4 opacity-70" />
-              )}
-              <span>
-                {allowMembersToEdit
-                  ? (t.luckyWheel.collabEditBadge || (locale === 'vi' ? 'Được phép sửa' : 'Can edit'))
-                  : (t.luckyWheel.viewOnlyBadge || (locale === 'vi' ? 'Chỉ xem' : 'View only'))}
-              </span>
-            </div>
-          )}
+
+            {/* Dropdown Menu kính mờ */}
+            {isMoreMenuOpen && (
+              <div className="absolute right-0 top-11 z-50 w-72 rounded-2xl bg-white/95 dark:bg-circle-dark-surface/95 backdrop-blur-2xl border border-circle-hairline/80 dark:border-white/15 shadow-2xl p-2.5 flex flex-col gap-1.5 animate-scaleUp">
+                {/* Header Menu */}
+                <div className="px-2.5 py-1 text-[11px] font-bold text-circle-slate dark:text-circle-dark-muted uppercase tracking-wider">
+                  {locale === 'vi' ? 'Cài đặt phòng quay' : 'Stage settings'}
+                </div>
+
+                {/* 1. ÂM THANH */}
+                <button
+                  type="button"
+                  onClick={handleToggleSound}
+                  disabled={isAnySpinning}
+                  className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors cursor-pointer group text-left disabled:opacity-50"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                    <div
+                      className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                        currentSoundEnabled
+                          ? 'bg-circle-primary/10 text-circle-primary dark:text-circle-dark-primary'
+                          : 'bg-slate-100 dark:bg-white/5 text-circle-slate dark:text-circle-dark-muted'
+                      }`}
+                    >
+                      {currentSoundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text truncate">
+                        {t.luckyWheel.soundSetting}
+                      </p>
+                      <p className="text-[10px] text-circle-slate dark:text-circle-dark-muted truncate">
+                        {currentSoundEnabled
+                          ? (locale === 'vi' ? 'Bật âm thanh quay & chúc mừng' : 'Sound enabled')
+                          : (locale === 'vi' ? 'Đang tắt âm thanh' : 'Muted')}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Toggle Switch */}
+                  <div
+                    className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-colors shrink-0 ${
+                      currentSoundEnabled ? 'bg-circle-primary' : 'bg-slate-300 dark:bg-white/20'
+                    }`}
+                  >
+                    <div
+                      className={`w-4 h-4 rounded-full bg-white shadow-xs transform transition-transform ${
+                        currentSoundEnabled ? 'translate-x-4' : 'translate-x-0'
+                      }`}
+                    />
+                  </div>
+                </button>
+
+                <div className="h-px bg-circle-hairline/80 dark:bg-white/10 my-0.5" />
+
+                {/* 2. QUYỀN CHỈNH SỬA */}
+                {isHost ? (
+                  <button
+                    type="button"
+                    onClick={handleToggleAllowEdit}
+                    disabled={updateSettingsMutation.isPending}
+                    className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors cursor-pointer group text-left disabled:opacity-50"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                      <div
+                        className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                          allowMembersToEdit
+                            ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                            : 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+                        }`}
+                      >
+                        {allowMembersToEdit ? <LockOpen className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text truncate">
+                          {t.luckyWheel.allowEdit || (locale === 'vi' ? 'Cho phép sửa' : 'Allow edit')}
+                        </p>
+                        <p className="text-[10px] text-circle-slate dark:text-circle-dark-muted truncate">
+                          {allowMembersToEdit
+                            ? (locale === 'vi' ? 'Tất cả thành viên đều được sửa' : 'All members can edit')
+                            : (locale === 'vi' ? 'Chỉ chủ phòng mới được sửa' : 'Host only')}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Toggle Switch */}
+                    <div
+                      className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-colors shrink-0 ${
+                        allowMembersToEdit ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-white/20'
+                      }`}
+                    >
+                      <div
+                        className={`w-4 h-4 rounded-full bg-white shadow-xs transform transition-transform ${
+                          allowMembersToEdit ? 'translate-x-4' : 'translate-x-0'
+                        }`}
+                      />
+                    </div>
+                  </button>
+                ) : (
+                  <div className="w-full flex items-center justify-between p-2 rounded-xl bg-circle-canvas/60 dark:bg-circle-dark-canvas/60 border border-circle-hairline/80 dark:border-white/10 select-none">
+                    <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                      <div
+                        className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                          allowMembersToEdit
+                            ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                            : 'bg-slate-200 dark:bg-white/10 text-circle-slate dark:text-circle-dark-muted'
+                        }`}
+                      >
+                        {allowMembersToEdit ? <LockOpen className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text truncate">
+                          {t.luckyWheel.allowEdit || (locale === 'vi' ? 'Quyền chỉnh sửa' : 'Edit permission')}
+                        </p>
+                        <p className="text-[10px] text-circle-slate dark:text-circle-dark-muted truncate">
+                          {allowMembersToEdit
+                            ? (locale === 'vi' ? 'Được phép sửa nội dung' : 'Can edit content')
+                            : (locale === 'vi' ? 'Chế độ chỉ xem' : 'View only mode')}
+                        </p>
+                      </div>
+                    </div>
+
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
+                        allowMembersToEdit
+                          ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                          : 'bg-slate-200 dark:bg-white/10 text-circle-slate dark:text-circle-dark-muted'
+                      }`}
+                    >
+                      {allowMembersToEdit
+                        ? (locale === 'vi' ? 'Được sửa' : 'Can edit')
+                        : (locale === 'vi' ? 'Chỉ xem' : 'View only')}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
 
           {/* Nút Đóng phòng (Chủ phòng) HOẶC Rời phòng (Người xem) */}
           {isHost ? (
@@ -1691,30 +1809,14 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
                     </button>
                   </div>
 
-                  {/* Hàng thiết lập ở đáy: Bật/Tắt âm thanh & Xoá tất cả vòng quay (đồng bộ với Tab Setup) */}
-                  <div className="flex items-center justify-between pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline text-xs shrink-0">
-                    {/* Sound Toggle */}
-                    <button
-                      type="button"
-                      onClick={handleToggleSound}
-                      disabled={isAnySpinning}
-                      className="flex items-center gap-1.5 text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text disabled:opacity-40 transition-colors cursor-pointer"
-                    >
-                      {currentSoundEnabled ? (
-                        <Volume2 className="w-4 h-4 text-circle-primary dark:text-circle-dark-primary" />
-                      ) : (
-                        <VolumeX className="w-4 h-4 text-circle-slate/60 dark:text-circle-dark-muted/60" />
-                      )}
-                      <span>{t.luckyWheel.soundSetting}</span>
-                    </button>
-
-                    {/* Delete All Wheels Button */}
+                  {/* Hàng thiết lập ở đáy: Xoá tất cả vòng quay */}
+                  <div className="flex items-center justify-end pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline text-xs shrink-0">
                     <button
                       type="button"
                       onClick={handleDeleteAllWheels}
-                      disabled={isAnySpinning || wheels.length === 0}
-                      className="flex items-center gap-1 text-rose-500 hover:text-rose-600 font-semibold disabled:opacity-30 transition-colors cursor-pointer"
-                      title={t.luckyWheel.deleteAllWheels}
+                      disabled={isAnySpinning || wheels.length === 0 || !canEdit}
+                      className="flex items-center gap-1 text-rose-500 hover:text-rose-600 font-semibold disabled:opacity-30 transition-colors cursor-pointer disabled:cursor-not-allowed"
+                      title={!canEdit ? (t.luckyWheel.viewOnlyDesc || 'Chỉ chủ phòng mới có quyền xóa') : t.luckyWheel.deleteAllWheels}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                       <span>{t.luckyWheel.deleteAllWheels}</span>
@@ -1794,42 +1896,8 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
                     )}
                   </div>
 
-                  {/* Hàng thiết lập ở đáy: Bật/Tắt âm thanh & Xoá tất cả vòng quay */}
-                  <div className="flex items-center justify-between pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline text-xs shrink-0">
-                    <button
-                      type="button"
-                      onClick={handleToggleSound}
-                      disabled={isAnySpinning}
-                      className="flex items-center gap-1.5 text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text disabled:opacity-40 transition-colors cursor-pointer"
-                    >
-                      {currentSoundEnabled ? (
-                        <Volume2 className="w-4 h-4 text-circle-primary dark:text-circle-dark-primary" />
-                      ) : (
-                        <VolumeX className="w-4 h-4 text-circle-slate/60 dark:text-circle-dark-muted/60" />
-                      )}
-                      <span>{t.luckyWheel.soundSetting}</span>
-                    </button>
-
-                    {/* Cho phép sửa Toggle (Chỉ chủ phòng) */}
-                    {isHost && (
-                      <button
-                        type="button"
-                        onClick={handleToggleAllowEdit}
-                        disabled={updateSettingsMutation.isPending}
-                        className="flex items-center gap-1 text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text transition-colors cursor-pointer"
-                        title={t.luckyWheel.allowEditDesc}
-                      >
-                        {allowMembersToEdit ? (
-                          <LockOpen className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                        ) : (
-                          <Lock className="w-3.5 h-3.5 text-circle-slate/60 dark:text-circle-dark-muted/60" />
-                        )}
-                        <span className={allowMembersToEdit ? 'text-emerald-600 dark:text-emerald-400 font-semibold' : ''}>
-                          {allowMembersToEdit ? t.luckyWheel.allowEditEnabled : t.luckyWheel.allowEditDisabled}
-                        </span>
-                      </button>
-                    )}
-
+                  {/* Hàng thiết lập ở đáy: Xoá tất cả vòng quay */}
+                  <div className="flex items-center justify-end pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline text-xs shrink-0">
                     <button
                       type="button"
                       onClick={handleDeleteAllWheels}
@@ -2016,43 +2084,8 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
                       </button>
                     </div>
 
-                    {/* Wheel Settings: Sound, Allow Edit (Host only) and Delete All */}
-                    <div className="flex items-center justify-between pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline text-xs shrink-0">
-                      {/* Sound Toggle */}
-                      <button
-                        type="button"
-                        onClick={handleToggleSound}
-                        disabled={isAnySpinning}
-                        className="flex items-center gap-1.5 text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text disabled:opacity-40 transition-colors cursor-pointer"
-                      >
-                        {activeWheel.soundEnabled ? (
-                          <Volume2 className="w-4 h-4 text-circle-primary dark:text-circle-dark-primary" />
-                        ) : (
-                          <VolumeX className="w-4 h-4 text-circle-slate/60 dark:text-circle-dark-muted/60" />
-                        )}
-                        <span>{t.luckyWheel.soundSetting}</span>
-                      </button>
-
-                      {/* Cho phép sửa Toggle (Chỉ chủ phòng) */}
-                      {isHost && (
-                        <button
-                          type="button"
-                          onClick={handleToggleAllowEdit}
-                          disabled={updateSettingsMutation.isPending}
-                          className="flex items-center gap-1 text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text transition-colors cursor-pointer"
-                          title={t.luckyWheel.allowEditDesc}
-                        >
-                          {allowMembersToEdit ? (
-                            <LockOpen className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                          ) : (
-                            <Lock className="w-3.5 h-3.5 text-circle-slate/60 dark:text-circle-dark-muted/60" />
-                          )}
-                          <span className={allowMembersToEdit ? 'text-emerald-600 dark:text-emerald-400 font-semibold' : ''}>
-                            {allowMembersToEdit ? t.luckyWheel.allowEditEnabled : t.luckyWheel.allowEditDisabled}
-                          </span>
-                        </button>
-                      )}
-
+                    {/* Wheel Settings: Delete All */}
+                    <div className="flex items-center justify-end pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline text-xs shrink-0">
                       {/* Delete All Wheels Button */}
                       <button
                         type="button"
