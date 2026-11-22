@@ -973,7 +973,23 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
               <MoreHorizontal size={16} color={colors.text} />
             </TouchableOpacity>
 
-            {/* Nút Đóng phòng (Host) hoặc Rời phòng (Spectator) (Icon only) */}
+            {/* Nút Quay Tất Cả (Primary Icon only - Đã đổi chỗ đứng trước nút Hủy) */}
+            {wheelsList.length > 0 && (
+              <TouchableOpacity
+                style={[
+                  styles.floatingPillPrimaryIconBtn,
+                  (isSpinning || isSubmittingSpin) && { opacity: 0.5 },
+                ]}
+                disabled={isSpinning || isSubmittingSpin}
+                onPress={handleSpinClick}
+                activeOpacity={0.8}
+                accessibilityLabel={t.luckyWheel.spinAll}
+              >
+                <RotateCw size={15} color="#FFFFFF" />
+              </TouchableOpacity>
+            )}
+
+            {/* Nút Đóng phòng (Host) hoặc Rời phòng (Spectator) (Nút HỦY / ĐÓNG đứng ngoài cùng bên phải) */}
             {isHost ? (
               <TouchableOpacity
                 style={styles.floatingPillIconBtn}
@@ -991,22 +1007,6 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
                 accessibilityLabel={locale === 'vi' ? 'Rời phòng quay' : 'Leave stage'}
               >
                 <LogOut size={16} color={colors.text} />
-              </TouchableOpacity>
-            )}
-
-            {/* Nút Quay Tất Cả (Primary Icon only) */}
-            {wheelsList.length > 0 && (
-              <TouchableOpacity
-                style={[
-                  styles.floatingPillPrimaryIconBtn,
-                  (isSpinning || isSubmittingSpin) && { opacity: 0.5 },
-                ]}
-                disabled={isSpinning || isSubmittingSpin}
-                onPress={handleSpinClick}
-                activeOpacity={0.8}
-                accessibilityLabel={t.luckyWheel.spinAll}
-              >
-                <RotateCw size={15} color="#FFFFFF" />
               </TouchableOpacity>
             )}
           </View>
