@@ -862,6 +862,11 @@ export interface LiveWheelSession {
     avatarUrl?: string | null;
   };
   messageId?: string;
+  allowMembersToEdit?: boolean;
+}
+
+export interface UpdateLiveWheelSettingsInput {
+  allowMembersToEdit: boolean;
 }
 
 export interface LiveWheelMessagePayload {
@@ -876,6 +881,7 @@ export interface LiveWheelMessagePayload {
   participants: LiveWheelParticipant[];
   stageStatus: 'idle' | 'spinning' | 'finished';
   startedAt: number;
+  allowMembersToEdit?: boolean;
 }
 
 export interface CreateLiveStageInput {

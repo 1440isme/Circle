@@ -5,6 +5,7 @@ import {
   CreateWheelInput,
   UpdateWheelInput,
   LiveSpinWheelInput,
+  UpdateLiveWheelSettingsInput,
   CreateWheelFolderInput,
   UpdateWheelFolderInput,
   WheelFolderSnapshotItem,
@@ -86,6 +87,10 @@ export class LiveSpinWheelDto implements LiveSpinWheelInput {
   options?: string[];
   channelId?: string;
   isAll?: boolean;
+}
+
+export class UpdateLiveWheelSettingsDto implements UpdateLiveWheelSettingsInput {
+  allowMembersToEdit: boolean;
 }
 
 export class CreateAnonymousPostDto implements CreateAnonymousPostInput {

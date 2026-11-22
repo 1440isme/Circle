@@ -23,6 +23,10 @@ import {
   Share2,
   Sparkles,
   Users,
+  Lock,
+  LockOpen,
+  LogOut,
+  ShieldCheck,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguageStore } from '../../stores/language.store';
@@ -38,6 +42,7 @@ import {
   useShareWheelResultsToChatMutation,
   useActiveLiveWheelQuery,
   useCloseLiveWheelMutation,
+  useUpdateLiveWheelSettingsMutation,
 } from '../../hooks/use-circle-tools';
 import { DecisionWheelEntity, SpinWheelResult, LiveWheelSession } from '@circle/types';
 
@@ -292,6 +297,23 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
   const spinAllMutation = useSpinAllWheelsMutation(circleId);
   const shareResultsMutation = useShareWheelResultsToChatMutation(circleId);
   const closeLiveMutation = useCloseLiveWheelMutation(circleId);
+  const updateSettingsMutation = useUpdateLiveWheelSettingsMutation(circleId);
+
+  // Phân quyền: Chủ phòng vs Người xem & Quyền chỉnh sửa
+  const isHost = Boolean(!liveSession?.creatorId || liveSession.creatorId === user?.id);
+  const allowMembersToEdit = Boolean(liveSession?.allowMembersToEdit);
+  const canEdit = isHost || allowMembersToEdit;
+
+  const handleToggleAllowEdit = async () => {
+    if (!isHost) return;
+    try {
+      await updateSettingsMutation.mutateAsync({
+        allowMembersToEdit: !allowMembersToEdit,
+      });
+    } catch (err: any) {
+      alert(err?.response?.data?.message || err?.message || 'Không thể thay đổi thiết lập');
+    }
+  };
 
   const [shareSuccess, setShareSuccess] = useState(false);
 
@@ -1006,7 +1028,15 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
       });
     };
 
+    const handleStageUpdated = (incoming: LiveWheelSession) => {
+      if (incoming.circleId === circleId) {
+        setLiveSession(incoming);
+        queryClient.invalidateQueries({ queryKey: ['wheels', circleId] });
+      }
+    };
+
     socket.on('circle:live-wheel:stage-created', handleStageCreated);
+    socket.on('circle:live-wheel:updated', handleStageUpdated);
     socket.on('circle:live-wheel:closed', handleStageClosed);
     socket.on('circle:live-wheel:participants-updated', handleParticipantsUpdated);
     socket.on('circle:wheel-spun', handleWheelSpun);
@@ -1014,6 +1044,7 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
 
     return () => {
       socket.off('circle:live-wheel:stage-created', handleStageCreated);
+      socket.off('circle:live-wheel:updated', handleStageUpdated);
       socket.off('circle:live-wheel:closed', handleStageClosed);
       socket.off('circle:live-wheel:participants-updated', handleParticipantsUpdated);
       socket.off('circle:wheel-spun', handleWheelSpun);
@@ -1140,15 +1171,21 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
           <button
             type="button"
             onClick={handleAddDefaultWheel}
-            disabled={wheels.length >= 4 || isAnySpinning || createWheelMutation.isPending}
+            disabled={wheels.length >= 4 || isAnySpinning || createWheelMutation.isPending || !canEdit}
             className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-full backdrop-blur-xl bg-white/92 dark:bg-circle-dark-surface/90 border border-circle-hairline/80 dark:border-white/12 shadow-sm hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text font-bold text-xs sm:text-sm transition-all active:scale-95 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
-            title={wheels.length >= 4 ? t.luckyWheel.maxWheelsBadge : undefined}
+            title={
+              !canEdit
+                ? (t.luckyWheel.viewOnlyDesc || 'Chỉ chủ phòng mới có quyền thêm vòng quay')
+                : wheels.length >= 4
+                ? t.luckyWheel.maxWheelsBadge
+                : undefined
+            }
           >
             <Plus className="w-4 h-4 text-circle-sage dark:text-circle-dark-primary" />
             <span>{t.luckyWheel.addWheel}</span>
           </button>
 
-          {/* Spin All Pill Button */}
+          {/* Spin All Pill Button (Tất cả thành viên đều có thể sử dụng chức năng quay) */}
           {wheels.length > 0 && (
             <button
               type="button"
@@ -1161,17 +1198,83 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
             </button>
           )}
 
-          {/* Nút Đóng phòng quay & Gửi kết quả về chat */}
-          <button
-            type="button"
-            onClick={handleCloseStage}
-            disabled={closeLiveMutation.isPending}
-            className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-full backdrop-blur-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 shadow-sm font-bold text-xs sm:text-sm transition-all active:scale-95 cursor-pointer shrink-0"
-            title={locale === 'vi' ? 'Đóng phòng quay và gửi kết quả vào chat' : 'Close stage & share results'}
-          >
-            <X className="w-4 h-4" />
-            <span>{locale === 'vi' ? 'Đóng phòng' : 'Close'}</span>
-          </button>
+          {/* Floating Pill: Nút "Cho phép sửa" */}
+          {isHost ? (
+            <button
+              type="button"
+              onClick={handleToggleAllowEdit}
+              disabled={updateSettingsMutation.isPending}
+              className={`inline-flex items-center gap-1.5 px-3.5 h-9 rounded-full backdrop-blur-xl border shadow-sm font-bold text-xs sm:text-sm transition-all active:scale-95 cursor-pointer shrink-0 ${
+                allowMembersToEdit
+                  ? 'bg-emerald-500 text-white border-emerald-600 hover:bg-emerald-600 shadow-emerald-500/20'
+                  : 'bg-white/92 dark:bg-circle-dark-surface/90 border-circle-hairline/80 dark:border-white/12 hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text'
+              }`}
+              title={
+                allowMembersToEdit
+                  ? (locale === 'vi' ? 'Nhấp để khóa quyền chỉnh sửa (chỉ bạn có quyền sửa)' : 'Click to lock edit permission')
+                  : (t.luckyWheel.allowEditDesc || (locale === 'vi' ? 'Nhấp để cho phép tất cả thành viên cùng sửa' : 'Click to allow all members to edit'))
+              }
+            >
+              {allowMembersToEdit ? (
+                <LockOpen className="w-4 h-4" />
+              ) : (
+                <Lock className="w-4 h-4 text-amber-500" />
+              )}
+              <span>
+                {allowMembersToEdit
+                  ? (t.luckyWheel.allowEditEnabled || (locale === 'vi' ? 'Cho phép sửa: Bật' : 'Allow Edit: On'))
+                  : (t.luckyWheel.allowEditDisabled || (locale === 'vi' ? 'Cho phép sửa: Tắt' : 'Allow Edit: Off'))}
+              </span>
+            </button>
+          ) : (
+            <div
+              className={`inline-flex items-center gap-1.5 px-3 h-9 rounded-full backdrop-blur-xl border shadow-2xs font-bold text-xs sm:text-sm select-none shrink-0 ${
+                allowMembersToEdit
+                  ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300'
+                  : 'bg-slate-100 dark:bg-white/5 border-circle-hairline/80 dark:border-white/10 text-circle-slate dark:text-circle-dark-muted'
+              }`}
+              title={
+                allowMembersToEdit
+                  ? (t.luckyWheel.collabEditDesc || (locale === 'vi' ? 'Chủ phòng đã cho phép bạn chỉnh sửa nội dung' : 'Host has allowed you to edit'))
+                  : (t.luckyWheel.viewOnlyDesc || (locale === 'vi' ? 'Chỉ chủ phòng mới có quyền chỉnh sửa' : 'View only'))
+              }
+            >
+              {allowMembersToEdit ? (
+                <LockOpen className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+              ) : (
+                <Lock className="w-4 h-4 opacity-70" />
+              )}
+              <span>
+                {allowMembersToEdit
+                  ? (t.luckyWheel.collabEditBadge || (locale === 'vi' ? 'Được phép sửa' : 'Can edit'))
+                  : (t.luckyWheel.viewOnlyBadge || (locale === 'vi' ? 'Chỉ xem' : 'View only'))}
+              </span>
+            </div>
+          )}
+
+          {/* Nút Đóng phòng (Chủ phòng) HOẶC Rời phòng (Người xem) */}
+          {isHost ? (
+            <button
+              type="button"
+              onClick={handleCloseStage}
+              disabled={closeLiveMutation.isPending}
+              className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-full backdrop-blur-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 shadow-sm font-bold text-xs sm:text-sm transition-all active:scale-95 cursor-pointer shrink-0"
+              title={locale === 'vi' ? 'Đóng phòng quay và gửi kết quả vào chat' : 'Close stage & share results'}
+            >
+              <X className="w-4 h-4" />
+              <span>{t.luckyWheel.closeStage || (locale === 'vi' ? 'Đóng phòng' : 'Close')}</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setIsVisible(false)}
+              className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-full backdrop-blur-xl bg-white/92 dark:bg-circle-dark-surface/90 border border-circle-hairline/80 dark:border-white/12 shadow-sm hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text font-bold text-xs sm:text-sm transition-all active:scale-95 cursor-pointer shrink-0"
+              title={t.luckyWheel.leaveStage || (locale === 'vi' ? 'Rời phòng quay trực tiếp (phòng vẫn tiếp tục cho các thành viên khác)' : 'Leave room')}
+            >
+              <LogOut className="w-4 h-4 text-circle-slate dark:text-circle-dark-muted" />
+              <span>{t.luckyWheel.leaveStage || (locale === 'vi' ? 'Rời phòng' : 'Leave')}</span>
+            </button>
+          )}
         </div>
       </header>
 
@@ -1707,12 +1810,32 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
                       <span>{t.luckyWheel.soundSetting}</span>
                     </button>
 
+                    {/* Cho phép sửa Toggle (Chỉ chủ phòng) */}
+                    {isHost && (
+                      <button
+                        type="button"
+                        onClick={handleToggleAllowEdit}
+                        disabled={updateSettingsMutation.isPending}
+                        className="flex items-center gap-1 text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text transition-colors cursor-pointer"
+                        title={t.luckyWheel.allowEditDesc}
+                      >
+                        {allowMembersToEdit ? (
+                          <LockOpen className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                        ) : (
+                          <Lock className="w-3.5 h-3.5 text-circle-slate/60 dark:text-circle-dark-muted/60" />
+                        )}
+                        <span className={allowMembersToEdit ? 'text-emerald-600 dark:text-emerald-400 font-semibold' : ''}>
+                          {allowMembersToEdit ? t.luckyWheel.allowEditEnabled : t.luckyWheel.allowEditDisabled}
+                        </span>
+                      </button>
+                    )}
+
                     <button
                       type="button"
                       onClick={handleDeleteAllWheels}
-                      disabled={isAnySpinning || wheels.length === 0}
-                      className="flex items-center gap-1 text-rose-500 hover:text-rose-600 font-semibold disabled:opacity-30 transition-colors cursor-pointer"
-                      title={t.luckyWheel.deleteAllWheels}
+                      disabled={isAnySpinning || wheels.length === 0 || !canEdit}
+                      className="flex items-center gap-1 text-rose-500 hover:text-rose-600 font-semibold disabled:opacity-30 transition-colors cursor-pointer disabled:cursor-not-allowed"
+                      title={!canEdit ? (t.luckyWheel.viewOnlyDesc || 'Chỉ chủ phòng mới có quyền xóa') : t.luckyWheel.deleteAllWheels}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                       <span>{t.luckyWheel.deleteAllWheels}</span>
@@ -1722,7 +1845,7 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
               ) : (
                 /* TAB CONTENT: ACTIVE WHEEL (OPTIONS & SETTINGS) */
                 activeWheel && (
-                  <div className="flex-1 min-h-0 flex flex-col pt-4 gap-4">
+                  <div className="flex-1 min-h-0 flex flex-col pt-4 gap-3.5">
                     {/* Wheel Title Row */}
                     <div className="flex items-center justify-between gap-2 shrink-0">
                       {isEditingTitle ? (
@@ -1735,13 +1858,13 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
                             onBlur={saveEditTitle}
                             onKeyDown={(e) => e.key === 'Enter' && saveEditTitle()}
                             autoFocus
-                            disabled={isAnySpinning}
+                            disabled={isAnySpinning || !canEdit}
                             className="flex-1 px-2.5 py-1 text-sm font-semibold rounded-lg border border-circle-primary bg-circle-canvas dark:bg-circle-dark-canvas text-circle-charcoal dark:text-circle-dark-text focus:outline-none disabled:opacity-50"
                           />
                           <button
                             type="button"
                             onClick={saveEditTitle}
-                            disabled={isAnySpinning}
+                            disabled={isAnySpinning || !canEdit}
                             className="p-1 rounded-md bg-circle-primary hover:bg-circle-sage text-white disabled:opacity-50 cursor-pointer shrink-0"
                           >
                             <Check className="w-4 h-4" />
@@ -1752,7 +1875,7 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
                           <span className="font-bold text-sm text-circle-charcoal dark:text-circle-dark-text truncate max-w-[240px]">
                             {activeWheel.title}
                           </span>
-                          {!isAnySpinning && (
+                          {!isAnySpinning && canEdit && (
                             <button
                               type="button"
                               onClick={startEditTitle}
@@ -1766,7 +1889,7 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
                       )}
 
                       {/* Delete wheel if more than 1 wheel */}
-                      {wheels.length > 1 && (
+                      {wheels.length > 1 && canEdit && (
                         <button
                           type="button"
                           onClick={() => {
@@ -1783,6 +1906,19 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
                         </button>
                       )}
                     </div>
+
+                    {/* Banner hiển thị quyền chỉnh sửa */}
+                    {!canEdit ? (
+                      <div className="flex items-center gap-2 p-2 px-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 text-xs font-medium shrink-0 animate-fadeIn">
+                        <Lock className="w-3.5 h-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                        <span className="truncate">{t.luckyWheel.viewOnlyDesc || 'Chế độ chỉ xem — Chỉ chủ phòng mới có quyền chỉnh sửa'}</span>
+                      </div>
+                    ) : !isHost ? (
+                      <div className="flex items-center gap-2 p-2 px-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-800 dark:text-emerald-300 text-xs font-medium shrink-0 animate-fadeIn">
+                        <LockOpen className="w-3.5 h-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                        <span className="truncate">{t.luckyWheel.collabEditDesc || 'Chế độ cùng sửa — Chủ phòng đã cho phép bạn chỉnh sửa'}</span>
+                      </div>
+                    ) : null}
 
                     {/* Textarea: Large, 1 line = 1 option */}
                     <div className="flex-1 min-h-0 flex flex-col gap-1.5">
@@ -1803,12 +1939,22 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
                       <textarea
                         value={activeLocalState?.optionsText || ''}
                         onChange={(e) => handleOptionsChange(e.target.value)}
-                        readOnly={isAnySpinning}
-                        placeholder={t.luckyWheel.optionsPlaceholder}
-                        className="w-full flex-1 min-h-0 p-3 text-sm rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas text-circle-charcoal dark:text-circle-dark-text placeholder:text-circle-slate/60 dark:placeholder:text-circle-dark-muted/60 focus:bg-white dark:focus:bg-circle-dark-canvas focus:ring-2 focus:ring-circle-primary/40 focus:outline-none resize-none leading-relaxed transition-all font-mono disabled:opacity-50"
+                        readOnly={isAnySpinning || !canEdit}
+                        placeholder={
+                          !canEdit
+                            ? (t.luckyWheel.viewOnlyDesc || 'Chế độ chỉ xem. Chỉ chủ phòng mới có quyền chỉnh sửa nội dung.')
+                            : t.luckyWheel.optionsPlaceholder
+                        }
+                        className={`w-full flex-1 min-h-0 p-3 text-sm rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas text-circle-charcoal dark:text-circle-dark-text placeholder:text-circle-slate/60 dark:placeholder:text-circle-dark-muted/60 focus:bg-white dark:focus:bg-circle-dark-canvas focus:ring-2 focus:ring-circle-primary/40 focus:outline-none resize-none leading-relaxed transition-all font-mono disabled:opacity-50 ${
+                          !canEdit ? 'cursor-default select-text' : ''
+                        }`}
                       />
 
-                      <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted shrink-0">{t.luckyWheel.optionsHint}</p>
+                      <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted shrink-0">
+                        {!canEdit
+                          ? (t.luckyWheel.viewOnlyDesc || 'Chỉ chủ phòng mới có quyền chỉnh sửa nội dung')
+                          : t.luckyWheel.optionsHint}
+                      </p>
                     </div>
 
                     {/* Action Buttons: Shuffle, Sort A-Z, Save Initial & Reset (Icons only, no text) */}
@@ -1817,9 +1963,9 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
                       <button
                         type="button"
                         onClick={handleShuffle}
-                        disabled={isAnySpinning}
-                        className="flex items-center justify-center py-2 px-2 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text disabled:opacity-40 transition-all active:scale-95 cursor-pointer"
-                        title={t.luckyWheel.shuffleOptions}
+                        disabled={isAnySpinning || !canEdit}
+                        className="flex items-center justify-center py-2 px-2 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text disabled:opacity-40 transition-all active:scale-95 cursor-pointer disabled:cursor-not-allowed"
+                        title={!canEdit ? (t.luckyWheel.viewOnlyDesc || 'Chỉ chủ phòng mới có quyền thao tác') : t.luckyWheel.shuffleOptions}
                         aria-label={t.luckyWheel.shuffleOptions}
                       >
                         <Shuffle className="w-4 h-4 text-circle-sage dark:text-circle-dark-primary" />
@@ -1829,9 +1975,9 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
                       <button
                         type="button"
                         onClick={handleSortAZ}
-                        disabled={isAnySpinning}
-                        className="flex items-center justify-center py-2 px-2 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text disabled:opacity-40 transition-all active:scale-95 cursor-pointer"
-                        title={t.luckyWheel.sortAZ}
+                        disabled={isAnySpinning || !canEdit}
+                        className="flex items-center justify-center py-2 px-2 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text disabled:opacity-40 transition-all active:scale-95 cursor-pointer disabled:cursor-not-allowed"
+                        title={!canEdit ? (t.luckyWheel.viewOnlyDesc || 'Chỉ chủ phòng mới có quyền thao tác') : t.luckyWheel.sortAZ}
                         aria-label={t.luckyWheel.sortAZ}
                       >
                         <ArrowDownAZ className="w-4 h-4 text-indigo-500" />
@@ -1841,13 +1987,13 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
                       <button
                         type="button"
                         onClick={handleSaveAsInitial}
-                        disabled={isAnySpinning || updateWheelMutation.isPending}
+                        disabled={isAnySpinning || updateWheelMutation.isPending || !canEdit}
                         className={`flex items-center justify-center py-2 px-2 rounded-xl border transition-all active:scale-95 ${
                           saveInitialFeedback
                             ? 'border-circle-primary bg-circle-wash dark:bg-circle-dark-wash text-circle-sage dark:text-circle-dark-primary'
-                            : 'border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text disabled:opacity-40 cursor-pointer'
+                            : 'border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed'
                         }`}
-                        title={t.luckyWheel.saveAsInitial}
+                        title={!canEdit ? (t.luckyWheel.viewOnlyDesc || 'Chỉ chủ phòng mới có quyền thao tác') : t.luckyWheel.saveAsInitial}
                         aria-label={t.luckyWheel.saveAsInitial}
                       >
                         <BookmarkCheck
@@ -1861,16 +2007,16 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
                       <button
                         type="button"
                         onClick={handleReset}
-                        disabled={isAnySpinning}
-                        className="flex items-center justify-center py-2 px-2 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text disabled:opacity-40 transition-all active:scale-95 cursor-pointer"
-                        title={t.luckyWheel.resetOptions}
+                        disabled={isAnySpinning || !canEdit}
+                        className="flex items-center justify-center py-2 px-2 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text disabled:opacity-40 transition-all active:scale-95 cursor-pointer disabled:cursor-not-allowed"
+                        title={!canEdit ? (t.luckyWheel.viewOnlyDesc || 'Chỉ chủ phòng mới có quyền thao tác') : t.luckyWheel.resetOptions}
                         aria-label={t.luckyWheel.resetOptions}
                       >
                         <RotateCcw className="w-4 h-4 text-amber-500" />
                       </button>
                     </div>
 
-                    {/* Wheel Settings: Sound and Delete All */}
+                    {/* Wheel Settings: Sound, Allow Edit (Host only) and Delete All */}
                     <div className="flex items-center justify-between pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline text-xs shrink-0">
                       {/* Sound Toggle */}
                       <button
@@ -1887,13 +2033,33 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
                         <span>{t.luckyWheel.soundSetting}</span>
                       </button>
 
+                      {/* Cho phép sửa Toggle (Chỉ chủ phòng) */}
+                      {isHost && (
+                        <button
+                          type="button"
+                          onClick={handleToggleAllowEdit}
+                          disabled={updateSettingsMutation.isPending}
+                          className="flex items-center gap-1 text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text transition-colors cursor-pointer"
+                          title={t.luckyWheel.allowEditDesc}
+                        >
+                          {allowMembersToEdit ? (
+                            <LockOpen className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                          ) : (
+                            <Lock className="w-3.5 h-3.5 text-circle-slate/60 dark:text-circle-dark-muted/60" />
+                          )}
+                          <span className={allowMembersToEdit ? 'text-emerald-600 dark:text-emerald-400 font-semibold' : ''}>
+                            {allowMembersToEdit ? t.luckyWheel.allowEditEnabled : t.luckyWheel.allowEditDisabled}
+                          </span>
+                        </button>
+                      )}
+
                       {/* Delete All Wheels Button */}
                       <button
                         type="button"
                         onClick={handleDeleteAllWheels}
-                        disabled={isAnySpinning || wheels.length === 0}
-                        className="flex items-center gap-1 text-rose-500 hover:text-rose-600 font-semibold disabled:opacity-30 transition-colors cursor-pointer"
-                        title={t.luckyWheel.deleteAllWheels}
+                        disabled={isAnySpinning || wheels.length === 0 || !canEdit}
+                        className="flex items-center gap-1 text-rose-500 hover:text-rose-600 font-semibold disabled:opacity-30 transition-colors cursor-pointer disabled:cursor-not-allowed"
+                        title={!canEdit ? (t.luckyWheel.viewOnlyDesc || 'Chỉ chủ phòng mới có quyền xóa') : t.luckyWheel.deleteAllWheels}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                         <span>{t.luckyWheel.deleteAllWheels}</span>
@@ -1985,19 +2151,21 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
                     <span>{t.luckyWheel.close}</span>
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleRemoveResult(
-                        combinedResultsModal[0]!.wheelId,
-                        combinedResultsModal[0]!.resultIndex,
-                      )
-                    }
-                    className="w-full py-2 px-4 rounded-xl text-xs font-semibold text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>{t.luckyWheel.removeResult}</span>
-                  </button>
+                  {canEdit && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleRemoveResult(
+                          combinedResultsModal[0]!.wheelId,
+                          combinedResultsModal[0]!.resultIndex,
+                        )
+                      }
+                      className="w-full py-2 px-4 rounded-xl text-xs font-semibold text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>{t.luckyWheel.removeResult}</span>
+                    </button>
+                  )}
                 </div>
               </div>
             )}
@@ -2019,14 +2187,16 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
                           {item.result}
                         </span>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveResult(item.wheelId, item.resultIndex)}
-                        className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 border border-transparent hover:border-rose-200 dark:hover:border-rose-900/40 transition-all shrink-0 active:scale-95 cursor-pointer"
-                        title={t.luckyWheel.removeResult}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {canEdit && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveResult(item.wheelId, item.resultIndex)}
+                          className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 border border-transparent hover:border-rose-200 dark:hover:border-rose-900/40 transition-all shrink-0 active:scale-95 cursor-pointer"
+                          title={t.luckyWheel.removeResult}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -2040,14 +2210,16 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
                     <Check className="w-4 h-4" />
                     <span>{t.luckyWheel.close}</span>
                   </button>
-                  <button
-                    type="button"
-                    onClick={handleRemoveAllBatchResults}
-                    className="w-full py-2 px-4 rounded-xl text-xs font-semibold text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>{t.luckyWheel.removeAllResults}</span>
-                  </button>
+                  {canEdit && (
+                    <button
+                      type="button"
+                      onClick={handleRemoveAllBatchResults}
+                      className="w-full py-2 px-4 rounded-xl text-xs font-semibold text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>{t.luckyWheel.removeAllResults}</span>
+                    </button>
+                  )}
                 </div>
               </div>
             )}

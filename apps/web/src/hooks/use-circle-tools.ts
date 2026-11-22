@@ -510,6 +510,22 @@ export function useLiveRemoveResultMutation(circleId: string) {
   });
 }
 
+export function useUpdateLiveWheelSettingsMutation(circleId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { allowMembersToEdit: boolean }) => {
+      const res = await apiRequest<LiveWheelSession>(`/circles/${circleId}/wheels/live-settings`, {
+        method: 'PATCH',
+        body: JSON.stringify(input),
+      });
+      return res.data;
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(['tools', 'wheels', 'live-active', circleId], data);
+    },
+  });
+}
+
 export function useCloseLiveWheelMutation(circleId: string) {
   const queryClient = useQueryClient();
   return useMutation({

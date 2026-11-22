@@ -1891,6 +1891,16 @@ export const vi = {
     presetYesNo: 'Có hoặc Không?',
     liveWheelActivityHeader: '🎯 [VÒNG QUAY MAY MẮN TRỰC TIẾP]',
     minOptionsWarning: 'Vui lòng nhập tối thiểu 2 lựa chọn',
+    allowEdit: 'Cho phép sửa',
+    allowEditEnabled: 'Cho phép sửa: Bật',
+    allowEditDisabled: 'Cho phép sửa: Tắt',
+    allowEditDesc: 'Cho phép tất cả thành viên trong phòng cùng chỉnh sửa nội dung',
+    viewOnlyBadge: 'Chế độ chỉ xem',
+    viewOnlyDesc: 'Chỉ chủ phòng mới có quyền chỉnh sửa nội dung',
+    collabEditBadge: 'Được phép sửa',
+    collabEditDesc: 'Chủ phòng đã cho phép bạn chỉnh sửa nội dung',
+    leaveStage: 'Rời phòng',
+    closeStage: 'Đóng phòng',
   },
 };
 

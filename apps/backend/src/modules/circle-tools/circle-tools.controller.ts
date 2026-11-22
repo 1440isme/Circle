@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Patch,
   Delete,
   Param,
   Body,
@@ -22,6 +23,7 @@ import {
   UpdateWheelFolderDto,
   ShareWheelResultsDto,
   LiveSpinWheelDto,
+  UpdateLiveWheelSettingsDto,
   CreateAnonymousPostDto,
   ReactAnonymousPostDto,
   CreateCalendarEventDto,
@@ -427,6 +429,22 @@ export class CircleToolsController {
     @Body() dto: { wheelId?: string; optionLabel?: string; removeAll?: boolean },
   ): Promise<ApiResponse<LiveWheelSession>> {
     const data = await this.toolsService.liveRemoveResult(circleId, userId, dto);
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      data,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  @Patch('wheels/live-settings')
+  @HttpCode(HttpStatus.OK)
+  async updateLiveWheelSettings(
+    @Param('circleId') circleId: string,
+    @CurrentUser('id') userId: string,
+    @Body() dto: UpdateLiveWheelSettingsDto,
+  ): Promise<ApiResponse<LiveWheelSession>> {
+    const data = await this.toolsService.updateLiveWheelSettings(circleId, userId, dto);
     return {
       success: true,
       statusCode: HttpStatus.OK,

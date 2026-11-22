@@ -605,6 +605,55 @@ describe('CircleToolsService', () => {
       expect(updated.winningOption).toBeNull();
       expect(mockChatGateway.broadcastLiveWheelUpdated).toHaveBeenCalledWith('circle-1', updated);
     });
+
+    it('should allow host to update live wheel settings and broadcast update', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValue({
+        id: 'mem-1',
+        circleId: 'circle-1',
+        userId: 'user-1',
+        role: 'MEMBER',
+        user: { profile: { displayName: 'Bình' } },
+      });
+
+      await service.createLiveWheelStage('circle-1', 'user-1');
+      const updated = await service.updateLiveWheelSettings('circle-1', 'user-1', {
+        allowMembersToEdit: true,
+      });
+
+      expect(updated.allowMembersToEdit).toBe(true);
+      expect(mockChatGateway.broadcastLiveWheelUpdated).toHaveBeenCalledWith('circle-1', updated);
+    });
+
+    it('should forbid non-host member from updating live wheel settings', async () => {
+      mockPrisma.circleMember.findUnique.mockImplementation(({ where }: any) => {
+        if (where.circleId_userId?.userId === 'user-1') {
+          return Promise.resolve({ id: 'mem-1', circleId: 'circle-1', userId: 'user-1', role: 'MEMBER' });
+        }
+        return Promise.resolve({ id: 'mem-2', circleId: 'circle-1', userId: 'user-2', role: 'MEMBER' });
+      });
+
+      await service.createLiveWheelStage('circle-1', 'user-1');
+
+      await expect(
+        service.updateLiveWheelSettings('circle-1', 'user-2', { allowMembersToEdit: true }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should forbid non-host from modifying wheel when allowMembersToEdit is false', async () => {
+      // Session created by user-1 with default allowMembersToEdit = false
+      mockPrisma.circleMember.findUnique.mockImplementation(({ where }: any) => {
+        if (where.circleId_userId?.userId === 'user-1') {
+          return Promise.resolve({ id: 'mem-1', circleId: 'circle-1', userId: 'user-1', role: 'MEMBER' });
+        }
+        return Promise.resolve({ id: 'mem-2', circleId: 'circle-1', userId: 'user-2', role: 'MEMBER' });
+      });
+
+      await service.createLiveWheelStage('circle-1', 'user-1');
+
+      await expect(
+        service.updateWheel('circle-1', 'wheel-1', 'user-2', { title: 'Tên mới' }),
+      ).rejects.toThrow(ForbiddenException);
+    });
   });
 
   // ===========================================================================

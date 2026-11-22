@@ -30,6 +30,7 @@ import {
   CreatePollDto,
   VotePollDto,
   LiveSpinWheelDto,
+  UpdateLiveWheelSettingsDto,
 } from './dto/circle-tools.dto';
 import {
   SpinWheelResult,
@@ -110,6 +111,18 @@ export class CircleToolsService {
     }
 
     return member;
+  }
+
+  /**
+   * Helper: check if a user can edit wheel content during a live session.
+   * Host (creator or OWNER) always has edit permission.
+   * If allowMembersToEdit is true, all circle members can edit.
+   */
+  private canEditLiveWheel(circleId: string, userId: string, memberRole?: string): boolean {
+    const session = this.activeLiveWheelSessions.get(circleId);
+    if (!session) return true;
+    if (!session.creatorId || session.creatorId === userId || memberRole === 'OWNER') return true;
+    return Boolean(session.allowMembersToEdit);
   }
 
   // ===========================================================================
@@ -494,6 +507,10 @@ export class CircleToolsService {
   async createWheel(circleId: string, userId: string, dto: CreateWheelDto) {
     const member = await this.getMemberOrThrow(circleId, userId);
 
+    if (!this.canEditLiveWheel(circleId, userId, member.role)) {
+      throw new ForbiddenException('Chủ phòng đã khóa quyền thêm vòng quay mới');
+    }
+
     const existingCount = await this.prisma.decisionWheel.count({
       where: { circleId },
     });
@@ -550,7 +567,11 @@ export class CircleToolsService {
     userId: string,
     dto: UpdateWheelDto,
   ) {
-    await this.getMemberOrThrow(circleId, userId);
+    const member = await this.getMemberOrThrow(circleId, userId);
+
+    if (!this.canEditLiveWheel(circleId, userId, member.role)) {
+      throw new ForbiddenException('Chủ phòng đã khóa quyền chỉnh sửa nội dung vòng quay');
+    }
 
     let wheel = await this.prisma.decisionWheel.findFirst({
       where: { id: wheelId, circleId },
@@ -745,6 +766,10 @@ export class CircleToolsService {
   async deleteAllWheels(circleId: string, userId: string, defaultTitle?: string) {
     const member = await this.getMemberOrThrow(circleId, userId);
 
+    if (!this.canEditLiveWheel(circleId, userId, member.role)) {
+      throw new ForbiddenException('Chủ phòng đã khóa quyền xóa tất cả vòng quay');
+    }
+
     await this.prisma.decisionWheel.deleteMany({
       where: { circleId },
     });
@@ -786,6 +811,10 @@ export class CircleToolsService {
 
   async deleteWheel(circleId: string, wheelId: string, userId: string) {
     const member = await this.getMemberOrThrow(circleId, userId);
+
+    if (!this.canEditLiveWheel(circleId, userId, member.role)) {
+      throw new ForbiddenException('Chủ phòng đã khóa quyền xóa vòng quay');
+    }
 
     const wheel = await this.prisma.decisionWheel.findFirst({
       where: { id: wheelId, circleId },
@@ -1247,6 +1276,7 @@ export class CircleToolsService {
         avatarUrl: member.user?.profile?.avatarUrl || null,
       },
       messageId,
+      allowMembersToEdit: false,
     };
 
     this.activeLiveWheelSessions.set(circleId, session);
@@ -1311,6 +1341,7 @@ export class CircleToolsService {
           displayName: senderName,
           avatarUrl: member.user?.profile?.avatarUrl || null,
         },
+        allowMembersToEdit: false,
       };
       this.activeLiveWheelSessions.set(circleId, session);
     }
@@ -1379,10 +1410,14 @@ export class CircleToolsService {
     userId: string,
     dto: { wheelId?: string; optionLabel?: string; removeAll?: boolean },
   ): Promise<LiveWheelSession> {
-    await this.getMemberOrThrow(circleId, userId);
+    const member = await this.getMemberOrThrow(circleId, userId);
     const session = await this.getActiveLiveWheel(circleId, userId);
     if (!session) {
       throw new NotFoundException('Không tìm thấy phiên vòng quay đang hoạt động');
+    }
+
+    if (!this.canEditLiveWheel(circleId, userId, member.role)) {
+      throw new ForbiddenException('Chủ phòng đã khóa quyền chỉnh sửa nội dung vòng quay');
     }
 
     if (!session.wheels || session.wheels.length === 0) {
@@ -1638,6 +1673,7 @@ export class CircleToolsService {
         avatarUrl: member.user?.profile?.avatarUrl || null,
       },
       messageId: previousSession?.messageId || messageId,
+      allowMembersToEdit: previousSession?.allowMembersToEdit ?? false,
     };
 
     this.activeLiveWheelSessions.set(circleId, session);
@@ -1650,13 +1686,71 @@ export class CircleToolsService {
     return session;
   }
 
+  async updateLiveWheelSettings(
+    circleId: string,
+    userId: string,
+    dto: UpdateLiveWheelSettingsDto,
+  ): Promise<LiveWheelSession> {
+    const member = await this.getMemberOrThrow(circleId, userId);
+    const session = await this.getActiveLiveWheel(circleId, userId);
+
+    if (!session) {
+      throw new NotFoundException('Không tìm thấy phiên vòng quay đang hoạt động');
+    }
+
+    const isHost = !session.creatorId || session.creatorId === userId || member.role === 'OWNER';
+    if (!isHost) {
+      throw new ForbiddenException('Chỉ chủ phòng mới có quyền bật/tắt thiết lập cho phép sửa');
+    }
+
+    session.allowMembersToEdit = Boolean(dto.allowMembersToEdit);
+    this.activeLiveWheelSessions.set(circleId, session);
+
+    // Cập nhật card tin nhắn trong chat nếu có
+    if (session.messageId && session.channelId) {
+      try {
+        const payload: LiveWheelMessagePayload = {
+          type: 'LIVE_WHEEL',
+          sessionId: session.id,
+          circleId,
+          channelId: session.channelId,
+          wheelTitle: session.wheelTitle,
+          creatorId: session.creatorId || userId,
+          creatorName: session.spunBy?.displayName || member.nickname || 'Chủ phòng',
+          creatorAvatar: session.spunBy?.avatarUrl,
+          participants: session.participants || [],
+          stageStatus: session.stageStatus || 'idle',
+          startedAt: session.startedAt,
+          allowMembersToEdit: session.allowMembersToEdit,
+        };
+        await this.prisma.message.update({
+          where: { id: session.messageId },
+          data: {
+            content: `[LIVE_WHEEL]:${JSON.stringify(payload)}`,
+          },
+        });
+      } catch {}
+    }
+
+    if (this.chatGateway) {
+      this.chatGateway.broadcastLiveWheelUpdated(circleId, session);
+    }
+
+    return session;
+  }
+
   async closeLiveWheelStage(
     circleId: string,
     userId: string,
     results?: { wheelTitle: string; winner: string }[],
   ): Promise<{ success: boolean }> {
-    await this.getMemberOrThrow(circleId, userId);
+    const member = await this.getMemberOrThrow(circleId, userId);
     const session = await this.getActiveLiveWheel(circleId, userId);
+
+    const isHost = !session?.creatorId || session.creatorId === userId || member.role === 'OWNER';
+    if (!isHost) {
+      throw new ForbiddenException('Chỉ chủ phòng mới có quyền đóng phòng quay');
+    }
 
     // 1. Tự động gửi kết quả vào tin nhắn chat nếu có kết quả
     if (results && results.length > 0) {

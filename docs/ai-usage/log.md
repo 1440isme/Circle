@@ -9600,3 +9600,52 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
 - **AI Errors / Hallucinations Found:** Không có.
 - **Commit:** 672f407
 - **PR:** #120
+
+---
+
+## AI-0238: Bổ sung nút "Cho phép sửa" và phân quyền Chủ phòng vs Người xem cho Vòng quay trực tiếp
+
+- **Date:** 2026-11-22 14:55:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120 (Event RSVP & Realtime Delights)
+- **Purpose:** 
+  1. Bổ sung nút "Cho phép sửa" (Allow Edit) cho phiên Vòng quay ngẫu nhiên trực tiếp trong nhóm:
+     - Mặc định chỉ chủ phòng có quyền chỉnh sửa nội dung (`allowMembersToEdit = false`).
+     - Khi bật: Tất cả thành viên trong phòng đều có quyền chỉnh sửa nội dung (sửa tên vòng, sửa textarea phương án, Shuffle, Sắp xếp A-Z, Đặt lại ban đầu, Lưu ban đầu, Thêm/Xóa vòng quay, Xóa tất cả, Xóa phương án trúng thưởng).
+     - Khi tắt: Chỉ chủ phòng có quyền chỉnh sửa, các thành viên khác chỉ được xem (chế độ chỉ xem read-only với banner thông báo rõ ràng).
+     - Chỉ chủ phòng mới có quyền bật/tắt thiết lập "Cho phép sửa" (trên Floating Pill ở Header và Toggle ở chân trang Cái Bảng).
+  2. Tách biệt hoàn toàn quyền quay và quyền sửa:
+     - Tất cả thành viên đều có thể sử dụng chức năng quay (click vào từng đĩa quay hoặc nút "Quay tất cả"), không phụ thuộc vào trạng thái của nút "Cho phép sửa".
+     - Khi bất kỳ ai ấn quay, hệ thống tự động phát broadcast realtime tới toàn bộ phòng quay để tất cả thành viên đồng bộ xem đĩa quay xoay tít và hiển thị kết quả.
+  3. Phân biệt quyền Đóng phòng vs Rời phòng:
+     - Chủ phòng: Hiển thị nút "Đóng phòng" (`handleCloseStage` - kết thúc phiên và gửi kết quả về đoạn chat nhóm).
+     - Người xem: Hiển thị nút "Rời phòng" (chỉ đóng overlay cá nhân, không làm gián đoạn phòng quay của cả nhóm).
+  4. Backend:
+     - Thêm trường `allowMembersToEdit?: boolean` trong `LiveWheelSession` và `LiveWheelMessagePayload`.
+     - Thêm DTO `UpdateLiveWheelSettingsDto` và endpoint `PATCH /circles/:circleId/wheels/live-settings`.
+     - Kiểm tra quyền `canEditLiveWheel` chặt chẽ trong `updateWheel`, `createWheel`, `deleteWheel`, `deleteAllWheels`, `liveRemoveResult`, và `closeLiveWheelStage`.
+- **Prompt Summary:** Bổ sung nút "Cho phép sửa". Khi bật: tất cả thành viên có quyền sửa nội dung. Khi tắt: chỉ chủ phòng có quyền sửa. Quyền quay hoạt động độc lập, tất cả thành viên đều được quay. Mặc định chỉ chủ phòng có quyền sửa. Chỉ chủ phòng có quyền bật/tắt "Cho phép sửa".
+- **Files Affected:**
+  - `packages/types/src/index.ts`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `apps/backend/src/modules/circle-tools/dto/circle-tools.dto.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.controller.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.service.spec.ts`
+  - `apps/web/src/hooks/use-circle-tools.ts`
+  - `apps/web/src/components/chat/LiveWheelOverlay.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% logic backend RBAC/permissions, realtime socket event handling, hook API mutations, và UI Floating Pill / Setup Panel controls.
+- **Human Modifications:** Người dùng trực tiếp định nghĩa các ràng buộc nghiệp vụ về nút "Cho phép sửa" và tính độc lập của chức năng quay.
+- **Verification Method:** 
+  - `npx tsc --noEmit` pass 0 errors trên cả `apps/web` và `apps/backend`.
+  - `npx jest src/modules/circle-tools/circle-tools.service.spec.ts` pass 51/51 unit tests.
+  - `./scripts/check-secrets.sh` pass 0 secret leaks.
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn, không chứa secret, tuân thủ RBAC và Hard Gates.
+- **AI Errors / Hallucinations Found:** Không có.
+- **Commit:** Pending
+- **PR:** #120
