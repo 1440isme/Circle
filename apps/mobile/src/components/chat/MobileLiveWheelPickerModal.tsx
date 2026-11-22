@@ -169,14 +169,17 @@ export const MobileLiveWheelPickerModal: React.FC<MobileLiveWheelPickerModalProp
         return next;
       });
 
-      if (sorted.length > 0 && (!activeWheelId || !sorted.some((w) => w.id === activeWheelId))) {
-        setActiveWheelId(sorted[0]!.id);
-      }
+      setActiveWheelId((prevId) => {
+        if (sorted.length > 0 && (!prevId || !sorted.some((w) => w.id === prevId))) {
+          return sorted[0]!.id;
+        }
+        return prevId;
+      });
     } catch {}
     finally {
       setIsLoadingWheels(false);
     }
-  }, [circleId, activeWheelId, t.luckyWheel.wheelNumber]);
+  }, [circleId, t.luckyWheel.wheelNumber]);
 
   useEffect(() => {
     if (visible) {
@@ -186,7 +189,7 @@ export const MobileLiveWheelPickerModal: React.FC<MobileLiveWheelPickerModalProp
       rotateAnim.setValue(0);
       loadWheels();
     }
-  }, [visible, loadWheels, rotateAnim]);
+  }, [visible]);
 
   const activeWheel = useMemo(() => {
     return wheels.find((w) => w.id === activeWheelId) || wheels[0] || null;
@@ -598,7 +601,7 @@ export const MobileLiveWheelPickerModal: React.FC<MobileLiveWheelPickerModalProp
                   </View>
                 ) : (
                   activeWheel && (
-                    <View key={activeWheel.id} style={styles.wheelSetupSection}>
+                    <View style={styles.wheelSetupSection}>
                       {/* Wheel Title Row */}
                       <View style={styles.titleRow}>
                         {isEditingTitle ? (
@@ -670,7 +673,6 @@ export const MobileLiveWheelPickerModal: React.FC<MobileLiveWheelPickerModalProp
 
                       {/* Options Textarea */}
                       <TextInput
-                        key={`picker-options-${activeWheel.id}`}
                         value={activeLocalState?.optionsText || ''}
                         onChangeText={handleOptionsChange}
                         multiline

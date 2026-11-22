@@ -1411,11 +1411,10 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
             ) : (
               /* TAB CONTENT: ACTIVE WHEEL (OPTIONS & SETTINGS) */
               activeWheel && (
-                <View key={activeWheel.wheelId} style={styles.activeContentCard}>
+                <View style={styles.activeContentCard}>
                   {/* Title & Delete (Nếu có quyền sửa) */}
                   <View style={styles.activeTitleRow}>
                     <TextInput
-                      key={`title-${activeWheel.wheelId}`}
                       style={styles.inlineTitleInput}
                       value={
                         wheelTitleEditingState[activeWheel.wheelId] !== undefined
@@ -1460,7 +1459,6 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
 
                   {/* Textarea */}
                   <TextInput
-                    key={`options-${activeWheel.wheelId}`}
                     style={[styles.boardTextarea, !canEdit && { opacity: 0.85 }]}
                     multiline
                     editable={canEdit && !isSpinning}
