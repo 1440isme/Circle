@@ -9760,3 +9760,47 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
 - **AI Errors / Hallucinations Found:** Không có.
 - **Commit:** d98db13
 - **PR:** #120
+
+
+### AI-0171
+
+- **Date:** 2026-11-22 17:00:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120 (Event RSVP & Realtime Delights)
+- **Purpose:** 
+  1. Tinh chỉnh Header của Sân khấu Vòng quay trực tiếp trên Mobile (`MobileLiveWheelOverlay.tsx`):
+     - Chuyển toàn bộ các nút điều khiển trên Header (Kết quả, Người xem, Thêm vòng, Cài đặt 3 chấm, Đóng/Rời phòng, Quay tất cả) sang **ICON ONLY dạng Floating Pill Button** (`floatingPillIconBtn` / `floatingPillPrimaryIconBtn`), loại bỏ hoàn toàn các text nhãn dài dòng ("Xem kết quả", "Quay tất cả", ...).
+     - Loại bỏ dải thanh cuộn ngang `floatingPillsContainer` thứ 2 ở dưới Header, đưa toàn bộ nút điều khiển lên 1 hàng Floating Header Bar duy nhất gọn gàng, tinh tế và chuẩn triết lý Apple Liquid Glass Minimalist.
+  2. Đồng bộ 100% bố cục Sân khấu Vòng quay và Cái Bảng (Tabbed Board) bên dưới y hệt Vòng quay Tiện ích nhóm (`MobileWheelView.tsx`):
+     - Tích hợp toàn bộ nội dung trong 1 `ScrollView` duy nhất với khoảng cách an toàn `scrollPaddingTop` và `scrollPaddingBottom`.
+     - **Sân khấu Vòng quay (`arenaContainer`, `arenaStage`):**
+       - 1 vòng: `singleWheelWrapper` với badge tiêu đề bên trên, đĩa quay to ở giữa (`singleDiscSize = Math.min(240, width - 64)`), kim chỉ `pointerRight` bên phải góc 3 giờ.
+       - 2 vòng: `rowTwoWheels` (`multiDiscSize`).
+       - 3 vòng: `gridThreeWheels` (hàng trên 2 vòng, hàng dưới 1 vòng căn giữa).
+       - 4 vòng: `gridFourWheelsContainer` (chính xác 2 hàng x 2 vòng mỗi hàng, `fourDiscSize`).
+       - Mỗi small wheel item gồm badge tiêu đề (chạm để chuyển tab), đĩa quay (chạm để quay riêng vòng đó) và kim chỉ `pointerRightSmall`.
+     - **Cái Bảng (Tabbed Board bên dưới - `tabbedBoard`):**
+       - Đặt ngay bên dưới Sân khấu Vòng quay trong cùng một luồng cuộn.
+       - Dải Tabs ngang: Tab từng vòng + Tab [🏆 Kết quả] (kèm badge đếm) + Tab [👥 Người xem] (kèm badge đếm).
+       - Tab từng vòng: Tiêu đề inline (`inlineTitleInput`) cho phép sửa tên vòng trực tiếp + nút xóa vòng (`delWheelBtn`), dòng đếm lựa chọn (`counterRow`), Textarea danh sách phương án (`boardTextarea`), hàng nút icon-only (`boardActionsRow`: Xáo trộn `Shuffle`, Sắp xếp A-Z `ArrowDownAZ`, Lưu `Check`, Quay riêng `Play`), hàng chân thông báo quyền (`togglesRow`).
+       - Tab Kết quả: Header `Trophy` + Textarea kết quả lớn đa dòng chỉ đọc + các nút icon-only Sắp xếp A-Z `ArrowDownAZ` và Xóa kết quả `Trash2`.
+       - Tab Người xem: Header `Users` + chấm xanh trực tiếp `liveGreenDot` + danh sách avatar cuộn ngang của các thành viên đang có mặt realtime.
+     - **Celebration Modal:** Giữ nguyên hiệu ứng cúp vàng phát sáng chúc mừng người thắng giải với các nút hành động Đóng và Loại bỏ kết quả.
+- **Prompt Summary:** Vẫn chưa giống chỗ tiện ích: các btn kết quả, người xem... chỉ cần là icon và là Floating Pill Button; còn lại (bố cục các nút phần setting và vòng quay) phải y hệt phần vòng quay tiện ích.
+- **Files Affected:**
+  - `apps/mobile/src/components/chat/MobileLiveWheelOverlay.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% tái cấu trúc layout Header Icon-Only Floating Pill, Sân khấu Vòng quay chuẩn hóa 1-4 vòng và Cái Bảng Tabbed Board đồng bộ 100% với `MobileWheelView.tsx`.
+- **Human Modifications:** Người dùng trực tiếp định hướng chuyển các nút header sang icon-only floating pill button và đồng bộ bố cục setting/vòng quay y hệt tiện ích nhóm.
+- **Verification Method:** 
+  - `npx tsc -p apps/mobile/tsconfig.json --noEmit` pass 0 errors.
+  - `npx tsc -p apps/web/tsconfig.json --noEmit` pass 0 errors.
+  - `npm --prefix apps/backend test -- circle-tools.service.spec.ts` pass 51/51 tests.
+  - `bash scripts/check-secrets.sh` pass 0 secret leaks.
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn, không chứa secret.
+- **AI Errors / Hallucinations Found:** Không có.
+- **Commit:** 5e918fc
+- **PR:** #120
