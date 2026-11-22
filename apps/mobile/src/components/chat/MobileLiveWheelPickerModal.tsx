@@ -14,6 +14,7 @@ import {
   Animated,
   Easing,
   useWindowDimensions,
+  DeviceEventEmitter,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, G, Circle, Rect, Text as SvgText } from 'react-native-svg';
@@ -125,6 +126,36 @@ export const MobileLiveWheelPickerModal: React.FC<MobileLiveWheelPickerModalProp
         return a.title.localeCompare(b.title, 'vi', { numeric: true });
       });
 
+      // Auto-seed: Khởi tạo 1 vòng mặc định nếu chưa có vòng nào trong circle
+      if (sorted.length === 0) {
+        const defaultTitle = t.luckyWheel.wheelNumber.replace('{number}', '1');
+        const sampleOptions = [
+          { optionLabel: 'Lựa chọn 1' },
+          { optionLabel: 'Lựa chọn 2' },
+          { optionLabel: 'Lựa chọn 3' },
+          { optionLabel: 'Lựa chọn 4' },
+        ];
+        try {
+          const newWheel = await createWheelApi(circleId, {
+            title: defaultTitle,
+            options: sampleOptions,
+            initialOptions: sampleOptions.map((o) => o.optionLabel),
+            soundEnabled: true,
+            confettiEnabled: true,
+          });
+          if (newWheel?.id) {
+            setWheels([newWheel]);
+            setWheelsState({
+              [newWheel.id]: {
+                optionsText: sampleOptions.map((o) => o.optionLabel).join('\n'),
+              },
+            });
+            setActiveWheelId(newWheel.id);
+            return;
+          }
+        } catch {}
+      }
+
       setWheels(sorted);
       setWheelsState((prev) => {
         const next = { ...prev };
@@ -145,7 +176,7 @@ export const MobileLiveWheelPickerModal: React.FC<MobileLiveWheelPickerModalProp
     finally {
       setIsLoadingWheels(false);
     }
-  }, [circleId, activeWheelId]);
+  }, [circleId, activeWheelId, t.luckyWheel.wheelNumber]);
 
   useEffect(() => {
     if (visible) {
@@ -327,10 +358,14 @@ export const MobileLiveWheelPickerModal: React.FC<MobileLiveWheelPickerModalProp
         }
       }
 
-      await createLiveWheelStageApi(circleId, channelId);
+      const liveSession = await createLiveWheelStageApi(circleId, channelId);
+      DeviceEventEmitter.emit('circle:open-live-wheel', { circleId, session: liveSession });
+      try {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } catch {}
       onClose();
     } catch (err: any) {
-      Alert.alert('Lỗi', err?.message || 'Không thể tạo sân khấu vòng quay');
+      Alert.alert(t.common.error, err?.message || 'Không thể tạo sân khấu vòng quay');
     } finally {
       setIsSubmitting(false);
     }
@@ -484,12 +519,12 @@ export const MobileLiveWheelPickerModal: React.FC<MobileLiveWheelPickerModalProp
               </View>
               <View>
                 <Text style={[styles.headerTitle, { color: colors.text }]}>
-                  {t.luckyWheel.title}
+                  {locale === 'vi' ? 'Vòng quay ngẫu nhiên' : 'Random Wheel'}
                 </Text>
                 <Text style={[styles.headerSubtitle, { color: colors.subtle }]}>
                   {viewMode === 'setup'
-                    ? 'Thiết lập danh sách lựa chọn'
-                    : t.luckyWheel.liveWheelTitle}
+                    ? (locale === 'vi' ? 'Thiết lập danh sách lựa chọn' : 'Setup options list')
+                    : (locale === 'vi' ? 'Sân khấu trực tiếp trong nhóm' : 'Live stage in group')}
                 </Text>
               </View>
             </View>

@@ -9683,3 +9683,43 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
 - **AI Errors / Hallucinations Found:** Không có.
 - **Commit:** 16ede95
 - **PR:** #120
+
+### AI-0169
+
+- **Date:** 2026-11-22 15:56:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120 (Event RSVP & Realtime Delights)
+- **Purpose:** 
+  1. Fix dứt điểm lỗi click nút 3 chấm (`MoreHorizontal`) không hiển thị popup menu trên Web:
+     - Tách cụm Action Buttons (nút 3 chấm & nút Đóng/Rời phòng) ra khỏi container `overflow-x-auto no-scrollbar` của dải Floating Pills trên Header, tránh việc CSS clipping context của `overflow-x: auto` cắt cụt menu dropdown `absolute top-11`.
+     - Bổ sung `e.stopPropagation()` trong `onClick` của nút 3 chấm và dropdown menu, bảo đảm popup hiển thị mượt mà và không bị đóng sớm bởi event bubbling.
+  2. Xây dựng và đồng bộ toàn diện tính năng Vòng quay ngẫu nhiên trực tiếp trên Mobile (`apps/mobile`):
+     - `MobileLiveWheelPickerModal.tsx`: Bổ sung cơ chế auto-seed khi mở modal lần đầu (tự tạo 1 vòng mặc định nếu chưa có vòng nào, tránh lỗi không tìm thấy vòng quay), chuẩn hóa tiêu đề sang "Vòng quay ngẫu nhiên", bổ sung lưu phương án và phát event `circle:open-live-wheel` khi tạo sân khấu.
+     - `MobileLiveWheelOverlay.tsx`: Tái cấu trúc toàn diện giao diện Sân khấu vòng quay:
+       - Header chuẩn hóa tiêu đề, tích hợp menu 3 chấm popover kính mờ gom cài đặt Âm thanh (`soundEnabled`) và Quyền chỉnh sửa ("Cho phép sửa" - `allowMembersToEdit`).
+       - Phân quyền Host vs Spectator: Chỉ Host mới có quyền gạt bật/tắt "Cho phép sửa"; khi tắt chỉ Host được sửa, thành viên khác chỉ xem; quyền quay luôn khả dụng cho mọi thành viên.
+       - Hỗ trợ co giãn kích thước đĩa quay SVG động theo số lượng vòng (1 vòng to ở giữa, 2 vòng cạnh nhau, 3-4 vòng lưới 2x2).
+       - Tích hợp thanh cuộn Floating Pills: [Kết quả], [Người xem], [Thêm vòng quay], [Quay tất cả].
+       - Tích hợp đóng phòng quay (`closeLiveWheelStageApi`) với xác nhận Alert và gửi kết quả vào nhóm chat; tự động đóng khi nhận event socket `circle:live-wheel:stage-closed`.
+     - `circle-tools.service.ts` (Mobile): Bổ sung `updateLiveWheelSettingsApi` và `closeLiveWheelStageApi`.
+- **Prompt Summary:** Ấn vào 3 chấm cũng chưa được (chưa có popup); tương tự xây cho mobile chức năng tạo vòng xoay.
+- **Files Affected:**
+  - `apps/web/src/components/chat/LiveWheelOverlay.tsx`
+  - `apps/mobile/src/components/chat/MobileLiveWheelOverlay.tsx`
+  - `apps/mobile/src/components/chat/MobileLiveWheelPickerModal.tsx`
+  - `apps/mobile/src/services/circle-tools.service.ts`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% logic tái cấu trúc Header tách overflow clipping trên Web, và toàn bộ component `MobileLiveWheelOverlay` + `MobileLiveWheelPickerModal` trên Mobile.
+- **Human Modifications:** Người dùng trực tiếp phản hồi lỗi popup web và yêu cầu xây dựng tính năng đồng bộ trên Mobile.
+- **Verification Method:** 
+  - `npx tsc -p apps/web/tsconfig.json --noEmit` pass 0 errors.
+  - `npx tsc -p apps/mobile/tsconfig.json --noEmit` pass 0 errors.
+  - `npm --prefix apps/backend test -- circle-tools.service.spec.ts` pass 51/51 tests.
+  - `bash scripts/check-secrets.sh` pass 0 secret leaks.
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn, không chứa secret.
+- **AI Errors / Hallucinations Found:** Không có.
+- **Commit:** 374a5b5
+- **PR:** #120

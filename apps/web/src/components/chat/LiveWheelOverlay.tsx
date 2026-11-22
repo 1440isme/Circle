@@ -1128,190 +1128,155 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
           </div>
         </div>
 
-        {/* Thanh công cụ Floating Pills */}
-        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
-          {/* Floating Pill: KẾT QUẢ */}
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab('results');
-              setIsPanelCollapsed(false);
-            }}
-            className={`inline-flex items-center gap-1.5 px-3.5 h-9 rounded-full backdrop-blur-xl border shadow-sm font-bold text-xs sm:text-sm transition-all active:scale-95 cursor-pointer shrink-0 ${
-              activeTab === 'results' && !isPanelCollapsed
-                ? 'bg-amber-500 text-white border-amber-600 shadow-md'
-                : 'bg-white/92 dark:bg-circle-dark-surface/90 border-circle-hairline/80 dark:border-white/12 hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text'
-            }`}
-            title={t.luckyWheel.resultsTab}
-          >
-            <Trophy className={`w-4 h-4 ${activeTab === 'results' && !isPanelCollapsed ? 'text-white' : 'text-amber-500'}`} />
-            <span>{t.luckyWheel.resultsTab}</span>
-            {resultLinesCount > 0 && (
-              <span
-                className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
-                  activeTab === 'results' && !isPanelCollapsed
-                    ? 'bg-white/20 text-white'
-                    : 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
-                }`}
-              >
-                {resultLinesCount}
-              </span>
-            )}
-          </button>
-
-          {/* Floating Pill: NGƯỜI XEM */}
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab('viewers');
-              setIsPanelCollapsed(false);
-            }}
-            className={`inline-flex items-center gap-1.5 px-3.5 h-9 rounded-full backdrop-blur-xl border shadow-sm font-bold text-xs sm:text-sm transition-all active:scale-95 cursor-pointer shrink-0 ${
-              activeTab === 'viewers' && !isPanelCollapsed
-                ? 'bg-circle-primary text-white border-circle-primary shadow-md'
-                : 'bg-white/92 dark:bg-circle-dark-surface/90 border-circle-hairline/80 dark:border-white/12 hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text'
-            }`}
-            title={locale === 'vi' ? 'Người xem trực tiếp' : 'Live viewers'}
-          >
-            <Users className={`w-4 h-4 ${activeTab === 'viewers' && !isPanelCollapsed ? 'text-white' : 'text-circle-primary'}`} />
-            <span>{locale === 'vi' ? 'Người xem' : 'Viewers'}</span>
-            <span
-              className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
-                activeTab === 'viewers' && !isPanelCollapsed
-                  ? 'bg-white/20 text-white'
-                  : 'bg-circle-primary/15 text-circle-primary'
+        {/* Cụm công cụ bên phải (Gồm dải cuộn Pills + Action Buttons cố định) */}
+        <div className="flex items-center gap-2 overflow-visible min-w-0">
+          {/* Thanh công cụ Floating Pills (Có thể cuộn ngang nếu nhiều vòng hoặc màn hình nhỏ) */}
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 max-w-[calc(100vw-360px)] sm:max-w-none">
+            {/* Floating Pill: KẾT QUẢ */}
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('results');
+                setIsPanelCollapsed(false);
+              }}
+              className={`inline-flex items-center gap-1.5 px-3.5 h-9 rounded-full backdrop-blur-xl border shadow-sm font-bold text-xs sm:text-sm transition-all active:scale-95 cursor-pointer shrink-0 ${
+                activeTab === 'results' && !isPanelCollapsed
+                  ? 'bg-amber-500 text-white border-amber-600 shadow-md'
+                  : 'bg-white/92 dark:bg-circle-dark-surface/90 border-circle-hairline/80 dark:border-white/12 hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text'
               }`}
+              title={t.luckyWheel.resultsTab}
             >
-              {participants.length}
-            </span>
-          </button>
-
-          {/* Add Wheel Pill Button */}
-          <button
-            type="button"
-            onClick={handleAddDefaultWheel}
-            disabled={wheels.length >= 4 || isAnySpinning || createWheelMutation.isPending || !canEdit}
-            className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-full backdrop-blur-xl bg-white/92 dark:bg-circle-dark-surface/90 border border-circle-hairline/80 dark:border-white/12 shadow-sm hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text font-bold text-xs sm:text-sm transition-all active:scale-95 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
-            title={
-              !canEdit
-                ? (t.luckyWheel.viewOnlyDesc || 'Chỉ chủ phòng mới có quyền thêm vòng quay')
-                : wheels.length >= 4
-                ? t.luckyWheel.maxWheelsBadge
-                : undefined
-            }
-          >
-            <Plus className="w-4 h-4 text-circle-sage dark:text-circle-dark-primary" />
-            <span>{t.luckyWheel.addWheel}</span>
-          </button>
-
-          {/* Spin All Pill Button (Tất cả thành viên đều có thể sử dụng chức năng quay) */}
-          {wheels.length > 0 && (
-            <button
-              type="button"
-              onClick={handleSpinAll}
-              disabled={isAnySpinning || spinAllMutation.isPending}
-              className="inline-flex items-center gap-1.5 px-4 h-9 rounded-full backdrop-blur-xl bg-circle-primary hover:bg-circle-sage text-white font-bold text-xs sm:text-sm shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer shrink-0"
-            >
-              <RotateCw className={`w-4 h-4 ${isAnySpinning ? 'animate-spin' : ''}`} />
-              <span>{t.luckyWheel.spinAll}</span>
+              <Trophy className={`w-4 h-4 ${activeTab === 'results' && !isPanelCollapsed ? 'text-white' : 'text-amber-500'}`} />
+              <span>{t.luckyWheel.resultsTab}</span>
+              {resultLinesCount > 0 && (
+                <span
+                  className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                    activeTab === 'results' && !isPanelCollapsed
+                      ? 'bg-white/20 text-white'
+                      : 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+                  }`}
+                >
+                  {resultLinesCount}
+                </span>
+              )}
             </button>
-          )}
 
-          {/* Menu 3 Chấm: Gom Quyền chỉnh sửa & Âm thanh */}
-          <div className="relative shrink-0" ref={moreMenuRef}>
+            {/* Floating Pill: NGƯỜI XEM */}
             <button
               type="button"
-              onClick={() => setIsMoreMenuOpen((prev) => !prev)}
-              className={`inline-flex items-center justify-center w-9 h-9 rounded-full backdrop-blur-xl border shadow-sm transition-all active:scale-95 cursor-pointer shrink-0 ${
-                isMoreMenuOpen
+              onClick={() => {
+                setActiveTab('viewers');
+                setIsPanelCollapsed(false);
+              }}
+              className={`inline-flex items-center gap-1.5 px-3.5 h-9 rounded-full backdrop-blur-xl border shadow-sm font-bold text-xs sm:text-sm transition-all active:scale-95 cursor-pointer shrink-0 ${
+                activeTab === 'viewers' && !isPanelCollapsed
                   ? 'bg-circle-primary text-white border-circle-primary shadow-md'
                   : 'bg-white/92 dark:bg-circle-dark-surface/90 border-circle-hairline/80 dark:border-white/12 hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text'
               }`}
-              title={locale === 'vi' ? 'Cài đặt phòng quay (Âm thanh & Quyền sửa)' : 'Stage settings'}
-              aria-label={locale === 'vi' ? 'Cài đặt phòng quay' : 'Stage settings'}
+              title={locale === 'vi' ? 'Người xem trực tiếp' : 'Live viewers'}
             >
-              <MoreHorizontal className="w-4.5 h-4.5" />
+              <Users className={`w-4 h-4 ${activeTab === 'viewers' && !isPanelCollapsed ? 'text-white' : 'text-circle-primary'}`} />
+              <span>{locale === 'vi' ? 'Người xem' : 'Viewers'}</span>
+              <span
+                className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                  activeTab === 'viewers' && !isPanelCollapsed
+                    ? 'bg-white/20 text-white'
+                    : 'bg-circle-primary/15 text-circle-primary'
+                }`}
+              >
+                {participants.length}
+              </span>
             </button>
 
-            {/* Dropdown Menu kính mờ */}
-            {isMoreMenuOpen && (
-              <div className="absolute right-0 top-11 z-50 w-72 rounded-2xl bg-white/95 dark:bg-circle-dark-surface/95 backdrop-blur-2xl border border-circle-hairline/80 dark:border-white/15 shadow-2xl p-2.5 flex flex-col gap-1.5 animate-scaleUp">
-                {/* Header Menu */}
-                <div className="px-2.5 py-1 text-[11px] font-bold text-circle-slate dark:text-circle-dark-muted uppercase tracking-wider">
-                  {locale === 'vi' ? 'Cài đặt phòng quay' : 'Stage settings'}
-                </div>
+            {/* Add Wheel Pill Button */}
+            <button
+              type="button"
+              onClick={handleAddDefaultWheel}
+              disabled={wheels.length >= 4 || isAnySpinning || createWheelMutation.isPending || !canEdit}
+              className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-full backdrop-blur-xl bg-white/92 dark:bg-circle-dark-surface/90 border border-circle-hairline/80 dark:border-white/12 shadow-sm hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text font-bold text-xs sm:text-sm transition-all active:scale-95 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+              title={
+                !canEdit
+                  ? (t.luckyWheel.viewOnlyDesc || 'Chỉ chủ phòng mới có quyền thêm vòng quay')
+                  : wheels.length >= 4
+                  ? t.luckyWheel.maxWheelsBadge
+                  : undefined
+              }
+            >
+              <Plus className="w-4 h-4 text-circle-sage dark:text-circle-dark-primary" />
+              <span>{t.luckyWheel.addWheel}</span>
+            </button>
 
-                {/* 1. ÂM THANH */}
-                <button
-                  type="button"
-                  onClick={handleToggleSound}
-                  disabled={isAnySpinning}
-                  className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors cursor-pointer group text-left disabled:opacity-50"
+            {/* Spin All Pill Button (Tất cả thành viên đều có thể sử dụng chức năng quay) */}
+            {wheels.length > 0 && (
+              <button
+                type="button"
+                onClick={handleSpinAll}
+                disabled={isAnySpinning || spinAllMutation.isPending}
+                className="inline-flex items-center gap-1.5 px-4 h-9 rounded-full backdrop-blur-xl bg-circle-primary hover:bg-circle-sage text-white font-bold text-xs sm:text-sm shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer shrink-0"
+              >
+                <RotateCw className={`w-4 h-4 ${isAnySpinning ? 'animate-spin' : ''}`} />
+                <span>{t.luckyWheel.spinAll}</span>
+              </button>
+            )}
+          </div>
+
+          {/* Cụm Action Buttons Cố định (Menu 3 chấm & Đóng/Rời phòng) - Tách khỏi overflow-x để popup không bị cắt xén */}
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Menu 3 Chấm: Gom Quyền chỉnh sửa & Âm thanh */}
+            <div className="relative shrink-0" ref={moreMenuRef}>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsMoreMenuOpen((prev) => !prev);
+                }}
+                className={`inline-flex items-center justify-center w-9 h-9 rounded-full backdrop-blur-xl border shadow-sm transition-all active:scale-95 cursor-pointer shrink-0 ${
+                  isMoreMenuOpen
+                    ? 'bg-circle-primary text-white border-circle-primary shadow-md'
+                    : 'bg-white/92 dark:bg-circle-dark-surface/90 border-circle-hairline/80 dark:border-white/12 hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text'
+                }`}
+                title={locale === 'vi' ? 'Cài đặt phòng quay (Âm thanh & Quyền sửa)' : 'Stage settings'}
+                aria-label={locale === 'vi' ? 'Cài đặt phòng quay' : 'Stage settings'}
+              >
+                <MoreHorizontal className="w-4.5 h-4.5" />
+              </button>
+
+              {/* Dropdown Menu kính mờ */}
+              {isMoreMenuOpen && (
+                <div 
+                  onClick={(e) => e.stopPropagation()}
+                  className="absolute right-0 top-11 z-50 w-72 rounded-2xl bg-white/95 dark:bg-circle-dark-surface/95 backdrop-blur-2xl border border-circle-hairline/80 dark:border-white/15 shadow-2xl p-2.5 flex flex-col gap-1.5 animate-scaleUp"
                 >
-                  <div className="flex items-center gap-2.5 min-w-0 pr-2">
-                    <div
-                      className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                        currentSoundEnabled
-                          ? 'bg-circle-primary/10 text-circle-primary dark:text-circle-dark-primary'
-                          : 'bg-slate-100 dark:bg-white/5 text-circle-slate dark:text-circle-dark-muted'
-                      }`}
-                    >
-                      {currentSoundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text truncate">
-                        {t.luckyWheel.soundSetting}
-                      </p>
-                      <p className="text-[10px] text-circle-slate dark:text-circle-dark-muted truncate">
-                        {currentSoundEnabled
-                          ? (locale === 'vi' ? 'Bật âm thanh quay & chúc mừng' : 'Sound enabled')
-                          : (locale === 'vi' ? 'Đang tắt âm thanh' : 'Muted')}
-                      </p>
-                    </div>
+                  {/* Header Menu */}
+                  <div className="px-2.5 py-1 text-[11px] font-bold text-circle-slate dark:text-circle-dark-muted uppercase tracking-wider">
+                    {locale === 'vi' ? 'Cài đặt phòng quay' : 'Stage settings'}
                   </div>
 
-                  {/* Toggle Switch */}
-                  <div
-                    className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-colors shrink-0 ${
-                      currentSoundEnabled ? 'bg-circle-primary' : 'bg-slate-300 dark:bg-white/20'
-                    }`}
-                  >
-                    <div
-                      className={`w-4 h-4 rounded-full bg-white shadow-xs transform transition-transform ${
-                        currentSoundEnabled ? 'translate-x-4' : 'translate-x-0'
-                      }`}
-                    />
-                  </div>
-                </button>
-
-                <div className="h-px bg-circle-hairline/80 dark:bg-white/10 my-0.5" />
-
-                {/* 2. QUYỀN CHỈNH SỬA */}
-                {isHost ? (
+                  {/* 1. ÂM THANH */}
                   <button
                     type="button"
-                    onClick={handleToggleAllowEdit}
-                    disabled={updateSettingsMutation.isPending}
+                    onClick={handleToggleSound}
+                    disabled={isAnySpinning}
                     className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors cursor-pointer group text-left disabled:opacity-50"
                   >
                     <div className="flex items-center gap-2.5 min-w-0 pr-2">
                       <div
                         className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                          allowMembersToEdit
-                            ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
-                            : 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+                          currentSoundEnabled
+                            ? 'bg-circle-primary/10 text-circle-primary dark:text-circle-dark-primary'
+                            : 'bg-slate-100 dark:bg-white/5 text-circle-slate dark:text-circle-dark-muted'
                         }`}
                       >
-                        {allowMembersToEdit ? <LockOpen className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+                        {currentSoundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
                       </div>
                       <div className="min-w-0">
                         <p className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text truncate">
-                          {t.luckyWheel.allowEdit || (locale === 'vi' ? 'Cho phép sửa' : 'Allow edit')}
+                          {t.luckyWheel.soundSetting}
                         </p>
                         <p className="text-[10px] text-circle-slate dark:text-circle-dark-muted truncate">
-                          {allowMembersToEdit
-                            ? (locale === 'vi' ? 'Tất cả thành viên đều được sửa' : 'All members can edit')
-                            : (locale === 'vi' ? 'Chỉ chủ phòng mới được sửa' : 'Host only')}
+                          {currentSoundEnabled
+                            ? (locale === 'vi' ? 'Bật âm thanh quay & chúc mừng' : 'Sound enabled')
+                            : (locale === 'vi' ? 'Đang tắt âm thanh' : 'Muted')}
                         </p>
                       </div>
                     </div>
@@ -1319,80 +1284,127 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
                     {/* Toggle Switch */}
                     <div
                       className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-colors shrink-0 ${
-                        allowMembersToEdit ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-white/20'
+                        currentSoundEnabled ? 'bg-circle-primary' : 'bg-slate-300 dark:bg-white/20'
                       }`}
                     >
                       <div
                         className={`w-4 h-4 rounded-full bg-white shadow-xs transform transition-transform ${
-                          allowMembersToEdit ? 'translate-x-4' : 'translate-x-0'
+                          currentSoundEnabled ? 'translate-x-4' : 'translate-x-0'
                         }`}
                       />
                     </div>
                   </button>
-                ) : (
-                  <div className="w-full flex items-center justify-between p-2 rounded-xl bg-circle-canvas/60 dark:bg-circle-dark-canvas/60 border border-circle-hairline/80 dark:border-white/10 select-none">
-                    <div className="flex items-center gap-2.5 min-w-0 pr-2">
+
+                  <div className="h-px bg-circle-hairline/80 dark:bg-white/10 my-0.5" />
+
+                  {/* 2. QUYỀN CHỈNH SỬA */}
+                  {isHost ? (
+                    <button
+                      type="button"
+                      onClick={handleToggleAllowEdit}
+                      disabled={updateSettingsMutation.isPending}
+                      className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors cursor-pointer group text-left disabled:opacity-50"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                        <div
+                          className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                            allowMembersToEdit
+                              ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                              : 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+                          }`}
+                        >
+                          {allowMembersToEdit ? <LockOpen className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text truncate">
+                            {t.luckyWheel.allowEdit || (locale === 'vi' ? 'Cho phép sửa' : 'Allow edit')}
+                          </p>
+                          <p className="text-[10px] text-circle-slate dark:text-circle-dark-muted truncate">
+                            {allowMembersToEdit
+                              ? (locale === 'vi' ? 'Tất cả thành viên đều được sửa' : 'All members can edit')
+                              : (locale === 'vi' ? 'Chỉ chủ phòng mới được sửa' : 'Host only')}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Toggle Switch */}
                       <div
-                        className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                        className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-colors shrink-0 ${
+                          allowMembersToEdit ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-white/20'
+                        }`}
+                      >
+                        <div
+                          className={`w-4 h-4 rounded-full bg-white shadow-xs transform transition-transform ${
+                            allowMembersToEdit ? 'translate-x-4' : 'translate-x-0'
+                          }`}
+                        />
+                      </div>
+                    </button>
+                  ) : (
+                    <div className="w-full flex items-center justify-between p-2 rounded-xl bg-circle-canvas/60 dark:bg-circle-dark-canvas/60 border border-circle-hairline/80 dark:border-white/10 select-none">
+                      <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                        <div
+                          className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                            allowMembersToEdit
+                              ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                              : 'bg-slate-200 dark:bg-white/10 text-circle-slate dark:text-circle-dark-muted'
+                          }`}
+                        >
+                          {allowMembersToEdit ? <LockOpen className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text truncate">
+                            {t.luckyWheel.allowEdit || (locale === 'vi' ? 'Quyền chỉnh sửa' : 'Edit permission')}
+                          </p>
+                          <p className="text-[10px] text-circle-slate dark:text-circle-dark-muted truncate">
+                            {allowMembersToEdit
+                              ? (locale === 'vi' ? 'Được phép sửa nội dung' : 'Can edit content')
+                              : (locale === 'vi' ? 'Chế độ chỉ xem' : 'View only mode')}
+                          </p>
+                        </div>
+                      </div>
+
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
                           allowMembersToEdit
-                            ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                            ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
                             : 'bg-slate-200 dark:bg-white/10 text-circle-slate dark:text-circle-dark-muted'
                         }`}
                       >
-                        {allowMembersToEdit ? <LockOpen className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text truncate">
-                          {t.luckyWheel.allowEdit || (locale === 'vi' ? 'Quyền chỉnh sửa' : 'Edit permission')}
-                        </p>
-                        <p className="text-[10px] text-circle-slate dark:text-circle-dark-muted truncate">
-                          {allowMembersToEdit
-                            ? (locale === 'vi' ? 'Được phép sửa nội dung' : 'Can edit content')
-                            : (locale === 'vi' ? 'Chế độ chỉ xem' : 'View only mode')}
-                        </p>
-                      </div>
+                        {allowMembersToEdit
+                          ? (locale === 'vi' ? 'Được sửa' : 'Can edit')
+                          : (locale === 'vi' ? 'Chỉ xem' : 'View only')}
+                      </span>
                     </div>
+                  )}
+                </div>
+              )}
+            </div>
 
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
-                        allowMembersToEdit
-                          ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-                          : 'bg-slate-200 dark:bg-white/10 text-circle-slate dark:text-circle-dark-muted'
-                      }`}
-                    >
-                      {allowMembersToEdit
-                        ? (locale === 'vi' ? 'Được sửa' : 'Can edit')
-                        : (locale === 'vi' ? 'Chỉ xem' : 'View only')}
-                    </span>
-                  </div>
-                )}
-              </div>
+            {/* Nút Đóng phòng (Chủ phòng) HOẶC Rời phòng (Người xem) */}
+            {isHost ? (
+              <button
+                type="button"
+                onClick={handleCloseStage}
+                disabled={closeLiveMutation.isPending}
+                className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-full backdrop-blur-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 shadow-sm font-bold text-xs sm:text-sm transition-all active:scale-95 cursor-pointer shrink-0"
+                title={locale === 'vi' ? 'Đóng phòng quay và gửi kết quả vào chat' : 'Close stage & share results'}
+              >
+                <X className="w-4 h-4" />
+                <span>{t.luckyWheel.closeStage || (locale === 'vi' ? 'Đóng phòng' : 'Close')}</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setIsVisible(false)}
+                className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-full backdrop-blur-xl bg-white/92 dark:bg-circle-dark-surface/90 border border-circle-hairline/80 dark:border-white/12 shadow-sm hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text font-bold text-xs sm:text-sm transition-all active:scale-95 cursor-pointer shrink-0"
+                title={t.luckyWheel.leaveStage || (locale === 'vi' ? 'Rời phòng quay trực tiếp (phòng vẫn tiếp tục cho các thành viên khác)' : 'Leave room')}
+              >
+                <LogOut className="w-4 h-4 text-circle-slate dark:text-circle-dark-muted" />
+                <span>{t.luckyWheel.leaveStage || (locale === 'vi' ? 'Rời phòng' : 'Leave')}</span>
+              </button>
             )}
           </div>
-
-          {/* Nút Đóng phòng (Chủ phòng) HOẶC Rời phòng (Người xem) */}
-          {isHost ? (
-            <button
-              type="button"
-              onClick={handleCloseStage}
-              disabled={closeLiveMutation.isPending}
-              className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-full backdrop-blur-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 shadow-sm font-bold text-xs sm:text-sm transition-all active:scale-95 cursor-pointer shrink-0"
-              title={locale === 'vi' ? 'Đóng phòng quay và gửi kết quả vào chat' : 'Close stage & share results'}
-            >
-              <X className="w-4 h-4" />
-              <span>{t.luckyWheel.closeStage || (locale === 'vi' ? 'Đóng phòng' : 'Close')}</span>
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setIsVisible(false)}
-              className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-full backdrop-blur-xl bg-white/92 dark:bg-circle-dark-surface/90 border border-circle-hairline/80 dark:border-white/12 shadow-sm hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text font-bold text-xs sm:text-sm transition-all active:scale-95 cursor-pointer shrink-0"
-              title={t.luckyWheel.leaveStage || (locale === 'vi' ? 'Rời phòng quay trực tiếp (phòng vẫn tiếp tục cho các thành viên khác)' : 'Leave room')}
-            >
-              <LogOut className="w-4 h-4 text-circle-slate dark:text-circle-dark-muted" />
-              <span>{t.luckyWheel.leaveStage || (locale === 'vi' ? 'Rời phòng' : 'Leave')}</span>
-            </button>
-          )}
         </div>
       </header>
 

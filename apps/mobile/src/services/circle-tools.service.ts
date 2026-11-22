@@ -312,6 +312,34 @@ export async function liveRemoveResultApi(
   return res.data;
 }
 
+export async function updateLiveWheelSettingsApi(
+  circleId: string,
+  input: { allowMembersToEdit?: boolean; soundEnabled?: boolean },
+): Promise<LiveWheelSession> {
+  const res = await mobileApiRequest<LiveWheelSession>(
+    `/circles/${circleId}/wheels/live-settings`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(input || {}),
+    },
+  );
+  return res.data;
+}
+
+export async function closeLiveWheelStageApi(
+  circleId: string,
+  results?: { wheelTitle: string; winner: string }[],
+): Promise<{ success: boolean }> {
+  const res = await mobileApiRequest<{ success: boolean }>(
+    `/circles/${circleId}/wheels/live-close`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ results: results || [] }),
+    },
+  );
+  return res.data;
+}
+
 // =============================================================================
 // 3. ANONYMOUS POST / WORDS UNSAID (UC21)
 // =============================================================================
