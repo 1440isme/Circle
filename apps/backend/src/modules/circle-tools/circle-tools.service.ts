@@ -977,6 +977,9 @@ export class CircleToolsService {
           const payload: LiveWheelMessagePayload = JSON.parse(
             liveMsg.content.replace('[LIVE_WHEEL]:', '')
           );
+          if (payload.stageStatus === 'finished') {
+            return null;
+          }
           if (Date.now() - (payload.startedAt || 0) < 4 * 60 * 60 * 1000) {
             const wheels = await this.ensureFourWheels(circleId);
             const fourWheels = wheels.slice(0, 4);
@@ -1108,6 +1111,14 @@ export class CircleToolsService {
     channelId?: string,
   ): Promise<LiveWheelSession> {
     const member = await this.getMemberOrThrow(circleId, userId);
+
+    // [CÁCH 1]: Kiểm tra nếu trong Circle đang có phiên Live Wheel đang hoạt động (chưa finished)
+    const existingSession = await this.getActiveLiveWheel(circleId, userId);
+    if (existingSession && existingSession.stageStatus !== 'finished') {
+      const joinedSession = await this.joinLiveWheel(circleId, userId, existingSession.id);
+      return joinedSession || existingSession;
+    }
+
     const wheels = await this.ensureFourWheels(circleId);
     const fourWheels = wheels.slice(0, 4);
 
@@ -1747,9 +1758,11 @@ export class CircleToolsService {
     const member = await this.getMemberOrThrow(circleId, userId);
     const session = await this.getActiveLiveWheel(circleId, userId);
 
-    const isHost = !session?.creatorId || session.creatorId === userId || member.role === 'OWNER';
-    if (!isHost) {
-      throw new ForbiddenException('Chỉ chủ phòng mới có quyền đóng phòng quay');
+    if (session) {
+      const isHost = !session.creatorId || session.creatorId === userId || member.role === 'OWNER';
+      if (!isHost) {
+        throw new ForbiddenException('Chỉ chủ phòng mới có quyền đóng phòng quay');
+      }
     }
 
     // 1. Tự động gửi kết quả vào tin nhắn chat nếu có kết quả
@@ -1759,20 +1772,31 @@ export class CircleToolsService {
       } catch (err) {}
     }
 
-    // 2. Cập nhật tin nhắn interactive card thành finished nếu có
-    if (session?.messageId) {
-      try {
-        const msg = await this.prisma.message.findUnique({ where: { id: session.messageId } });
-        if (msg && msg.content && msg.content.startsWith('[LIVE_WHEEL]:')) {
-          const payload = JSON.parse(msg.content.replace('[LIVE_WHEEL]:', ''));
-          payload.stageStatus = 'finished';
-          await this.prisma.message.update({
-            where: { id: session.messageId },
-            data: { content: `[LIVE_WHEEL]:${JSON.stringify(payload)}` },
-          });
+    // 2. Cập nhật TẤT CẢ các tin nhắn interactive card chưa finished thành finished
+    try {
+      const activeMsgs = await this.prisma.message.findMany({
+        where: {
+          channel: { circleId },
+          content: { startsWith: '[LIVE_WHEEL]:' },
+        },
+        orderBy: { sentAt: 'desc' },
+        take: 5,
+      });
+      for (const msg of activeMsgs) {
+        if (msg.content) {
+          try {
+            const payload = JSON.parse(msg.content.replace('[LIVE_WHEEL]:', ''));
+            if (payload.stageStatus !== 'finished') {
+              payload.stageStatus = 'finished';
+              await this.prisma.message.update({
+                where: { id: msg.id },
+                data: { content: `[LIVE_WHEEL]:${JSON.stringify(payload)}` },
+              });
+            }
+          } catch {}
         }
-      } catch {}
-    }
+      }
+    } catch {}
 
     // 3. Xoá phiên khỏi active sessions
     this.activeLiveWheelSessions.delete(circleId);

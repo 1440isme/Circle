@@ -1804,7 +1804,7 @@ export const en: TranslationDictionary = {
     deleteSuccess: 'Wheel deleted successfully',
     saveSuccess: 'Changes saved',
     settings: 'Wheel Settings',
-    soundSetting: 'Spin & Celebration Sounds',
+    soundSetting: 'Spin Sound',
     soundSettingDesc: 'Play ticking sound while spinning and victory fanfare',
     confettiSetting: 'Celebration Effects (Confetti)',
     confettiSettingDesc: 'Show colorful confetti burst when winning',

@@ -300,6 +300,7 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
       socket.on('circle:live-wheel:started', handleLiveWheelStarted);
       socket.on('circle:live-wheel:participants-updated', handleParticipantsUpdated);
       socket.on('circle:live-wheel:updated', handleWheelUpdated);
+      socket.on('circle:live-wheel:closed', handleStageClosed);
       socket.on('circle:live-wheel:stage-closed', handleStageClosed);
 
       cleanupSocket = () => {
@@ -307,6 +308,7 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
         socket.off('circle:live-wheel:started', handleLiveWheelStarted);
         socket.off('circle:live-wheel:participants-updated', handleParticipantsUpdated);
         socket.off('circle:live-wheel:updated', handleWheelUpdated);
+        socket.off('circle:live-wheel:closed', handleStageClosed);
         socket.off('circle:live-wheel:stage-closed', handleStageClosed);
       };
     });
@@ -651,11 +653,16 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
 
   // 11. Đóng phòng quay (Host) hoặc Rời phòng (Người xem)
   const handleCloseStage = () => {
+    const hasResults = resultsText.trim().length > 0;
     Alert.alert(
       locale === 'vi' ? 'Đóng phòng quay' : 'Close stage',
-      locale === 'vi'
-        ? 'Bạn có chắc chắn muốn đóng phòng quay và gửi kết quả vào nhóm chat không?'
-        : 'Are you sure you want to close the stage and share results?',
+      hasResults
+        ? (locale === 'vi'
+            ? 'Bạn có chắc chắn muốn đóng phòng quay và gửi kết quả vào nhóm chat không?'
+            : 'Are you sure you want to close the stage and share results?')
+        : (locale === 'vi'
+            ? 'Bạn có chắc chắn muốn đóng phòng quay trực tiếp?'
+            : 'Are you sure you want to close this live wheel stage?'),
       [
         { text: t.common.cancel, style: 'cancel' },
         {
@@ -663,9 +670,14 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
           style: 'destructive',
           onPress: async () => {
             try {
-              await closeLiveWheelStageApi(circleId);
+              if (session) {
+                setDismissedSessionId(session.id);
+              }
               setIsVisible(false);
               setSession(null);
+              setResultsText('');
+              setCombinedWinnersModal(null);
+              await closeLiveWheelStageApi(circleId);
             } catch (err: any) {
               Alert.alert(t.common.error, err?.message || 'Không thể đóng phòng quay');
             }

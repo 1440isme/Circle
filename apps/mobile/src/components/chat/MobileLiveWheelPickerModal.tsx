@@ -51,6 +51,7 @@ import {
 } from '../../services/circle-tools.service';
 import { useLanguageStore } from '../../stores/language.store';
 import { useThemeStore } from '../../stores/theme.store';
+import { useAuthStore } from '../../stores/auth.store';
 
 interface MobileLiveWheelPickerModalProps {
   visible: boolean;
@@ -85,6 +86,7 @@ export const MobileLiveWheelPickerModal: React.FC<MobileLiveWheelPickerModalProp
   const { colors, resolvedTheme } = useThemeStore();
   const isDark = resolvedTheme === 'dark';
   const { locale, t } = useLanguageStore();
+  const { user } = useAuthStore();
 
   // Mode: 'setup' (bảng cấu hình) hoặc 'arena' (sân khấu các vòng tròn quay khi bấm Tạo)
   const [viewMode, setViewMode] = useState<'setup' | 'arena'>('setup');
@@ -362,6 +364,14 @@ export const MobileLiveWheelPickerModal: React.FC<MobileLiveWheelPickerModalProp
       }
 
       const liveSession = await createLiveWheelStageApi(circleId, channelId);
+      if (liveSession?.creatorId && user?.id && liveSession.creatorId !== user.id) {
+        Alert.alert(
+          locale === 'vi' ? 'Tham gia phòng quay' : 'Joined Live Wheel',
+          locale === 'vi'
+            ? `Đã tham gia phòng quay trực tiếp do ${liveSession.spunBy?.displayName || 'thành viên'} vừa mở.`
+            : `Joined live wheel stage created by ${liveSession.spunBy?.displayName || 'member'}.`,
+        );
+      }
       DeviceEventEmitter.emit('circle:open-live-wheel', { circleId, session: liveSession });
       try {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);

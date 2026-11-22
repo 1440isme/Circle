@@ -19,6 +19,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { useLanguageStore } from '../../stores/language.store';
+import { useAuthStore } from '../../stores/auth.store';
 import {
   useWheelsQuery,
   useCreateWheelMutation,
@@ -57,6 +58,7 @@ export const LiveWheelPickerModal: React.FC<LiveWheelPickerModalProps> = ({
   channelId,
 }) => {
   const { t, locale } = useLanguageStore();
+  const user = useAuthStore((s) => s.user);
   const queryClient = useQueryClient();
 
   const { data: rawWheels = [], isLoading: isLoadingWheels, refetch: refetchWheels } = useWheelsQuery(circleId);
@@ -347,6 +349,14 @@ export const LiveWheelPickerModal: React.FC<LiveWheelPickerModalProps> = ({
       const created = await createStageMutation.mutateAsync({ channelId });
       queryClient.invalidateQueries({ queryKey: ['wheels', circleId] });
 
+      if (created?.creatorId && user?.id && created.creatorId !== user.id) {
+        alert(
+          locale === 'vi'
+            ? `Đã tham gia phòng quay trực tiếp do ${created.spunBy?.displayName || 'thành viên'} vừa mở.`
+            : `Joined live wheel stage created by ${created.spunBy?.displayName || 'member'}.`,
+        );
+      }
+
       if (typeof window !== 'undefined') {
         window.dispatchEvent(
           new CustomEvent('circle:open-live-wheel', {
@@ -370,12 +380,12 @@ export const LiveWheelPickerModal: React.FC<LiveWheelPickerModalProps> = ({
         {/* ============================================================== */}
         <div className="flex items-center justify-between pb-3 border-b border-circle-hairline dark:border-circle-dark-hairline shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-circle-primary/15 text-circle-primary flex items-center justify-center">
+            <div className="w-8 h-8 rounded-full bg-blue-500/15 text-blue-600 dark:text-blue-400 flex items-center justify-center">
               <Compass className="w-4.5 h-4.5" />
             </div>
             <div>
               <h3 className="text-base font-bold text-circle-charcoal dark:text-circle-dark-text leading-tight">
-                {locale === 'vi' ? 'Vòng quay ngẫu nhiên' : 'Random Wheel'}
+                {t.luckyWheel.createRandomWheel || (locale === 'vi' ? 'Tạo vòng quay ngẫu nhiên' : 'Create Random Wheel')}
               </h3>
               <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted">
                 {locale === 'vi'
@@ -554,21 +564,8 @@ export const LiveWheelPickerModal: React.FC<LiveWheelPickerModalProps> = ({
           )}
         </div>
 
-        {/* Hàng thiết lập: Bật/Tắt âm thanh & Xóa tất cả */}
-        <div className="flex items-center justify-between pt-2.5 pb-2 border-t border-circle-hairline dark:border-circle-dark-hairline text-xs shrink-0">
-          <button
-            type="button"
-            onClick={() => setSoundEnabled(!soundEnabled)}
-            className="flex items-center gap-1.5 text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text transition-colors cursor-pointer"
-          >
-            {soundEnabled ? (
-              <Volume2 className="w-4 h-4 text-circle-primary" />
-            ) : (
-              <VolumeX className="w-4 h-4 text-circle-slate/60 dark:text-circle-dark-muted/60" />
-            )}
-            <span>{t.luckyWheel.soundSetting}</span>
-          </button>
-
+        {/* Hàng thiết lập: Xóa tất cả vòng (Đã bỏ nút âm thanh theo yêu cầu) */}
+        <div className="flex items-center justify-end pt-2.5 pb-2 border-t border-circle-hairline dark:border-circle-dark-hairline text-xs shrink-0">
           <button
             type="button"
             onClick={handleDeleteAllWheels}

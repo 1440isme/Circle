@@ -939,14 +939,16 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
             }))
           : undefined;
 
-      await closeLiveMutation.mutateAsync({
-        results: formattedResults,
-      });
-      queryClient.invalidateQueries({ queryKey: ['wheels', circleId] });
       setIsVisible(false);
       setLiveSession(null);
       setResultsText('');
       setCombinedResultsModal(null);
+      queryClient.setQueryData(['tools', 'wheels', 'live-active', circleId], null);
+
+      await closeLiveMutation.mutateAsync({
+        results: formattedResults,
+      });
+      queryClient.invalidateQueries({ queryKey: ['tools', 'wheels', circleId] });
     } catch (err: any) {
       alert(err?.response?.data?.message || err?.message || 'Không thể đóng phòng quay');
     }

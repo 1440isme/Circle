@@ -720,9 +720,9 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
                       }}
                       className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors text-left cursor-pointer"
                     >
-                      <Compass className="w-4 h-4 text-amber-500 shrink-0" />
+                      <Compass className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
                       <span>
-                        {locale === 'vi' ? 'Vòng quay ngẫu nhiên' : 'Random Wheel'}
+                        {t.luckyWheel.createRandomWheel || (locale === 'vi' ? 'Tạo vòng quay ngẫu nhiên' : 'Create Random Wheel')}
                       </span>
                     </button>
                   </>

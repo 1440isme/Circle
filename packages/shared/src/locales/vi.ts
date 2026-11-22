@@ -1802,7 +1802,7 @@ export const vi = {
     deleteSuccess: 'Đã xóa vòng quay thành công',
     saveSuccess: 'Đã lưu thay đổi',
     settings: 'Cài đặt vòng quay',
-    soundSetting: 'Âm thanh quay & chúc mừng',
+    soundSetting: 'Âm thanh quay',
     soundSettingDesc: 'Phát tiếng gõ nhịp khi quay và âm thanh chiến thắng',
     confettiSetting: 'Hiệu ứng chúc mừng (Confetti)',
     confettiSettingDesc: 'Tung hoa giấy rực rỡ khi có kết quả',
