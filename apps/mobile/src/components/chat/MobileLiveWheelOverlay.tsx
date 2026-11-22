@@ -25,6 +25,7 @@ import {
   Trophy,
   Sparkles,
   ArrowRight,
+  ArrowLeft,
   Users,
   Play,
   RotateCw,
@@ -76,7 +77,7 @@ const PASTEL_WHEEL_COLORS = [
 
 export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ circleId }) => {
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const { colors, resolvedTheme } = useThemeStore();
   const isDark = resolvedTheme === 'dark';
   const { locale, t } = useLanguageStore();
@@ -150,9 +151,9 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
   // Kích thước đĩa quay co giãn linh hoạt theo số lượng vòng
   const discSize = useMemo(() => {
     const count = wheelsList.length;
-    if (count <= 1) return Math.min(width - 80, 230);
-    if (count === 2) return Math.min((width - 64) / 2, 140);
-    return Math.min((width - 64) / 2, 118);
+    if (count <= 1) return Math.min(width - 64, 255);
+    if (count === 2) return Math.min((width - 56) / 2, 150);
+    return Math.min((width - 56) / 2, 130);
   }, [wheelsList.length, width]);
 
   // 1. Kiểm tra session đang hoạt động khi mount
@@ -390,7 +391,7 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
     });
   };
 
-  // 5. Xử lý khi ấn nút Quay (Bất kỳ ai cũng có thể ấn)
+  // 5. Xử lý khi ấn nút Quay Tất Cả
   const handleSpinClick = async () => {
     if (isSubmittingSpin || (!isFinished && session?.stageStatus === 'spinning')) return;
 
@@ -407,7 +408,25 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
     }
   };
 
-  // 6. Xử lý khi ấn nút "Loại bỏ kết quả"
+  // 6. Xử lý khi ấn nút Quay Riêng Vòng Đang Chọn
+  const handleSpinSingleWheel = async (wheelId: string) => {
+    if (isSubmittingSpin || (!isFinished && session?.stageStatus === 'spinning')) return;
+
+    try {
+      setIsSubmittingSpin(true);
+      await liveSpinWheelApi(circleId, {
+        isAll: false,
+        wheelId,
+        channelId: session?.channelId,
+      });
+    } catch (err: any) {
+      Alert.alert(t.common.error, err?.message || 'Không thể quay vòng này');
+    } finally {
+      setIsSubmittingSpin(false);
+    }
+  };
+
+  // 7. Xử lý khi ấn nút "Loại bỏ kết quả"
   const handleRemoveLiveResult = async (
     wheelId?: string,
     optionLabel?: string,
@@ -424,7 +443,7 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
     }
   };
 
-  // 7. Thêm vòng quay
+  // 8. Thêm vòng quay (tối đa 4 vòng)
   const handleAddDefaultWheel = async () => {
     if (wheelsList.length >= 4 || isAddingWheel || !canEdit) return;
     try {
@@ -455,7 +474,7 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
     }
   };
 
-  // 8. Đổi cài đặt: Bật/Tắt "Cho phép sửa"
+  // 9. Đổi cài đặt: Bật/Tắt "Cho phép sửa"
   const handleToggleAllowEdit = async () => {
     if (!isHost || isUpdatingSettings) return;
     try {
@@ -475,7 +494,7 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
     }
   };
 
-  // 9. Đổi cài đặt: Bật/Tắt âm thanh
+  // 10. Đổi cài đặt: Bật/Tắt âm thanh
   const handleToggleSound = () => {
     setSoundEnabled((prev) => !prev);
     try {
@@ -483,7 +502,7 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
     } catch {}
   };
 
-  // 10. Đóng phòng quay (Host) hoặc Rời phòng (Người xem)
+  // 11. Đóng phòng quay (Host) hoặc Rời phòng (Người xem)
   const handleCloseStage = () => {
     Alert.alert(
       locale === 'vi' ? 'Đóng phòng quay' : 'Close stage',
@@ -516,7 +535,7 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
     setIsVisible(false);
   };
 
-  // 11. Lưu sửa đổi cho tab lựa chọn của vòng
+  // 12. Lưu sửa đổi cho tab lựa chọn của vòng
   const handleSaveWheelOptions = async (wheelId: string) => {
     if (!canEdit) return;
     const text = wheelEditingState[wheelId] || '';
@@ -571,7 +590,7 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
   if (!session) {
     return (
       <Modal visible={isVisible} animationType="fade" transparent onRequestClose={handleLeaveStage}>
-        <View style={styles.backdrop}>
+        <View style={styles.loadingBackdrop}>
           <View
             style={[
               styles.loadingBox,
@@ -596,112 +615,156 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
   const participants = session.participants || [];
 
   return (
-    <Modal visible={isVisible} animationType="fade" transparent onRequestClose={handleLeaveStage}>
-      <View style={styles.backdrop}>
+    <Modal
+      visible={isVisible}
+      animationType="slide"
+      transparent={false}
+      onRequestClose={handleLeaveStage}
+    >
+      {/* ============================================================== */}
+      {/* TOÀN MÀN HÌNH FULL SCREEN (CHUẨN TIỆN ÍCH NHÓM)                 */}
+      {/* ============================================================== */}
+      <View
+        style={[
+          styles.fullScreenContainer,
+          {
+            backgroundColor: isDark ? colors.canvas : '#F8FAFC',
+            paddingTop: insets.top,
+          },
+        ]}
+      >
+        {/* ============================================================== */}
+        {/* 1. FLOATING HEADER BAR TRÀN VIỀN                              */}
+        {/* ============================================================== */}
         <View
           style={[
-            styles.cardContainer,
+            styles.headerBar,
             {
-              backgroundColor: isDark ? colors.elevated : '#FFFFFF',
-              borderColor: colors.hairline,
-              maxHeight: '94%',
+              backgroundColor: isDark ? 'rgba(30, 41, 59, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+              borderBottomColor: colors.hairline,
             },
           ]}
         >
-          {/* ============================================================== */}
-          {/* TOP BAR: TIÊU ĐỀ + MENU 3 CHẤM + NÚT ĐÓNG / RỜI PHÒNG           */}
-          {/* ============================================================== */}
-          <View style={[styles.topBar, { borderBottomColor: colors.hairline }]}>
-            <View style={styles.headerLeft}>
-              <View style={[styles.iconBox, { backgroundColor: `${colors.primary}20` }]}>
-                <Compass size={18} color={colors.primary} />
-              </View>
-              <View>
-                <Text style={[styles.headerTitle, { color: colors.text }]}>
-                  {locale === 'vi' ? 'Vòng quay ngẫu nhiên' : 'Random Wheel'}
-                </Text>
-              </View>
+          {/* Bên trái: Nút Quay lại / Đóng + Tiêu đề */}
+          <View style={styles.headerLeftGroup}>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={handleLeaveStage}
+              style={[
+                styles.iconRoundBtn,
+                {
+                  backgroundColor: isDark ? colors.surface : '#F1F5F9',
+                  borderColor: colors.hairline,
+                },
+              ]}
+              accessibilityLabel={t.common.back}
+            >
+              <ArrowLeft size={18} color={colors.text} />
+            </TouchableOpacity>
+
+            <View style={[styles.headerCompassIcon, { backgroundColor: `${colors.primary}18` }]}>
+              <Compass size={18} color={colors.primary} />
             </View>
 
-            {/* Cụm Action Bên Phải: Nút 3 chấm & Nút Đóng/Rời phòng */}
-            <View style={styles.headerRightActions}>
-              {/* Nút 3 Chấm */}
+            <View>
+              <Text style={[styles.headerTitleText, { color: colors.text }]} numberOfLines={1}>
+                {locale === 'vi' ? 'Vòng quay ngẫu nhiên' : 'Random Wheel'}
+              </Text>
+              <Text style={[styles.headerSubtitleText, { color: colors.subtle }]}>
+                {locale === 'vi' ? 'Sân khấu trực tiếp nhóm' : 'Live group stage'}
+              </Text>
+            </View>
+          </View>
+
+          {/* Bên phải: Nút 3 chấm & Nút Đóng phòng (Host) */}
+          <View style={styles.headerRightGroup}>
+            {/* Nút 3 chấm cài đặt (Âm thanh & Cho phép sửa) */}
+            <TouchableOpacity
+              activeOpacity={0.75}
+              onPress={() => setIsMoreMenuVisible(true)}
+              style={[
+                styles.iconRoundBtn,
+                {
+                  backgroundColor: isDark ? colors.surface : '#F1F5F9',
+                  borderColor: colors.hairline,
+                },
+              ]}
+              accessibilityLabel={locale === 'vi' ? 'Cài đặt phòng quay' : 'Stage settings'}
+            >
+              <MoreHorizontal size={18} color={colors.text} />
+            </TouchableOpacity>
+
+            {/* Nút Đóng phòng (Chủ phòng) HOẶC Rời phòng (Người xem) */}
+            {isHost ? (
               <TouchableOpacity
+                activeOpacity={0.75}
+                onPress={handleCloseStage}
+                style={styles.closeStagePillBtn}
+              >
+                <X size={15} color="#EF4444" />
+                <Text style={styles.closeStagePillBtnText}>
+                  {locale === 'vi' ? 'Đóng phòng' : 'Close'}
+                </Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                activeOpacity={0.75}
+                onPress={handleLeaveStage}
                 style={[
-                  styles.moreBtn,
+                  styles.leaveStagePillBtn,
                   {
                     backgroundColor: isDark ? colors.surface : '#F1F5F9',
                     borderColor: colors.hairline,
                   },
                 ]}
-                onPress={() => setIsMoreMenuVisible(true)}
-                activeOpacity={0.75}
               >
-                <MoreHorizontal size={18} color={colors.text} />
+                <LogOut size={14} color={colors.subtle} />
+                <Text style={[styles.leaveStagePillBtnText, { color: colors.subtle }]}>
+                  {locale === 'vi' ? 'Rời phòng' : 'Leave'}
+                </Text>
               </TouchableOpacity>
-
-              {/* Nút Đóng phòng (Host) hoặc Rời phòng (Người xem) */}
-              {isHost ? (
-                <TouchableOpacity
-                  style={styles.closeStageBtn}
-                  onPress={handleCloseStage}
-                  activeOpacity={0.75}
-                >
-                  <X size={16} color="#EF4444" />
-                  <Text style={styles.closeStageBtnText}>
-                    {locale === 'vi' ? 'Đóng' : 'Close'}
-                  </Text>
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity
-                  style={[
-                    styles.leaveStageBtn,
-                    {
-                      backgroundColor: isDark ? colors.surface : '#F1F5F9',
-                      borderColor: colors.hairline,
-                    },
-                  ]}
-                  onPress={handleLeaveStage}
-                  activeOpacity={0.75}
-                >
-                  <LogOut size={14} color={colors.subtle} />
-                  <Text style={[styles.leaveStageBtnText, { color: colors.subtle }]}>
-                    {locale === 'vi' ? 'Rời' : 'Leave'}
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
+            )}
           </View>
+        </View>
 
-          {/* ============================================================== */}
-          {/* FLOATING PILLS BAR (DẢI CÔNG CỤ NẰM NGANG)                      */}
-          {/* ============================================================== */}
+        {/* ============================================================== */}
+        {/* 2. DẢI FLOATING PILLS CUỘN NGANG                               */}
+        {/* ============================================================== */}
+        <View
+          style={[
+            styles.floatingPillsContainer,
+            {
+              backgroundColor: isDark ? 'rgba(30, 41, 59, 0.85)' : 'rgba(255, 255, 255, 0.85)',
+              borderBottomColor: colors.hairline,
+            },
+          ]}
+        >
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.floatingPillsBar}
+            contentContainerStyle={styles.floatingPillsScroll}
           >
             {/* Pill: KẾT QUẢ */}
             <TouchableOpacity
               activeOpacity={0.8}
               onPress={() => setActiveTab('results')}
               style={[
-                styles.floatingPill,
+                styles.pillBtn,
                 {
                   backgroundColor:
                     activeTab === 'results'
                       ? '#F59E0B'
                       : isDark
                       ? colors.surface
-                      : '#F1F5F9',
+                      : '#FFFFFF',
                   borderColor: activeTab === 'results' ? '#F59E0B' : colors.hairline,
                 },
               ]}
             >
-              <Trophy size={13} color={activeTab === 'results' ? '#FFFFFF' : '#F59E0B'} />
+              <Trophy size={14} color={activeTab === 'results' ? '#FFFFFF' : '#F59E0B'} />
               <Text
                 style={[
-                  styles.floatingPillText,
+                  styles.pillBtnText,
                   { color: activeTab === 'results' ? '#FFFFFF' : colors.text },
                 ]}
               >
@@ -714,23 +777,23 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
               activeOpacity={0.8}
               onPress={() => setActiveTab('participants')}
               style={[
-                styles.floatingPill,
+                styles.pillBtn,
                 {
                   backgroundColor:
                     activeTab === 'participants'
                       ? colors.primary
                       : isDark
                       ? colors.surface
-                      : '#F1F5F9',
+                      : '#FFFFFF',
                   borderColor:
                     activeTab === 'participants' ? colors.primary : colors.hairline,
                 },
               ]}
             >
-              <Users size={13} color={activeTab === 'participants' ? '#FFFFFF' : colors.primary} />
+              <Users size={14} color={activeTab === 'participants' ? '#FFFFFF' : colors.primary} />
               <Text
                 style={[
-                  styles.floatingPillText,
+                  styles.pillBtnText,
                   { color: activeTab === 'participants' ? '#FFFFFF' : colors.text },
                 ]}
               >
@@ -745,16 +808,16 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
                 disabled={wheelsList.length >= 4 || isAddingWheel}
                 onPress={handleAddDefaultWheel}
                 style={[
-                  styles.floatingPill,
+                  styles.pillBtn,
                   {
-                    backgroundColor: isDark ? colors.surface : '#F1F5F9',
+                    backgroundColor: isDark ? colors.surface : '#FFFFFF',
                     borderColor: colors.hairline,
                     opacity: wheelsList.length >= 4 ? 0.4 : 1,
                   },
                 ]}
               >
-                <Plus size={13} color={colors.primary} />
-                <Text style={[styles.floatingPillText, { color: colors.text }]}>
+                <Plus size={14} color={colors.primary} />
+                <Text style={[styles.pillBtnText, { color: colors.text }]}>
                   {t.luckyWheel.addWheel}
                 </Text>
               </TouchableOpacity>
@@ -762,35 +825,41 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
 
             {/* Pill: QUAY TẤT CẢ (Ai cũng có thể bấm) */}
             <TouchableOpacity
-              activeOpacity={0.8}
+              activeOpacity={0.85}
               disabled={isSpinning || isSubmittingSpin}
               onPress={handleSpinClick}
               style={[
-                styles.floatingPill,
+                styles.pillBtnPrimary,
                 {
                   backgroundColor: colors.primary,
-                  borderColor: colors.primary,
-                  opacity: isSpinning || isSubmittingSpin ? 0.5 : 1,
+                  opacity: isSpinning || isSubmittingSpin ? 0.6 : 1,
                 },
               ]}
             >
-              <RotateCw size={12} color="#FFFFFF" />
-              <Text style={[styles.floatingPillText, { color: '#FFFFFF', fontWeight: 'bold' }]}>
+              <RotateCw size={13} color="#FFFFFF" className={isSpinning ? 'animate-spin' : ''} />
+              <Text style={styles.pillBtnPrimaryText}>
                 {isSpinning || isSubmittingSpin ? t.luckyWheel.spinning : t.luckyWheel.spinAll}
               </Text>
             </TouchableOpacity>
           </ScrollView>
+        </View>
 
-          {/* ============================================================== */}
-          {/* SÂN KHẤU CÁC VÒNG XOAY HIỂN THỊ CO GIÃN LINH HOẠT             */}
-          {/* ============================================================== */}
-          <ScrollView
-            style={styles.wheelsScroll}
-            contentContainerStyle={[
-              styles.wheelsGrid,
-              wheelsList.length === 1 && { justifyContent: 'center' },
+        {/* ============================================================== */}
+        {/* 3. VÙNG SÂN KHẤU VÒNG QUAY TRUNG TÂM (DYNAMIC & FULL WIDTH)     */}
+        {/* ============================================================== */}
+        <ScrollView
+          style={styles.stageScrollArea}
+          contentContainerStyle={[
+            styles.stageScrollContent,
+            wheelsList.length === 1 && styles.stageSingleCenter,
+          ]}
+          showsVerticalScrollIndicator={false}
+        >
+          <View
+            style={[
+              styles.wheelsGridContainer,
+              wheelsList.length === 1 && { justifyContent: 'center', alignItems: 'center' },
             ]}
-            showsVerticalScrollIndicator={false}
           >
             {wheelsList.map((wheel, idx) => {
               const anim = rotateAnims[idx] || rotAnim0;
@@ -805,30 +874,30 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
                 <View
                   key={wheel.wheelId || `wheel-${idx}`}
                   style={[
-                    styles.wheelCell,
+                    styles.wheelCellBox,
                     wheelsList.length === 1 && { width: '100%', alignItems: 'center' },
                   ]}
                 >
-                  {/* Nhãn tab trên đầu từng vòng */}
+                  {/* Tiêu đề vòng quay nhỏ xinh trên mỗi đĩa */}
                   <TouchableOpacity
                     activeOpacity={0.8}
                     onPress={() => setActiveTab(tabKey)}
                     style={[
-                      styles.wheelCellLabel,
+                      styles.wheelCellHeaderPill,
                       {
                         backgroundColor: isActive
                           ? colors.primary
                           : isDark
                           ? colors.surface
-                          : '#F1F5F9',
+                          : '#FFFFFF',
                         borderColor: isActive ? colors.primary : colors.hairline,
                       },
                     ]}
                   >
-                    <Compass size={11} color={isActive ? '#FFFFFF' : colors.primary} />
+                    <Compass size={12} color={isActive ? '#FFFFFF' : colors.primary} />
                     <Text
                       style={[
-                        styles.wheelCellLabelText,
+                        styles.wheelCellHeaderPillText,
                         { color: isActive ? '#FFFFFF' : colors.text },
                       ]}
                       numberOfLines={1}
@@ -838,10 +907,10 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
                   </TouchableOpacity>
 
                   {/* Đĩa quay SVG */}
-                  <View style={[styles.discBox, { width: discSize, height: discSize }]}>
+                  <View style={[styles.discContainer, { width: discSize, height: discSize }]}>
                     <Animated.View
                       style={[
-                        styles.wheelRotateBox,
+                        styles.wheelRotateWrapper,
                         {
                           width: discSize,
                           height: discSize,
@@ -854,26 +923,26 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
                         <Circle
                           cx={discSize / 2}
                           cy={discSize / 2}
-                          r={discSize > 180 ? 16 : 12}
+                          r={discSize > 180 ? 18 : 13}
                           fill="#FFFFFF"
                           stroke="#E2E8F0"
-                          strokeWidth={1.5}
+                          strokeWidth={2}
                         />
                         <Circle
                           cx={discSize / 2}
                           cy={discSize / 2}
-                          r={discSize > 180 ? 6 : 4.5}
+                          r={discSize > 180 ? 7 : 5}
                           fill={colors.primary}
                         />
                       </Svg>
                     </Animated.View>
 
-                    {/* Kim chỉ bên phải */}
+                    {/* Kim chỉ đĩa quay bên phải */}
                     <View
-                      style={[styles.pointerRight, { right: discSize > 180 ? -12 : -10 }]}
+                      style={[styles.stagePointerRight, { right: discSize > 180 ? -12 : -10 }]}
                       pointerEvents="none"
                     >
-                      <Svg width={22} height={14} viewBox="0 0 30 20">
+                      <Svg width={24} height={16} viewBox="0 0 30 20">
                         <Path
                           d="M2 10L18 2C20 1 21 2 21 4V16C21 18 20 19 18 18L2 10Z"
                           fill={colors.primary}
@@ -897,34 +966,31 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
                     </View>
                   </View>
 
-                  {/* Hiển thị kết quả thắng riêng của từng vòng */}
+                  {/* Winner Badge nếu vòng này đã có kết quả trúng */}
                   {isFinished && wheel.winningOption && (
-                    <View style={styles.cellWinnerRow}>
-                      <Text
+                    <View style={styles.wheelWinnerPillRow}>
+                      <View
                         style={[
-                          styles.cellWinnerBadge,
+                          styles.winnerBadgePill,
                           {
-                            color: '#D97706',
                             backgroundColor: '#FEF3C7',
                             borderColor: '#FDE68A',
                           },
                         ]}
-                        numberOfLines={1}
                       >
-                        🏆 {wheel.winningOption.optionLabel}
-                      </Text>
+                        <Text style={styles.winnerBadgePillText} numberOfLines={1}>
+                          🏆 {wheel.winningOption.optionLabel}
+                        </Text>
+                      </View>
                       {canEdit && (
                         <TouchableOpacity
-                          style={styles.cellRemoveBtn}
+                          style={styles.removeWinnerBtn}
                           onPress={() =>
-                            handleRemoveLiveResult(
-                              wheel.wheelId,
-                              wheel.winningOption?.optionLabel
-                            )
+                            handleRemoveLiveResult(wheel.wheelId, wheel.winningOption?.optionLabel)
                           }
-                          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                         >
-                          <Trash2 size={11} color="#EF4444" />
+                          <Trash2 size={12} color="#EF4444" />
                         </TouchableOpacity>
                       )}
                     </View>
@@ -932,315 +998,370 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
                 </View>
               );
             })}
-          </ScrollView>
+          </View>
+        </ScrollView>
 
-          {/* ============================================================== */}
-          {/* "CÁI BẢNG" (TABBED BOARD BÊN DƯỚI)                            */}
-          {/* ============================================================== */}
-          <View style={[styles.tabbedBoard, { borderTopColor: colors.hairline }]}>
-            {/* Horizontal Tabs: [Vòng 1] [Vòng 2] ... [🏆 Kết quả] [👥 Người xem] */}
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.tabsScroll}
-            >
-              {wheelsList.map((wheel, idx) => {
-                const tabKey = wheel.wheelId || String(idx);
-                const isSelected = activeTab === tabKey;
-                return (
-                  <TouchableOpacity
-                    key={tabKey}
-                    onPress={() => setActiveTab(tabKey)}
-                    style={[
-                      styles.tabPill,
-                      {
-                        backgroundColor: isSelected
-                          ? colors.primary
-                          : isDark
-                          ? colors.surface
-                          : '#F1F5F9',
-                        borderColor: isSelected ? colors.primary : colors.hairline,
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.tabPillText,
-                        {
-                          color: isSelected ? '#FFFFFF' : colors.text,
-                          fontWeight: isSelected ? '700' : '600',
-                        },
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {wheel.wheelTitle || (locale === 'vi' ? `Vòng ${idx + 1}` : `Wheel ${idx + 1}`)}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-
-              {/* Tab Kết Quả */}
-              <TouchableOpacity
-                onPress={() => setActiveTab('results')}
-                style={[
-                  styles.tabPill,
-                  {
-                    backgroundColor:
-                      activeTab === 'results'
-                        ? '#F59E0B'
-                        : isDark
-                        ? colors.surface
-                        : '#F1F5F9',
-                    borderColor: activeTab === 'results' ? '#F59E0B' : colors.hairline,
-                  },
-                ]}
-              >
-                <Trophy size={13} color={activeTab === 'results' ? '#FFFFFF' : '#F59E0B'} />
-                <Text
+        {/* ============================================================== */}
+        {/* 4. CÁI BẢNG THIẾT LẬP (TABBED BOTTOM BOARD)                    */}
+        {/* ============================================================== */}
+        <View
+          style={[
+            styles.bottomBoard,
+            {
+              backgroundColor: isDark ? colors.elevated : '#FFFFFF',
+              borderColor: colors.hairline,
+              paddingBottom: Math.max(insets.bottom, 12),
+            },
+          ]}
+        >
+          {/* Horizontal Tabs: [Vòng 1] [Vòng 2] ... [🏆 Kết quả] [👥 Người xem] */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.boardTabsScroll}
+          >
+            {wheelsList.map((wheel, idx) => {
+              const tabKey = wheel.wheelId || String(idx);
+              const isSelected = activeTab === tabKey;
+              return (
+                <TouchableOpacity
+                  key={tabKey}
+                  onPress={() => setActiveTab(tabKey)}
                   style={[
-                    styles.tabPillText,
+                    styles.boardTabItem,
                     {
-                      color: activeTab === 'results' ? '#FFFFFF' : colors.text,
-                      fontWeight: activeTab === 'results' ? '700' : '600',
-                    },
-                  ]}
-                  numberOfLines={1}
-                >
-                  {t.luckyWheel.resultsTab}
-                </Text>
-              </TouchableOpacity>
-
-              {/* Tab Người xem */}
-              <TouchableOpacity
-                onPress={() => setActiveTab('participants')}
-                style={[
-                  styles.tabPill,
-                  {
-                    backgroundColor:
-                      activeTab === 'participants'
+                      backgroundColor: isSelected
                         ? colors.primary
                         : isDark
                         ? colors.surface
                         : '#F1F5F9',
-                    borderColor:
-                      activeTab === 'participants' ? colors.primary : colors.hairline,
-                  },
-                ]}
-              >
-                <Users
-                  size={13}
-                  color={activeTab === 'participants' ? '#FFFFFF' : colors.primary}
-                />
-                <Text
-                  style={[
-                    styles.tabPillText,
-                    {
-                      color: activeTab === 'participants' ? '#FFFFFF' : colors.text,
-                      fontWeight: activeTab === 'participants' ? '700' : '600',
+                      borderColor: isSelected ? colors.primary : colors.hairline,
                     },
                   ]}
-                  numberOfLines={1}
                 >
-                  {locale === 'vi' ? 'Người xem' : 'Viewers'} ({participants.length})
-                </Text>
-              </TouchableOpacity>
-            </ScrollView>
-
-            {/* TAB CONTENT BODY */}
-            <View style={styles.tabContentContainer}>
-              {activeTab === 'results' ? (
-                /* TAB 1: KẾT QUẢ */
-                <View style={styles.tabResultsWrapper}>
-                  {isSpinning ? (
-                    <View style={[styles.spinningAlert, { backgroundColor: `${colors.primary}15` }]}>
-                      <ActivityIndicator size="small" color={colors.primary} />
-                      <Text style={[styles.spinningAlertText, { color: colors.primary }]}>
-                        {t.luckyWheel.spinningLive}
-                      </Text>
-                    </View>
-                  ) : isFinished && session.winningOption ? (
-                    <View style={styles.winnerCard}>
-                      <View style={styles.winnerHeaderRow}>
-                        <Trophy size={13} color="#D97706" />
-                        <Sparkles size={12} color="#D97706" />
-                        <Text style={styles.winnerTitle}>{t.luckyWheel.winnerAnnounce}</Text>
-                      </View>
-                      <Text style={styles.winnerText} numberOfLines={2}>
-                        {session.winningOption.optionLabel}
-                      </Text>
-                      <Text style={[styles.spunBySub, { color: colors.subtle }]}>
-                        {t.luckyWheel.spunBy.replace('{name}', spunByName)}
-                      </Text>
-
-                      {canEdit && (
-                        <TouchableOpacity
-                          style={styles.removeResultBtn}
-                          onPress={() => handleRemoveLiveResult(undefined, undefined, true)}
-                          activeOpacity={0.8}
-                        >
-                          <Trash2 size={12} color="#EF4444" />
-                          <Text style={styles.removeResultBtnText}>
-                            {t.luckyWheel.removeResult}
-                          </Text>
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                  ) : (
-                    <Text style={[styles.idleHintText, { color: colors.subtle }]}>
-                      {locale === 'vi'
-                        ? 'Bấm "Quay tất cả" để bắt đầu quay cùng nhau!'
-                        : 'Press "Spin All" to spin together!'}
-                    </Text>
-                  )}
-                </View>
-              ) : activeTab === 'participants' ? (
-                /* TAB 2: NGƯỜI XEM TRỰC TIẾP */
-                <View style={styles.tabParticipantsWrapper}>
-                  <View style={styles.participantsHeader}>
-                    <View style={styles.participantsTitleRow}>
-                      <Users size={12} color={colors.primary} />
-                      <Text style={[styles.participantsTitle, { color: colors.text }]}>
-                        {locale === 'vi' ? 'Đang trong phòng' : 'In Room'} ({participants.length})
-                      </Text>
-                    </View>
-                    <View style={styles.liveDotRow}>
-                      <View style={styles.greenDot} />
-                      <Text style={styles.liveDotText}>
-                        {locale === 'vi' ? 'Trực tiếp' : 'Live'}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.avatarRow}
+                  <Text
+                    style={[
+                      styles.boardTabItemText,
+                      {
+                        color: isSelected ? '#FFFFFF' : colors.text,
+                        fontWeight: isSelected ? '700' : '600',
+                      },
+                    ]}
+                    numberOfLines={1}
                   >
-                    {participants.map((p) => (
-                      <View key={p.userId} style={styles.participantChip}>
-                        {p.avatarUrl ? (
-                          <Image source={{ uri: p.avatarUrl }} style={styles.participantAvatar} />
-                        ) : (
-                          <View
+                    {wheel.wheelTitle || (locale === 'vi' ? `Vòng ${idx + 1}` : `Wheel ${idx + 1}`)}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+
+            {/* Tab Kết Quả */}
+            <TouchableOpacity
+              onPress={() => setActiveTab('results')}
+              style={[
+                styles.boardTabItem,
+                {
+                  backgroundColor:
+                    activeTab === 'results'
+                      ? '#F59E0B'
+                      : isDark
+                      ? colors.surface
+                      : '#F1F5F9',
+                  borderColor: activeTab === 'results' ? '#F59E0B' : colors.hairline,
+                },
+              ]}
+            >
+              <Trophy size={13} color={activeTab === 'results' ? '#FFFFFF' : '#F59E0B'} />
+              <Text
+                style={[
+                  styles.boardTabItemText,
+                  {
+                    color: activeTab === 'results' ? '#FFFFFF' : colors.text,
+                    fontWeight: activeTab === 'results' ? '700' : '600',
+                  },
+                ]}
+                numberOfLines={1}
+              >
+                {t.luckyWheel.resultsTab}
+              </Text>
+            </TouchableOpacity>
+
+            {/* Tab Người xem */}
+            <TouchableOpacity
+              onPress={() => setActiveTab('participants')}
+              style={[
+                styles.boardTabItem,
+                {
+                  backgroundColor:
+                    activeTab === 'participants'
+                      ? colors.primary
+                      : isDark
+                      ? colors.surface
+                      : '#F1F5F9',
+                  borderColor:
+                    activeTab === 'participants' ? colors.primary : colors.hairline,
+                },
+              ]}
+            >
+              <Users size={13} color={activeTab === 'participants' ? '#FFFFFF' : colors.primary} />
+              <Text
+                style={[
+                  styles.boardTabItemText,
+                  {
+                    color: activeTab === 'participants' ? '#FFFFFF' : colors.text,
+                    fontWeight: activeTab === 'participants' ? '700' : '600',
+                  },
+                ]}
+                numberOfLines={1}
+              >
+                {locale === 'vi' ? 'Người xem' : 'Viewers'} ({participants.length})
+              </Text>
+            </TouchableOpacity>
+          </ScrollView>
+
+          {/* Nội dung Tab */}
+          <View style={styles.boardTabContent}>
+            {activeTab === 'results' ? (
+              /* TAB 1: KẾT QUẢ THẮNG GIẢI */
+              <View style={styles.tabResultsContainer}>
+                {isSpinning ? (
+                  <View style={[styles.spinningBadgeBox, { backgroundColor: `${colors.primary}15` }]}>
+                    <ActivityIndicator size="small" color={colors.primary} />
+                    <Text style={[styles.spinningBadgeText, { color: colors.primary }]}>
+                      {t.luckyWheel.spinningLive}
+                    </Text>
+                  </View>
+                ) : isFinished && session.winningOption ? (
+                  <View style={styles.winnerCardBox}>
+                    <View style={styles.winnerCardHeader}>
+                      <Trophy size={14} color="#D97706" />
+                      <Sparkles size={13} color="#D97706" />
+                      <Text style={styles.winnerCardTitle}>{t.luckyWheel.winnerAnnounce}</Text>
+                    </View>
+                    <Text style={styles.winnerCardText} numberOfLines={2}>
+                      {session.winningOption.optionLabel}
+                    </Text>
+                    <Text style={[styles.winnerCardSpunBy, { color: colors.subtle }]}>
+                      {t.luckyWheel.spunBy.replace('{name}', spunByName)}
+                    </Text>
+
+                    {canEdit && (
+                      <TouchableOpacity
+                        style={styles.discardResultBtn}
+                        onPress={() => handleRemoveLiveResult(undefined, undefined, true)}
+                        activeOpacity={0.8}
+                      >
+                        <Trash2 size={13} color="#EF4444" />
+                        <Text style={styles.discardResultBtnText}>
+                          {t.luckyWheel.removeResult}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                ) : (
+                  <Text style={[styles.emptyHintText, { color: colors.subtle }]}>
+                    {locale === 'vi'
+                      ? 'Bấm "Quay tất cả" để bắt đầu quay trực tiếp cùng nhóm!'
+                      : 'Press "Spin All" to spin together!'}
+                  </Text>
+                )}
+              </View>
+            ) : activeTab === 'participants' ? (
+              /* TAB 2: NGƯỜI XEM TRỰC TIẾP */
+              <View style={styles.tabParticipantsContainer}>
+                <View style={styles.participantsTopRow}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                    <Users size={13} color={colors.primary} />
+                    <Text style={[styles.participantsCountLabel, { color: colors.text }]}>
+                      {locale === 'vi' ? 'Đang trong phòng quay' : 'In Stage'} ({participants.length})
+                    </Text>
+                  </View>
+                  <View style={styles.liveIndicatorBadge}>
+                    <View style={styles.liveGreenDot} />
+                    <Text style={styles.liveIndicatorText}>
+                      {locale === 'vi' ? 'Trực tiếp' : 'Live'}
+                    </Text>
+                  </View>
+                </View>
+
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.participantsListScroll}
+                >
+                  {participants.map((p) => (
+                    <View
+                      key={p.userId}
+                      style={[
+                        styles.participantCard,
+                        {
+                          backgroundColor: isDark ? colors.surface : '#F1F5F9',
+                          borderColor: colors.hairline,
+                        },
+                      ]}
+                    >
+                      {p.avatarUrl ? (
+                        <Image source={{ uri: p.avatarUrl }} style={styles.participantAvatarImg} />
+                      ) : (
+                        <View
+                          style={[
+                            styles.participantAvatarPlaceholder,
+                            { backgroundColor: `${colors.primary}20` },
+                          ]}
+                        >
+                          <Text
                             style={[
-                              styles.participantAvatarFallback,
-                              { backgroundColor: `${colors.primary}25` },
+                              styles.participantAvatarPlaceholderText,
+                              { color: colors.primary },
                             ]}
                           >
-                            <Text
-                              style={[
-                                styles.participantAvatarFallbackText,
-                                { color: colors.primary },
-                              ]}
-                            >
-                              {p.displayName?.charAt(0) || 'U'}
-                            </Text>
-                          </View>
-                        )}
-                        <Text
-                          style={[styles.participantName, { color: colors.text }]}
-                          numberOfLines={1}
-                        >
-                          {p.displayName}
-                        </Text>
-                      </View>
-                    ))}
-                  </ScrollView>
-                </View>
-              ) : (
-                /* TAB 3: DANH SÁCH LỰA CHỌN CỦA VÒNG */
-                (() => {
-                  const currentWheel =
-                    wheelsList.find((w, i) => (w.wheelId || String(i)) === activeTab) ||
-                    wheelsList[0];
-                  if (!currentWheel) return null;
-                  const currentWheelId = currentWheel.wheelId;
-                  const currentText =
-                    wheelEditingState[currentWheelId] !== undefined
-                      ? wheelEditingState[currentWheelId]
-                      : currentWheel.options.map((o) => o.optionLabel).join('\n');
-
-                  return (
-                    <View style={styles.tabOptionsWrapper}>
-                      <View style={styles.tabOptionsHeader}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                          <Text
-                            style={[styles.tabOptionsTitle, { color: colors.text }]}
-                            numberOfLines={1}
-                          >
-                            {currentWheel.wheelTitle || 'Vòng quay'}
-                          </Text>
-                          <Text style={[styles.tabOptionsCount, { color: colors.subtle }]}>
-                            ({currentWheel.options.length}{' '}
-                            {locale === 'vi' ? 'lựa chọn' : 'options'})
+                            {p.displayName?.charAt(0) || 'U'}
                           </Text>
                         </View>
+                      )}
+                      <Text
+                        style={[styles.participantDisplayName, { color: colors.text }]}
+                        numberOfLines={1}
+                      >
+                        {p.displayName}
+                      </Text>
+                    </View>
+                  ))}
+                </ScrollView>
+              </View>
+            ) : (
+              /* TAB 3: DANH SÁCH LỰA CHỌN CỦA VÒNG (CÓ NÚT THAO TÁC NHƯ WEB) */
+              (() => {
+                const currentWheel =
+                  wheelsList.find((w, i) => (w.wheelId || String(i)) === activeTab) ||
+                  wheelsList[0];
+                if (!currentWheel) return null;
+                const currentWheelId = currentWheel.wheelId;
+                const currentText =
+                  wheelEditingState[currentWheelId] !== undefined
+                    ? wheelEditingState[currentWheelId]
+                    : currentWheel.options.map((o) => o.optionLabel).join('\n');
 
-                        {/* Badge quyền hoặc các nút thao tác nhanh */}
-                        {canEdit ? (
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                return (
+                  <View style={styles.tabWheelOptionsContainer}>
+                    <View style={styles.tabWheelOptionsHeader}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Text
+                          style={[styles.tabWheelOptionsTitle, { color: colors.text }]}
+                          numberOfLines={1}
+                        >
+                          {currentWheel.wheelTitle || 'Vòng quay'}
+                        </Text>
+                        <Text style={[styles.tabWheelOptionsCount, { color: colors.subtle }]}>
+                          ({currentWheel.options.length}{' '}
+                          {locale === 'vi' ? 'lựa chọn' : 'options'})
+                        </Text>
+                      </View>
+
+                      {/* Các nút công cụ thao tác */}
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                        {canEdit && (
+                          <>
+                            {/* Nút Xáo trộn */}
                             <TouchableOpacity
-                              style={styles.wheelMiniActionBtn}
+                              style={[
+                                styles.toolActionBtn,
+                                {
+                                  backgroundColor: isDark ? colors.surface : '#F1F5F9',
+                                  borderColor: colors.hairline,
+                                },
+                              ]}
                               onPress={() => handleShuffleWheel(currentWheelId)}
+                              accessibilityLabel={locale === 'vi' ? 'Xáo trộn' : 'Shuffle'}
                             >
                               <Shuffle size={13} color={colors.primary} />
                             </TouchableOpacity>
+
+                            {/* Nút Sắp xếp A-Z */}
                             <TouchableOpacity
-                              style={styles.wheelMiniActionBtn}
+                              style={[
+                                styles.toolActionBtn,
+                                {
+                                  backgroundColor: isDark ? colors.surface : '#F1F5F9',
+                                  borderColor: colors.hairline,
+                                },
+                              ]}
                               onPress={() => handleSortAZWheel(currentWheelId)}
+                              accessibilityLabel={locale === 'vi' ? 'Sắp xếp A-Z' : 'Sort A-Z'}
                             >
                               <ArrowDownAZ size={13} color="#6366F1" />
                             </TouchableOpacity>
+
+                            {/* Nút Lưu thay đổi */}
                             <TouchableOpacity
-                              style={[styles.wheelMiniActionBtn, { backgroundColor: colors.primary }]}
+                              style={[styles.toolActionBtn, { backgroundColor: colors.primary }]}
                               onPress={() => handleSaveWheelOptions(currentWheelId)}
+                              accessibilityLabel={locale === 'vi' ? 'Lưu' : 'Save'}
                             >
                               <Check size={13} color="#FFFFFF" />
                             </TouchableOpacity>
-                          </View>
-                        ) : (
+                          </>
+                        )}
+
+                        {/* Nút Quay Riêng Vòng Này (Bất kỳ ai cũng quay được) */}
+                        <TouchableOpacity
+                          disabled={isSpinning || isSubmittingSpin}
+                          style={[
+                            styles.toolActionBtnPrimary,
+                            {
+                              backgroundColor: colors.primary,
+                              opacity: isSpinning || isSubmittingSpin ? 0.5 : 1,
+                            },
+                          ]}
+                          onPress={() => handleSpinSingleWheel(currentWheelId)}
+                          accessibilityLabel={locale === 'vi' ? 'Quay vòng này' : 'Spin this wheel'}
+                        >
+                          <Play size={12} color="#FFFFFF" fill="#FFFFFF" />
+                        </TouchableOpacity>
+
+                        {!canEdit && (
                           <View
                             style={[
-                              styles.viewOnlyBadge,
+                              styles.viewOnlyBadgePill,
                               { backgroundColor: isDark ? colors.surface : '#F1F5F9' },
                             ]}
                           >
                             <Lock size={10} color={colors.subtle} />
-                            <Text style={[styles.viewOnlyBadgeText, { color: colors.subtle }]}>
+                            <Text style={[styles.viewOnlyBadgePillText, { color: colors.subtle }]}>
                               {locale === 'vi' ? 'Chỉ xem' : 'View only'}
                             </Text>
                           </View>
                         )}
                       </View>
-
-                      <TextInput
-                        style={[
-                          styles.boardTextarea,
-                          {
-                            backgroundColor: isDark ? colors.surface : '#F8FAFC',
-                            borderColor: colors.hairline,
-                            color: colors.text,
-                          },
-                          !canEdit && { opacity: 0.75 },
-                        ]}
-                        multiline
-                        editable={canEdit}
-                        value={currentText}
-                        onChangeText={(txt) =>
-                          setWheelEditingState((prev) => ({
-                            ...prev,
-                            [currentWheelId]: txt,
-                          }))
-                        }
-                        numberOfLines={4}
-                        placeholder={t.luckyWheel.optionsPlaceholder}
-                        placeholderTextColor={colors.subtle}
-                      />
                     </View>
-                  );
-                })()
-              )}
-            </View>
+
+                    <TextInput
+                      style={[
+                        styles.optionsTextarea,
+                        {
+                          backgroundColor: isDark ? colors.surface : '#F8FAFC',
+                          borderColor: colors.hairline,
+                          color: colors.text,
+                        },
+                        !canEdit && { opacity: 0.75 },
+                      ]}
+                      multiline
+                      editable={canEdit}
+                      value={currentText}
+                      onChangeText={(txt) =>
+                        setWheelEditingState((prev) => ({
+                          ...prev,
+                          [currentWheelId]: txt,
+                        }))
+                      }
+                      numberOfLines={4}
+                      placeholder={t.luckyWheel.optionsPlaceholder}
+                      placeholderTextColor={colors.subtle}
+                    />
+                  </View>
+                );
+              })()
+            )}
           </View>
         </View>
       </View>
@@ -1255,13 +1376,13 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
         onRequestClose={() => setIsMoreMenuVisible(false)}
       >
         <TouchableOpacity
-          style={styles.menuBackdrop}
+          style={styles.moreMenuBackdrop}
           activeOpacity={1}
           onPress={() => setIsMoreMenuVisible(false)}
         >
           <View
             style={[
-              styles.menuCard,
+              styles.moreMenuCard,
               {
                 backgroundColor: isDark ? colors.elevated : '#FFFFFF',
                 borderColor: colors.hairline,
@@ -1269,8 +1390,8 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
             ]}
           >
             {/* Header Menu */}
-            <View style={[styles.menuHeader, { borderBottomColor: colors.hairline }]}>
-              <Text style={[styles.menuTitle, { color: colors.text }]}>
+            <View style={[styles.moreMenuHeader, { borderBottomColor: colors.hairline }]}>
+              <Text style={[styles.moreMenuHeaderTitle, { color: colors.text }]}>
                 {locale === 'vi' ? 'Cài đặt phòng quay' : 'Stage settings'}
               </Text>
               <TouchableOpacity
@@ -1283,14 +1404,14 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
 
             {/* 1. ÂM THANH */}
             <TouchableOpacity
-              style={styles.menuItem}
+              style={styles.moreMenuItemRow}
               onPress={handleToggleSound}
               activeOpacity={0.7}
             >
-              <View style={styles.menuItemLeft}>
+              <View style={styles.moreMenuItemLeft}>
                 <View
                   style={[
-                    styles.menuIconBox,
+                    styles.moreMenuItemIconBox,
                     {
                       backgroundColor: soundEnabled
                         ? `${colors.primary}18`
@@ -1307,10 +1428,10 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
                   )}
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.menuItemLabel, { color: colors.text }]}>
+                  <Text style={[styles.moreMenuItemLabel, { color: colors.text }]}>
                     {t.luckyWheel.soundSetting}
                   </Text>
-                  <Text style={[styles.menuItemSub, { color: colors.subtle }]}>
+                  <Text style={[styles.moreMenuItemSub, { color: colors.subtle }]}>
                     {soundEnabled
                       ? locale === 'vi'
                         ? 'Bật âm thanh quay & chúc mừng'
@@ -1325,7 +1446,7 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
               {/* Switch Toggle */}
               <View
                 style={[
-                  styles.toggleTrack,
+                  styles.switchTrack,
                   {
                     backgroundColor: soundEnabled
                       ? colors.primary
@@ -1337,27 +1458,27 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
               >
                 <View
                   style={[
-                    styles.toggleThumb,
-                    soundEnabled && styles.toggleThumbActive,
+                    styles.switchThumb,
+                    soundEnabled && styles.switchThumbActive,
                   ]}
                 />
               </View>
             </TouchableOpacity>
 
-            <View style={[styles.menuDivider, { backgroundColor: colors.hairline }]} />
+            <View style={[styles.moreMenuDivider, { backgroundColor: colors.hairline }]} />
 
             {/* 2. QUYỀN CHỈNH SỬA */}
             {isHost ? (
               <TouchableOpacity
-                style={styles.menuItem}
+                style={styles.moreMenuItemRow}
                 disabled={isUpdatingSettings}
                 onPress={handleToggleAllowEdit}
                 activeOpacity={0.7}
               >
-                <View style={styles.menuItemLeft}>
+                <View style={styles.moreMenuItemLeft}>
                   <View
                     style={[
-                      styles.menuIconBox,
+                      styles.moreMenuItemIconBox,
                       {
                         backgroundColor: allowMembersToEdit
                           ? 'rgba(16, 185, 129, 0.15)'
@@ -1372,10 +1493,10 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
                     )}
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={[styles.menuItemLabel, { color: colors.text }]}>
+                    <Text style={[styles.moreMenuItemLabel, { color: colors.text }]}>
                       {t.luckyWheel.allowEdit || (locale === 'vi' ? 'Cho phép sửa' : 'Allow edit')}
                     </Text>
-                    <Text style={[styles.menuItemSub, { color: colors.subtle }]}>
+                    <Text style={[styles.moreMenuItemSub, { color: colors.subtle }]}>
                       {allowMembersToEdit
                         ? locale === 'vi'
                           ? 'Tất cả thành viên đều được sửa'
@@ -1390,7 +1511,7 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
                 {/* Switch Toggle */}
                 <View
                   style={[
-                    styles.toggleTrack,
+                    styles.switchTrack,
                     {
                       backgroundColor: allowMembersToEdit
                         ? '#10B981'
@@ -1402,18 +1523,18 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
                 >
                   <View
                     style={[
-                      styles.toggleThumb,
-                      allowMembersToEdit && styles.toggleThumbActive,
+                      styles.switchThumb,
+                      allowMembersToEdit && styles.switchThumbActive,
                     ]}
                   />
                 </View>
               </TouchableOpacity>
             ) : (
-              <View style={styles.menuItem}>
-                <View style={styles.menuItemLeft}>
+              <View style={styles.moreMenuItemRow}>
+                <View style={styles.moreMenuItemLeft}>
                   <View
                     style={[
-                      styles.menuIconBox,
+                      styles.moreMenuItemIconBox,
                       {
                         backgroundColor: allowMembersToEdit
                           ? 'rgba(16, 185, 129, 0.15)'
@@ -1430,10 +1551,10 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
                     )}
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={[styles.menuItemLabel, { color: colors.text }]}>
+                    <Text style={[styles.moreMenuItemLabel, { color: colors.text }]}>
                       {t.luckyWheel.allowEdit || (locale === 'vi' ? 'Quyền chỉnh sửa' : 'Edit permission')}
                     </Text>
-                    <Text style={[styles.menuItemSub, { color: colors.subtle }]}>
+                    <Text style={[styles.moreMenuItemSub, { color: colors.subtle }]}>
                       {allowMembersToEdit
                         ? locale === 'vi'
                           ? 'Được phép sửa nội dung'
@@ -1447,7 +1568,7 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
 
                 <View
                   style={[
-                    styles.viewOnlyBadge,
+                    styles.viewOnlyBadgePill,
                     {
                       backgroundColor: allowMembersToEdit
                         ? 'rgba(16, 185, 129, 0.15)'
@@ -1459,7 +1580,7 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
                 >
                   <Text
                     style={[
-                      styles.viewOnlyBadgeText,
+                      styles.viewOnlyBadgePillText,
                       { color: allowMembersToEdit ? '#10B981' : colors.subtle },
                     ]}
                   >
@@ -1482,393 +1603,15 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
 };
 
 const styles = StyleSheet.create({
-  backdrop: {
+  fullScreenContainer: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 12,
   },
-  cardContainer: {
-    width: '100%',
-    maxWidth: 420,
-    borderRadius: 28,
-    borderWidth: 1,
-    padding: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.25,
-    shadowRadius: 20,
-    elevation: 10,
-    overflow: 'hidden',
-  },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingBottom: 8,
-    borderBottomWidth: 1,
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  iconBox: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    fontSize: 14.5,
-    fontWeight: '800',
-  },
-  headerRightActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  moreBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-  },
-  closeStageBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 12,
-    backgroundColor: 'rgba(239, 68, 68, 0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.25)',
-  },
-  closeStageBtnText: {
-    fontSize: 11,
-    fontWeight: 'bold',
-    color: '#EF4444',
-  },
-  leaveStageBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  leaveStageBtnText: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  floatingPillsBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 8,
-  },
-  floatingPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 14,
-    borderWidth: 1,
-  },
-  floatingPillText: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  wheelsScroll: {
-    maxHeight: 275,
-    marginVertical: 4,
-  },
-  wheelsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-around',
-    gap: 8,
-    paddingVertical: 4,
-  },
-  wheelCell: {
-    alignItems: 'center',
-    gap: 3,
-    marginBottom: 4,
-  },
-  wheelCellLabel: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 8,
-    borderWidth: 1,
-    maxWidth: 130,
-  },
-  wheelCellLabelText: {
-    fontSize: 10,
-    fontWeight: 'bold',
-  },
-  discBox: {
-    position: 'relative',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  wheelRotateBox: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pointerRight: {
-    position: 'absolute',
-    right: -10,
-    top: '50%',
-    marginTop: -7,
-    zIndex: 10,
-  },
-  cellWinnerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    marginTop: 3,
-    maxWidth: '100%',
-  },
-  cellWinnerBadge: {
-    fontSize: 9.5,
-    fontWeight: 'bold',
-    paddingHorizontal: 6,
-    paddingVertical: 1.5,
-    borderRadius: 6,
-    borderWidth: 1,
-    maxWidth: 130,
-    textAlign: 'center',
-  },
-  cellRemoveBtn: {
-    padding: 3,
-    borderRadius: 6,
-    backgroundColor: '#FEE2E2',
-  },
-  tabbedBoard: {
-    paddingTop: 8,
-    borderTopWidth: 1,
-    gap: 6,
-  },
-  tabsScroll: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 2,
-  },
-  tabPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  tabPillText: {
-    fontSize: 11,
-  },
-  tabContentContainer: {
-    minHeight: 100,
-    maxHeight: 140,
-    justifyContent: 'center',
-  },
-  tabResultsWrapper: {
+  loadingBackdrop: {
     flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
     justifyContent: 'center',
-  },
-  tabParticipantsWrapper: {
-    flex: 1,
-    gap: 6,
-    paddingTop: 4,
-  },
-  tabOptionsWrapper: {
-    flex: 1,
-    gap: 4,
-  },
-  tabOptionsHeader: {
-    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  tabOptionsTitle: {
-    fontSize: 11.5,
-    fontWeight: 'bold',
-    maxWidth: 180,
-  },
-  tabOptionsCount: {
-    fontSize: 10.5,
-  },
-  wheelMiniActionBtn: {
-    width: 24,
-    height: 24,
-    borderRadius: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(13, 148, 136, 0.1)',
-  },
-  viewOnlyBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  viewOnlyBadgeText: {
-    fontSize: 9.5,
-    fontWeight: 'bold',
-  },
-  boardTextarea: {
-    flex: 1,
-    minHeight: 75,
-    padding: 8,
-    borderRadius: 12,
-    borderWidth: 1,
-    fontSize: 12,
-    textAlignVertical: 'top',
-  },
-  participantsHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  participantsTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  participantsTitle: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  liveDotRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-  },
-  greenDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-    backgroundColor: '#10B981',
-  },
-  liveDotText: {
-    fontSize: 9.5,
-    fontWeight: 'bold',
-    color: '#10B981',
-  },
-  avatarRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 2,
-  },
-  participantChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 10,
-    backgroundColor: 'rgba(13, 148, 136, 0.08)',
-  },
-  participantAvatar: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-  },
-  participantAvatarFallback: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  participantAvatarFallbackText: {
-    fontSize: 9,
-    fontWeight: 'bold',
-  },
-  participantName: {
-    fontSize: 10,
-    fontWeight: '600',
-    maxWidth: 70,
-  },
-  spinningAlert: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 14,
-  },
-  spinningAlertText: {
-    fontSize: 11.5,
-    fontWeight: '700',
-  },
-  winnerCard: {
-    width: '100%',
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 14,
-    backgroundColor: 'rgba(245, 158, 11, 0.12)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(245, 158, 11, 0.35)',
-    alignItems: 'center',
-  },
-  winnerHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginBottom: 2,
-  },
-  winnerTitle: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: '#D97706',
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-  },
-  winnerText: {
-    fontSize: 12.5,
-    fontWeight: '900',
-    color: '#B45309',
-    textAlign: 'center',
-  },
-  spunBySub: {
-    fontSize: 9.5,
-    marginTop: 1,
-  },
-  removeResultBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    marginTop: 6,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 8,
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-  },
-  removeResultBtnText: {
-    fontSize: 10.5,
-    fontWeight: '700',
-    color: '#EF4444',
-  },
-  idleHintText: {
-    fontSize: 10.5,
-    fontStyle: 'italic',
-    textAlign: 'center',
+    padding: 20,
   },
   loadingBox: {
     padding: 24,
@@ -1878,76 +1621,489 @@ const styles = StyleSheet.create({
     width: 220,
     borderWidth: 1,
   },
-  menuBackdrop: {
+  headerBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+  },
+  headerLeftGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  iconRoundBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  headerCompassIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitleText: {
+    fontSize: 15,
+    fontWeight: '800',
+    lineHeight: 18,
+  },
+  headerSubtitleText: {
+    fontSize: 10.5,
+    marginTop: 1,
+  },
+  headerRightGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  closeStagePillBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 14,
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.25)',
+  },
+  closeStagePillBtnText: {
+    fontSize: 11.5,
+    fontWeight: 'bold',
+    color: '#EF4444',
+  },
+  leaveStagePillBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  leaveStagePillBtnText: {
+    fontSize: 11.5,
+    fontWeight: '600',
+  },
+  floatingPillsContainer: {
+    borderBottomWidth: 1,
+    paddingVertical: 6,
+  },
+  floatingPillsScroll: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+  },
+  pillBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  pillBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  pillBtnPrimary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  pillBtnPrimaryText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  stageScrollArea: {
+    flex: 1,
+  },
+  stageScrollContent: {
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+  },
+  stageSingleCenter: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  wheelsGridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-around',
+    gap: 12,
+  },
+  wheelCellBox: {
+    alignItems: 'center',
+    gap: 6,
+    marginVertical: 4,
+  },
+  wheelCellHeaderPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 3.5,
+    borderRadius: 12,
+    borderWidth: 1,
+    maxWidth: 160,
+  },
+  wheelCellHeaderPillText: {
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
+  discContainer: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  wheelRotateWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stagePointerRight: {
+    position: 'absolute',
+    top: '50%',
+    marginTop: -8,
+    zIndex: 10,
+  },
+  wheelWinnerPillRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    marginTop: 4,
+    maxWidth: '100%',
+  },
+  winnerBadgePill: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    borderWidth: 1,
+    maxWidth: 160,
+  },
+  winnerBadgePillText: {
+    fontSize: 10.5,
+    fontWeight: 'bold',
+    color: '#D97706',
+    textAlign: 'center',
+  },
+  removeWinnerBtn: {
+    padding: 4,
+    borderRadius: 8,
+    backgroundColor: '#FEE2E2',
+  },
+  bottomBoard: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderTopWidth: 1,
+    paddingTop: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  boardTabsScroll: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+  },
+  boardTabItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  boardTabItemText: {
+    fontSize: 11.5,
+  },
+  boardTabContent: {
+    paddingHorizontal: 16,
+    minHeight: 120,
+    maxHeight: 180,
+    justifyContent: 'center',
+  },
+  tabResultsContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  spinningBadgeBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 16,
+  },
+  spinningBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  winnerCardBox: {
+    width: '100%',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(245, 158, 11, 0.35)',
+    alignItems: 'center',
+  },
+  winnerCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginBottom: 3,
+  },
+  winnerCardTitle: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#D97706',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  winnerCardText: {
+    fontSize: 13.5,
+    fontWeight: '900',
+    color: '#B45309',
+    textAlign: 'center',
+  },
+  winnerCardSpunBy: {
+    fontSize: 10,
+    marginTop: 2,
+  },
+  discardResultBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    marginTop: 8,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+  },
+  discardResultBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#EF4444',
+  },
+  emptyHintText: {
+    fontSize: 11.5,
+    fontStyle: 'italic',
+    textAlign: 'center',
+  },
+  tabParticipantsContainer: {
+    flex: 1,
+    gap: 8,
+    paddingTop: 4,
+  },
+  participantsTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  participantsCountLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  liveIndicatorBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  liveGreenDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#10B981',
+  },
+  liveIndicatorText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: '#10B981',
+  },
+  participantsListScroll: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 4,
+  },
+  participantCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  participantAvatarImg: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+  },
+  participantAvatarPlaceholder: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  participantAvatarPlaceholderText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  participantDisplayName: {
+    fontSize: 11,
+    fontWeight: '600',
+    maxWidth: 80,
+  },
+  tabWheelOptionsContainer: {
+    flex: 1,
+    gap: 6,
+  },
+  tabWheelOptionsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  tabWheelOptionsTitle: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    maxWidth: 160,
+  },
+  tabWheelOptionsCount: {
+    fontSize: 11,
+  },
+  toolActionBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  toolActionBtnPrimary: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  viewOnlyBadgePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  viewOnlyBadgePillText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  optionsTextarea: {
+    flex: 1,
+    minHeight: 80,
+    padding: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+    fontSize: 12.5,
+    textAlignVertical: 'top',
+  },
+  moreMenuBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
-  menuCard: {
+  moreMenuCard: {
     width: '100%',
     maxWidth: 320,
-    borderRadius: 20,
+    borderRadius: 22,
     borderWidth: 1,
     padding: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
+    shadowOpacity: 0.25,
+    shadowRadius: 14,
     elevation: 8,
   },
-  menuHeader: {
+  moreMenuHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingBottom: 10,
     borderBottomWidth: 1,
   },
-  menuTitle: {
-    fontSize: 13,
+  moreMenuHeaderTitle: {
+    fontSize: 13.5,
     fontWeight: 'bold',
   },
-  menuItem: {
+  moreMenuItemRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 10,
+    paddingVertical: 11,
   },
-  menuItemLeft: {
+  moreMenuItemLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
     flex: 1,
     paddingRight: 8,
   },
-  menuIconBox: {
+  moreMenuItemIconBox: {
     width: 32,
     height: 32,
-    borderRadius: 8,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  menuItemLabel: {
-    fontSize: 12,
+  moreMenuItemLabel: {
+    fontSize: 12.5,
     fontWeight: '600',
   },
-  menuItemSub: {
+  moreMenuItemSub: {
     fontSize: 10,
     marginTop: 1,
   },
-  menuDivider: {
+  moreMenuDivider: {
     height: 1,
     marginVertical: 2,
   },
-  toggleTrack: {
+  switchTrack: {
     width: 38,
     height: 22,
     borderRadius: 11,
     padding: 2,
     justifyContent: 'center',
   },
-  toggleThumb: {
+  switchThumb: {
     width: 18,
     height: 18,
     borderRadius: 9,
@@ -1958,7 +2114,7 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 2,
   },
-  toggleThumbActive: {
+  switchThumbActive: {
     transform: [{ translateX: 16 }],
   },
 });

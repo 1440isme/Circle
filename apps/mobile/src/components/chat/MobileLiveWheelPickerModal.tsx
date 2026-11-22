@@ -552,7 +552,10 @@ export const MobileLiveWheelPickerModal: React.FC<MobileLiveWheelPickerModalProp
                     <TouchableOpacity
                       key={wheel.id}
                       activeOpacity={0.8}
-                      onPress={() => setActiveWheelId(wheel.id)}
+                      onPress={() => {
+                        setIsEditingTitle(false);
+                        setActiveWheelId(wheel.id);
+                      }}
                       style={[
                         styles.tabItem,
                         {
@@ -595,7 +598,7 @@ export const MobileLiveWheelPickerModal: React.FC<MobileLiveWheelPickerModalProp
                   </View>
                 ) : (
                   activeWheel && (
-                    <View style={styles.wheelSetupSection}>
+                    <View key={activeWheel.id} style={styles.wheelSetupSection}>
                       {/* Wheel Title Row */}
                       <View style={styles.titleRow}>
                         {isEditingTitle ? (
@@ -746,22 +749,8 @@ export const MobileLiveWheelPickerModal: React.FC<MobileLiveWheelPickerModalProp
                 )}
               </ScrollView>
 
-              {/* Hàng thiết lập: Bật/Tắt âm thanh & Xóa tất cả */}
-              <View style={[styles.togglesRow, { borderTopColor: colors.hairline }]}>
-                <TouchableOpacity
-                  style={styles.toggleItem}
-                  onPress={() => setSoundEnabled((prev) => !prev)}
-                >
-                  {soundEnabled ? (
-                    <Volume2 size={16} color={isDark ? colors.primary : '#0D9488'} />
-                  ) : (
-                    <VolumeX size={16} color={colors.subtle} />
-                  )}
-                  <Text style={[styles.toggleItemText, { color: colors.text }]}>
-                    {t.luckyWheel.soundSetting}
-                  </Text>
-                </TouchableOpacity>
-
+              {/* Hàng thiết lập: Xóa tất cả vòng (Đã bỏ nút âm thanh theo yêu cầu) */}
+              <View style={[styles.togglesRow, { borderTopColor: colors.hairline, justifyContent: 'flex-end' }]}>
                 <TouchableOpacity
                   style={styles.toggleItem}
                   onPress={handleDeleteAllWheels}

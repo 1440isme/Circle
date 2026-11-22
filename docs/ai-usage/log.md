@@ -9723,3 +9723,40 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
 - **AI Errors / Hallucinations Found:** Không có.
 - **Commit:** 374a5b5
 - **PR:** #120
+
+### AI-0170
+
+- **Date:** 2026-11-22 16:30:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120 (Event RSVP & Realtime Delights)
+- **Purpose:** 
+  1. Loại bỏ hiện tượng giật màn hình khi đổi qua các tab vòng trong Modal thiết lập trước khi tạo (`MobileLiveWheelPickerModal.tsx`):
+     - Gắn `key={activeWheel.id}` vào container phần thiết lập vòng để ngăn React Native tái sử dụng layout `TextInput` gây giật native selection/keyboard layout shift.
+     - Reset `isEditingTitle(false)` khi chuyển tab giữa các vòng.
+     - Loại bỏ nút Âm thanh ở hàng dưới bảng thiết lập (chỉ giữ lại nút Xóa tất cả căn phải).
+  2. Nâng cấp toàn diện Sân khấu Vòng quay ngẫu nhiên trực tiếp trên Mobile (`MobileLiveWheelOverlay.tsx`) thành giao diện **FULL MÀN HÌNH** (Full Screen Edge-to-Edge) theo phong cách Tiện ích nhóm (`MobileWheelView.tsx`):
+     - Chuyển `Modal` sang full-screen edge-to-edge không còn khung card nhỏ lơ lửng.
+     - Floating Glass Header với nút quay lại (`ArrowLeft`), icon Compass, nhãn tiêu đề "Vòng quay ngẫu nhiên" và menu 3 chấm + nút Đóng/Rời phòng.
+     - Thanh Floating Pills cuộn ngang: [Kết quả], [Người xem], [Thêm vòng], [Quay tất cả].
+     - Vùng Sân khấu Vòng quay trung tâm kích thước lớn, co giãn linh hoạt (1 vòng to ~255px, 2 vòng ~150px, 3-4 vòng lưới 2x2 ~130px) kèm kim chỉ sắc nét và winner badge.
+     - Cái Bảng Tabbed Board đáy màn hình bo góc 24px: Xem & sửa danh sách phương án từng vòng (kèm các nút Xáo trộn `Shuffle`, Sắp xếp A-Z `ArrowDownAZ`, Quay riêng vòng này `Play`, và Lưu `Check`), tab Kết quả (có nút loại bỏ), tab Người xem trực tiếp (avatar realtime).
+- **Prompt Summary:** Khắc phục giật khi đổi tab vòng ở modal chuẩn bị tạo; bỏ nút âm thanh ở dưới; chuyển sân khấu quay sang toàn màn hình full screen kiểu tiện ích nhóm và bổ sung đầy đủ tính năng như web.
+- **Files Affected:**
+  - `apps/mobile/src/components/chat/MobileLiveWheelPickerModal.tsx`
+  - `apps/mobile/src/components/chat/MobileLiveWheelOverlay.tsx`
+  - `agentic/memory/2026-11-22.md`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% tái cấu trúc Full Screen Edge-to-Edge cho `MobileLiveWheelOverlay` và tối ưu tab switching trong `MobileLiveWheelPickerModal`.
+- **Human Modifications:** Người dùng trực tiếp phản hồi trải nghiệm thực tế và chỉ đạo định hình UI full screen kiểu tiện ích nhóm.
+- **Verification Method:** 
+  - `npx tsc -p apps/mobile/tsconfig.json --noEmit` pass 0 errors.
+  - `npx tsc -p apps/web/tsconfig.json --noEmit` pass 0 errors.
+  - `npm --prefix apps/backend test -- circle-tools.service.spec.ts` pass 51/51 tests.
+  - `bash scripts/check-secrets.sh` pass 0 secret leaks.
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn, không chứa secret.
+- **AI Errors / Hallucinations Found:** Không có.
+- **Commit:** d98db13
+- **PR:** #120
