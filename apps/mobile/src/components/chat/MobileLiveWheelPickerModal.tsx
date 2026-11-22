@@ -488,54 +488,59 @@ export const MobileLiveWheelPickerModal: React.FC<MobileLiveWheelPickerModalProp
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.backdrop}
-      >
-        <TouchableOpacity style={styles.dismissOverlay} activeOpacity={1} onPress={onClose} />
+      <View style={styles.backdrop}>
+        <TouchableOpacity
+          style={StyleSheet.absoluteFill}
+          activeOpacity={1}
+          onPress={onClose}
+        />
 
-        <View
-          style={[
-            styles.sheetContainer,
-            {
-              backgroundColor: isDark ? colors.elevated : '#FFFFFF',
-              borderColor: colors.hairline,
-              paddingBottom: Math.max(insets.bottom, 16),
-            },
-          ]}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.keyboardContainer}
         >
-          {/* Header */}
-          <View style={[styles.header, { borderBottomColor: colors.hairline }]}>
-            <View style={styles.headerLeft}>
-              {viewMode === 'arena' && (
-                <TouchableOpacity
-                  style={styles.backBtn}
-                  disabled={isSpinning}
-                  onPress={() => setViewMode('setup')}
-                >
-                  <ArrowLeft size={18} color={colors.text} />
-                </TouchableOpacity>
-              )}
+          <View
+            style={[
+              styles.sheetContainer,
+              {
+                backgroundColor: isDark ? colors.elevated : '#FFFFFF',
+                borderColor: colors.hairline,
+                paddingBottom: Math.max(insets.bottom, 12),
+              },
+            ]}
+          >
+            {/* Header */}
+            <View style={[styles.header, { borderBottomColor: colors.hairline }]}>
+              <View style={styles.headerLeft}>
+                {viewMode === 'arena' && (
+                  <TouchableOpacity
+                    style={styles.backBtn}
+                    disabled={isSpinning}
+                    onPress={() => setViewMode('setup')}
+                  >
+                    <ArrowLeft size={18} color={colors.text} />
+                  </TouchableOpacity>
+                )}
 
-              <View style={[styles.iconCircle, { backgroundColor: `${colors.primary}20` }]}>
-                <Compass size={18} color={colors.primary} />
+                <View style={[styles.iconCircle, { backgroundColor: 'rgba(37, 99, 235, 0.12)' }]}>
+                  <Compass size={18} color="#2563EB" />
+                </View>
+                <View>
+                  <Text style={[styles.headerTitle, { color: colors.text }]}>
+                    {t.luckyWheel.createRandomWheel || (locale === 'vi' ? 'Tạo vòng quay ngẫu nhiên' : 'Create Random Wheel')}
+                  </Text>
+                  <Text style={[styles.headerSubtitle, { color: colors.subtle }]}>
+                    {viewMode === 'setup'
+                      ? (locale === 'vi' ? 'Thiết lập danh sách lựa chọn' : 'Setup options list')
+                      : (locale === 'vi' ? 'Sân khấu trực tiếp trong nhóm' : 'Live stage in group')}
+                  </Text>
+                </View>
               </View>
-              <View>
-                <Text style={[styles.headerTitle, { color: colors.text }]}>
-                  {locale === 'vi' ? 'Vòng quay ngẫu nhiên' : 'Random Wheel'}
-                </Text>
-                <Text style={[styles.headerSubtitle, { color: colors.subtle }]}>
-                  {viewMode === 'setup'
-                    ? (locale === 'vi' ? 'Thiết lập danh sách lựa chọn' : 'Setup options list')
-                    : (locale === 'vi' ? 'Sân khấu trực tiếp trong nhóm' : 'Live stage in group')}
-                </Text>
-              </View>
+
+              <TouchableOpacity style={styles.closeBtn} disabled={isSpinning} onPress={onClose}>
+                <X size={20} color={colors.subtle} />
+              </TouchableOpacity>
             </View>
-
-            <TouchableOpacity style={styles.closeBtn} disabled={isSpinning} onPress={onClose}>
-              <X size={20} color={colors.subtle} />
-            </TouchableOpacity>
-          </View>
 
           {/* ============================================================== */}
           {/* VIEW MODE 1: SETUP (BẢNG THIẾT LẬP - BỎ KẾT QUẢ ĐI)            */}
@@ -591,6 +596,7 @@ export const MobileLiveWheelPickerModal: React.FC<MobileLiveWheelPickerModalProp
                 style={styles.scrollBody}
                 contentContainerStyle={styles.scrollContent}
                 keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="on-drag"
               >
                 {isLoadingWheels ? (
                   <View style={styles.loadingBox}>
@@ -675,6 +681,11 @@ export const MobileLiveWheelPickerModal: React.FC<MobileLiveWheelPickerModalProp
                       <TextInput
                         value={activeLocalState?.optionsText || ''}
                         onChangeText={handleOptionsChange}
+                        onFocus={() => {
+                          setTimeout(() => {
+                            scrollViewRef.current?.scrollToEnd({ animated: true });
+                          }, 200);
+                        }}
                         multiline
                         numberOfLines={5}
                         placeholder={t.luckyWheel.optionsPlaceholder}
@@ -747,24 +758,24 @@ export const MobileLiveWheelPickerModal: React.FC<MobileLiveWheelPickerModalProp
                           <RotateCcw size={16} color="#D97706" />
                         </TouchableOpacity>
                       </View>
+
+                      {/* Hàng thiết lập: Xóa tất cả vòng (Đồng bộ Cái Bảng bên trong ScrollView) */}
+                      <View style={[styles.togglesRow, { borderTopColor: colors.hairline, justifyContent: 'flex-end' }]}>
+                        <TouchableOpacity
+                          style={styles.toggleItem}
+                          onPress={handleDeleteAllWheels}
+                          disabled={wheels.length === 0}
+                        >
+                          <Trash2 size={15} color="#EF4444" />
+                          <Text style={[styles.toggleItemText, { color: '#EF4444', fontWeight: 'bold' }]}>
+                            {t.luckyWheel.deleteAllWheels}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
                     </View>
                   )
                 )}
               </ScrollView>
-
-              {/* Hàng thiết lập: Xóa tất cả vòng (Đã bỏ nút âm thanh theo yêu cầu) */}
-              <View style={[styles.togglesRow, { borderTopColor: colors.hairline, justifyContent: 'flex-end' }]}>
-                <TouchableOpacity
-                  style={styles.toggleItem}
-                  onPress={handleDeleteAllWheels}
-                  disabled={wheels.length === 0}
-                >
-                  <Trash2 size={15} color="#EF4444" />
-                  <Text style={[styles.toggleItemText, { color: '#EF4444', fontWeight: 'bold' }]}>
-                    {t.luckyWheel.deleteAllWheels}
-                  </Text>
-                </TouchableOpacity>
-              </View>
 
               {/* HÀNG NÚT DƯỚI BẬT TẮT ÂM THANH: [Thêm vòng xoay] & [Tạo] */}
               <View style={[styles.actionButtonsRow, { borderTopColor: colors.hairline }]}>
@@ -979,7 +990,8 @@ export const MobileLiveWheelPickerModal: React.FC<MobileLiveWheelPickerModalProp
           )}
         </View>
       </KeyboardAvoidingView>
-    </Modal>
+    </View>
+  </Modal>
   );
 };
 
@@ -989,14 +1001,17 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     backgroundColor: 'rgba(0,0,0,0.5)',
   },
-  dismissOverlay: {
-    flex: 1,
+  keyboardContainer: {
+    width: '100%',
+    justifyContent: 'flex-end',
   },
   sheetContainer: {
+    width: '100%',
+    maxHeight: '92%',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     borderTopWidth: 1,
-    maxHeight: '88%',
+    overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.15,
@@ -1010,6 +1025,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
+    flexShrink: 0,
   },
   headerLeft: {
     flexDirection: 'row',
@@ -1042,6 +1058,7 @@ const styles = StyleSheet.create({
   tabsBar: {
     maxHeight: 52,
     borderBottomWidth: StyleSheet.hairlineWidth,
+    flexShrink: 0,
   },
   tabsBarContent: {
     flexDirection: 'row',
@@ -1066,11 +1083,14 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   scrollBody: {
-    maxHeight: 330,
+    flexGrow: 1,
+    flexShrink: 1,
+    maxHeight: 460,
   },
   scrollContent: {
     paddingHorizontal: 16,
     paddingVertical: 12,
+    paddingBottom: 24,
   },
   loadingBox: {
     paddingVertical: 40,
@@ -1164,27 +1184,30 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingTop: 8,
     borderTopWidth: StyleSheet.hairlineWidth,
+    flexShrink: 0,
   },
   boardActionBtnIconOnly: {
     flex: 1,
-    height: 38,
+    height: 40,
+    minHeight: 40,
     borderRadius: 12,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
   togglesRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderTopWidth: StyleSheet.hairlineWidth,
+    justifyContent: 'flex-end',
+    paddingTop: 8,
+    flexShrink: 0,
   },
   toggleItem: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    paddingVertical: 4,
   },
   toggleItemText: {
     fontSize: 12,
@@ -1196,7 +1219,9 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingHorizontal: 16,
     paddingTop: 10,
+    paddingBottom: 6,
     borderTopWidth: StyleSheet.hairlineWidth,
+    flexShrink: 0,
   },
   addWheelBtn: {
     flexDirection: 'row',
@@ -1204,9 +1229,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     paddingHorizontal: 14,
-    height: 44,
+    height: 46,
+    minHeight: 46,
     borderRadius: 14,
     borderWidth: 1,
+    flexShrink: 0,
   },
   addWheelBtnText: {
     fontSize: 13,
@@ -1218,13 +1245,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    height: 44,
+    height: 46,
+    minHeight: 46,
     borderRadius: 14,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.12,
     shadowRadius: 4,
     elevation: 3,
+    flexShrink: 0,
   },
   spinAllBtnText: {
     color: '#FFFFFF',

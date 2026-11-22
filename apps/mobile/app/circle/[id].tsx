@@ -3473,9 +3473,9 @@ export default function CircleWorkspaceScreen() {
                       borderBottomColor: colors.hairline,
                     }}
                   >
-                    <Compass size={18} color="#D97706" />
+                    <Compass size={18} color="#2563EB" />
                     <Text style={{ fontSize: 13.5, fontWeight: '600', color: colors.text }}>
-                      {t.luckyWheel.title}
+                      {t.luckyWheel.createRandomWheel || (locale === 'vi' ? 'Tạo vòng quay ngẫu nhiên' : 'Create Random Wheel')}
                     </Text>
                   </TouchableOpacity>
 

@@ -1774,6 +1774,7 @@ export const vi = {
 
   luckyWheel: {
     title: 'Vòng quay may mắn',
+    createRandomWheel: 'Tạo vòng quay ngẫu nhiên',
     subtitle: 'Lựa chọn ngẫu nhiên công bằng và thú vị cho nhóm',
     spin: 'Quay',
     spinning: 'Đang quay...',

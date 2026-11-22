@@ -1776,6 +1776,7 @@ export const en: TranslationDictionary = {
 
   luckyWheel: {
     title: 'Lucky Wheel',
+    createRandomWheel: 'Create Random Wheel',
     subtitle: 'Fair and fun random decision-making for your circle',
     spin: 'Spin',
     spinning: 'Spinning...',
