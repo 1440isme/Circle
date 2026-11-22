@@ -670,6 +670,7 @@ export const MobileLiveWheelPickerModal: React.FC<MobileLiveWheelPickerModalProp
 
                       {/* Options Textarea */}
                       <TextInput
+                        key={`picker-options-${activeWheel.id}`}
                         value={activeLocalState?.optionsText || ''}
                         onChangeText={handleOptionsChange}
                         multiline
@@ -1079,6 +1080,7 @@ const styles = StyleSheet.create({
   },
   wheelSetupSection: {
     gap: 10,
+    minHeight: 280,
   },
   titleRow: {
     flexDirection: 'row',
@@ -1142,7 +1144,9 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   optionsTextarea: {
-    minHeight: 110,
+    height: 120,
+    minHeight: 120,
+    maxHeight: 120,
     borderWidth: 1,
     borderRadius: 14,
     paddingHorizontal: 12,

@@ -143,6 +143,24 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
     [rotAnim0, rotAnim1, rotAnim2, rotAnim3],
   );
 
+  // Stable Animated Interpolations để tránh re-attaching native driver animation gây nháy đĩa quay
+  const rot0Interpolate = useRef(
+    rotAnim0.interpolate({ inputRange: [0, 360], outputRange: ['0deg', '360deg'] }),
+  ).current;
+  const rot1Interpolate = useRef(
+    rotAnim1.interpolate({ inputRange: [0, 360], outputRange: ['0deg', '360deg'] }),
+  ).current;
+  const rot2Interpolate = useRef(
+    rotAnim2.interpolate({ inputRange: [0, 360], outputRange: ['0deg', '360deg'] }),
+  ).current;
+  const rot3Interpolate = useRef(
+    rotAnim3.interpolate({ inputRange: [0, 360], outputRange: ['0deg', '360deg'] }),
+  ).current;
+  const rotateInterpolates = useMemo(
+    () => [rot0Interpolate, rot1Interpolate, rot2Interpolate, rot3Interpolate],
+    [rot0Interpolate, rot1Interpolate, rot2Interpolate, rot3Interpolate],
+  );
+
   // Danh sách các vòng xoay (1 đến 4 vòng)
   const wheelsList: LiveWheelItem[] = useMemo(() => {
     if (session?.wheels && session.wheels.length > 0) {
@@ -162,38 +180,41 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
     return [];
   }, [session, locale]);
 
-  // Đồng bộ editing state khi wheelsList thay đổi
+  // Đồng bộ editing state khi wheelsList thay đổi (không phụ thuộc vào activeTab để tránh re-render kép gây nháy)
   useEffect(() => {
     if (wheelsList.length > 0) {
       setWheelEditingState((prev) => {
+        let hasNew = false;
         const next = { ...prev };
         wheelsList.forEach((w) => {
-          if (!next[w.wheelId]) {
+          if (next[w.wheelId] === undefined) {
             next[w.wheelId] = w.options.map((o) => o.optionLabel).join('\n');
+            hasNew = true;
           }
         });
-        return next;
+        return hasNew ? next : prev;
       });
 
       setWheelTitleEditingState((prev) => {
+        let hasNew = false;
         const next = { ...prev };
         wheelsList.forEach((w) => {
-          if (!next[w.wheelId]) {
+          if (next[w.wheelId] === undefined) {
             next[w.wheelId] = w.wheelTitle || '';
+            hasNew = true;
           }
         });
-        return next;
+        return hasNew ? next : prev;
       });
 
-      if (!activeWheelId || !wheelsList.some((w) => w.wheelId === activeWheelId)) {
-        const firstId = wheelsList[0]?.wheelId || null;
-        setActiveWheelId(firstId);
-        if (activeTab !== 'results' && activeTab !== 'participants' && firstId) {
-          setActiveTab(firstId);
+      setActiveWheelId((prevId) => {
+        if (!prevId || !wheelsList.some((w) => w.wheelId === prevId)) {
+          return wheelsList[0]?.wheelId || null;
         }
-      }
+        return prevId;
+      });
     }
-  }, [wheelsList, activeWheelId, activeTab]);
+  }, [wheelsList]);
 
   // Phân quyền: Host vs Spectator
   const isHost = Boolean(session && (!session.creatorId || session.creatorId === user?.id));
@@ -729,11 +750,7 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
   const renderSmallWheelItem = (wheel: LiveWheelItem, discSize: number, idx: number) => {
     const tabKey = wheel.wheelId || String(idx);
     const isSelected = activeTab === tabKey;
-    const anim = rotateAnims[idx] || rotAnim0;
-    const rotateInterpolate = anim.interpolate({
-      inputRange: [0, 360],
-      outputRange: ['0deg', '360deg'],
-    });
+    const rotateInterpolate = rotateInterpolates[idx] || rot0Interpolate;
 
     return (
       <View key={wheel.wheelId || `wheel-${idx}`} style={styles.smallWheelItemWrapper}>
@@ -1061,14 +1078,7 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
                         style={{
                           width: singleDiscSize,
                           height: singleDiscSize,
-                          transform: [
-                            {
-                              rotate: (rotAnim0 || new Animated.Value(0)).interpolate({
-                                inputRange: [0, 360],
-                                outputRange: ['0deg', '360deg'],
-                              }),
-                            },
-                          ],
+                          transform: [{ rotate: rot0Interpolate }],
                         }}
                       >
                         <Svg width={singleDiscSize} height={singleDiscSize}>
@@ -1401,10 +1411,11 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
             ) : (
               /* TAB CONTENT: ACTIVE WHEEL (OPTIONS & SETTINGS) */
               activeWheel && (
-                <View style={styles.activeContentCard}>
+                <View key={activeWheel.wheelId} style={styles.activeContentCard}>
                   {/* Title & Delete (Nếu có quyền sửa) */}
                   <View style={styles.activeTitleRow}>
                     <TextInput
+                      key={`title-${activeWheel.wheelId}`}
                       style={styles.inlineTitleInput}
                       value={
                         wheelTitleEditingState[activeWheel.wheelId] !== undefined
@@ -1449,6 +1460,7 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
 
                   {/* Textarea */}
                   <TextInput
+                    key={`options-${activeWheel.wheelId}`}
                     style={[styles.boardTextarea, !canEdit && { opacity: 0.85 }]}
                     multiline
                     editable={canEdit && !isSpinning}
@@ -2157,6 +2169,7 @@ function createStyles(colors: any, isDark: boolean) {
     },
     activeContentCard: {
       marginTop: 10,
+      minHeight: 280,
     },
     activeTitleRow: {
       flexDirection: 'row',
@@ -2203,7 +2216,9 @@ function createStyles(colors: any, isDark: boolean) {
       color: colors.subtle,
     },
     boardTextarea: {
-      minHeight: 120,
+      height: 130,
+      minHeight: 130,
+      maxHeight: 130,
       borderWidth: 1,
       borderColor: colors.hairline,
       borderRadius: 12,

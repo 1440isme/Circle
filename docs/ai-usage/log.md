@@ -9804,3 +9804,37 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
 - **AI Errors / Hallucinations Found:** Không có.
 - **Commit:** 5e918fc
 - **PR:** #120
+
+
+### AI-0172
+
+- **Date:** 2026-11-22 17:12:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120 (Event RSVP & Realtime Delights)
+- **Purpose:** 
+  1. Khắc phục triệt để hiện tượng nháy hình (flicker / blink) khi chuyển đổi giữa các tab vòng quay thiết lập trong `MobileLiveWheelOverlay.tsx` (mở từ tin nhắn chat):
+     - **Triệt tiêu re-render kép:** Loại bỏ `activeTab` và `activeWheelId` khỏi dependencies của `useEffect` đồng bộ editing state; chỉ cập nhật state khi có vòng quay mới (`hasNew = true`), ngăn chặn việc tạo object reference mới kích hoạt re-render liên tiếp khi bấm tab.
+     - **Native Driver Animation Stabilization:** Khởi tạo và lưu trữ cố định các `rotateInterpolates` thông qua `useRef` thay vì gọi `.interpolate(...)` trong mỗi lần render, ngăn native driver hủy và gán lại animation node trên C++/native layer gây chớp góc quay đĩa SVG.
+     - **Layout Shift & TextInput Recycling:** Gán `key={activeWheel.wheelId}` vào container `activeContentCard` và `key={`title-${activeWheel.wheelId}`}`, `key={`options-${activeWheel.wheelId}`}` cho các TextInput; đồng thời cố định `minHeight: 280` cho card và `height: 130` cho Textarea để ngăn layout co giật trong 1 frame khi tính toán lại native multiline text.
+  2. Đồng bộ hóa chống nháy cho modal thiết lập trước khi quay `MobileLiveWheelPickerModal.tsx`:
+     - Gán `key={`picker-options-${activeWheel.id}`}` cho TextInput danh sách phương án.
+     - Cố định `minHeight: 280` cho `wheelSetupSection` và `height: 120` cho `optionsTextarea`.
+- **Prompt Summary:** Phần khi ấn vòng xoay may mắn trong tin nhắn chuyển đổi giữa các tab vòng quay setting vẫn bị nháy 1 phát.
+- **Files Affected:**
+  - `apps/mobile/src/components/chat/MobileLiveWheelOverlay.tsx`
+  - `apps/mobile/src/components/chat/MobileLiveWheelPickerModal.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% giải pháp ổn định Animated Interpolation ref, triệt tiêu re-render thừa trong useEffect, và cố định layout height cho TextInput.
+- **Human Modifications:** Người dùng trực tiếp phát hiện và chỉ ra hiện tượng nháy frame khi chuyển đổi giữa các tab vòng quay thiết lập.
+- **Verification Method:** 
+  - `npx tsc -p apps/mobile/tsconfig.json --noEmit` pass 0 errors.
+  - `npx tsc -p apps/web/tsconfig.json --noEmit` pass 0 errors.
+  - `npm --prefix apps/backend test -- circle-tools.service.spec.ts` pass 51/51 tests.
+  - `bash scripts/check-secrets.sh` pass 0 secret leaks.
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn, không chứa secret.
+- **AI Errors / Hallucinations Found:** Không có.
+- **Commit:** a7492a1
+- **PR:** #120
