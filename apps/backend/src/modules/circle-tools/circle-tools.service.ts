@@ -1547,7 +1547,13 @@ export class CircleToolsService {
           winningOption: opts[winningIdx]!,
         };
       }
-      return w;
+      return {
+        ...w,
+        wheelTitle: w.wheelTitle || `Vòng ${idx + 1}`,
+        options: opts,
+        winningIndex: -1,
+        winningOption: null,
+      };
     });
 
     const wheelTitle = dto.title?.trim() || 'Vòng quay ngẫu nhiên';
@@ -1568,7 +1574,10 @@ export class CircleToolsService {
       winningIndex = wheelsList[0]?.winningIndex || 0;
     }
 
-    const combinedWinners = wheelsList.map((w) => w.winningOption?.optionLabel || 'N/A').join(' - ');
+    const combinedWinners = wheelsList
+      .filter((w) => w.winningOption)
+      .map((w) => w.winningOption?.optionLabel || 'N/A')
+      .join(' - ');
 
     const winningOption = {
       optionLabel: combinedWinners,
@@ -1596,6 +1605,7 @@ export class CircleToolsService {
 
     if (channel) {
       const summaryLines = wheelsList
+        .filter((w) => w.winningOption)
         .map((w, idx) => `🎡 Vòng ${idx + 1} (${w.wheelTitle}): ${w.winningOption?.optionLabel}`)
         .join('\n');
       const content = `🎯 [VÒNG QUAY NGẪU NHIÊN TRỰC TIẾP]\n━━━━━━━━━━━━━━━━━━━━\n${summaryLines}\n━━━━━━━━━━━━━━━━━━━━\n🏆 Kết quả: ${combinedWinners}\n👤 Lượt quay của: ${senderName}\n━━━━━━━━━━━━━━━━━━━━`;

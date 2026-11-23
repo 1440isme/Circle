@@ -714,7 +714,7 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
       if (delta < 0) delta += 360;
       const finalRotation = currentRotation + extraSpins + delta;
 
-      const duration = 5200; // 5.2 seconds
+      const duration = liveSession?.durationMs || 6000;
       const startTime = performance.now();
       let lastTickAngle = currentRotation;
 
@@ -982,6 +982,17 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
     const handleLiveWheelUpdated = (incoming: LiveWheelSession) => {
       if (incoming.circleId === circleId) {
         setLiveSession(incoming);
+
+        // Đồng bộ loại bỏ kết quả khỏi Celebration Modal của tất cả mọi người trong phòng
+        setCombinedResultsModal((prev) => {
+          if (!prev) return null;
+          const remaining = prev.filter((item) => {
+            const targetWheel = incoming.wheels?.find((w) => w.wheelId === item.wheelId);
+            if (!targetWheel) return false;
+            return targetWheel.options.some((o) => o.optionLabel === item.result);
+          });
+          return remaining.length > 0 ? remaining : null;
+        });
       }
     };
 
@@ -989,12 +1000,15 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
       if (incoming.circleId === circleId) {
         setLiveSession(incoming);
 
+        // Tự động đóng popup kết quả cũ trên cả 2 máy khi có lượt quay mới bắt đầu
+        setCombinedResultsModal(null);
+
         batchResultsAccumulatorRef.current = [];
         activeSpinningBatchRef.current.clear();
 
         const wheelsToSpin =
           incoming.wheels && incoming.wheels.length > 0
-            ? incoming.wheels.filter((w) => w.winningIndex >= 0)
+            ? incoming.wheels.filter((w) => w.winningIndex >= 0 && w.winningOption)
             : [];
 
         if (wheelsToSpin.length > 0) {
@@ -1002,7 +1016,7 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
 
           wheelsToSpin.forEach((w) => {
             const count = Math.max(w.options.length, 1);
-            const winIdx = w.winningIndex >= 0 ? w.winningIndex : 0;
+            const winIdx = w.winningIndex;
             const winLabel = w.winningOption?.optionLabel || w.options[winIdx]?.optionLabel || '';
             animateWheelRotation(
               w.wheelId,

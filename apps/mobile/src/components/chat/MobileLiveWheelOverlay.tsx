@@ -267,8 +267,9 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
       const handleLiveWheelStarted = (incoming: LiveWheelSession) => {
         if (incoming.circleId === circleId) {
           setDismissedSessionId(null);
+          // Tự động đóng popup kết quả cũ trên cả 2 máy khi có lượt quay mới bắt đầu
+          setCombinedWinnersModal(null);
           setSession(incoming);
-          setIsVisible(true);
           setIsFinished(false);
         }
       };
@@ -291,6 +292,17 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
       const handleWheelUpdated = (incoming: LiveWheelSession) => {
         if (incoming.circleId === circleId) {
           setSession(incoming);
+
+          // Đồng bộ loại bỏ kết quả khỏi Celebration Modal của tất cả mọi người trong phòng
+          setCombinedWinnersModal((prev) => {
+            if (!prev) return null;
+            const remaining = prev.filter((item) => {
+              const targetWheel = incoming.wheels?.find((w) => w.wheelId === item.wheelId);
+              if (!targetWheel) return false;
+              return targetWheel.options.some((o) => o.optionLabel === item.winner);
+            });
+            return remaining.length > 0 ? remaining : null;
+          });
         }
       };
 
@@ -368,10 +380,15 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
     const elapsed = Date.now() - startedAt;
 
     const animations = wheelsList.map((wheel, idx) => {
+      // Chỉ chạy animation cho vòng nào có winningOption và winningIndex >= 0 trong lượt quay này
+      if (wheel.winningIndex < 0 || !wheel.winningOption) {
+        return null;
+      }
+
       const anim = rotateAnims[idx] || rotAnim0;
       const count = Math.max(wheel.options.length, 1);
       const sliceDeg = 360 / count;
-      const winIdx = wheel.winningIndex >= 0 ? wheel.winningIndex : 0;
+      const winIdx = wheel.winningIndex;
       const targetCenterDeg = winIdx * sliceDeg + sliceDeg / 2;
       const stopAngle = (360 - (targetCenterDeg % 360)) % 360;
       const extraSpins = (6 + idx) * 360;
@@ -398,7 +415,7 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
     });
 
     const winnersList = wheelsList
-      .filter((w) => w.winningOption)
+      .filter((w) => w.winningOption && w.winningIndex >= 0)
       .map((w) => ({
         wheelId: w.wheelId,
         wheelTitle: w.wheelTitle || 'Vòng quay',
