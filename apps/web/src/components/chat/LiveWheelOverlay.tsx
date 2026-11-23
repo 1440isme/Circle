@@ -44,8 +44,10 @@ import {
   useActiveLiveWheelQuery,
   useCloseLiveWheelMutation,
   useUpdateLiveWheelSettingsMutation,
+  useLiveSpinWheelMutation,
+  useLiveRemoveResultMutation,
 } from '../../hooks/use-circle-tools';
-import { DecisionWheelEntity, SpinWheelResult, LiveWheelSession } from '@circle/types';
+import { DecisionWheelEntity, SpinWheelResult, LiveWheelSession, LiveWheelItem } from '@circle/types';
 
 interface LiveWheelOverlayProps {
   circleId: string;
@@ -289,13 +291,41 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
     });
   }, [rawWheels]);
 
+  // Nguồn chân lý duy nhất cho danh sách các vòng: Ưu tiên liveSession.wheels để đồng bộ 100% giữa các máy
+  const liveWheels: LiveWheelItem[] = useMemo(() => {
+    if (liveSession?.wheels && liveSession.wheels.length > 0) {
+      return liveSession.wheels.slice(0, 4);
+    }
+    if (liveSession?.options && liveSession.options.length > 0) {
+      return [
+        {
+          wheelId: liveSession.wheelId || 'single-wheel',
+          wheelTitle: liveSession.wheelTitle || (locale === 'vi' ? 'Vòng 1' : 'Wheel 1'),
+          options: liveSession.options,
+          winningIndex: liveSession.winningIndex ?? -1,
+          winningOption: liveSession.winningOption ?? null,
+        },
+      ];
+    }
+    return wheels.map((w, idx) => ({
+      wheelId: w.id,
+      wheelTitle: w.title || `Vòng ${idx + 1}`,
+      options: (w.options || []).map((o, oIdx) => ({
+        optionLabel: o.optionLabel,
+        color: o.color || PASTEL_WHEEL_COLORS[oIdx % PASTEL_WHEEL_COLORS.length]!,
+      })),
+      winningIndex: -1,
+      winningOption: null,
+    }));
+  }, [liveSession, wheels, locale]);
+
   // Mutations
   const createWheelMutation = useCreateWheelMutation(circleId);
   const updateWheelMutation = useUpdateWheelMutation(circleId);
   const deleteWheelMutation = useDeleteWheelMutation(circleId);
   const deleteAllMutation = useDeleteAllWheelsMutation(circleId);
-  const spinWheelMutation = useSpinWheelMutation(circleId);
-  const spinAllMutation = useSpinAllWheelsMutation(circleId);
+  const liveSpinMutation = useLiveSpinWheelMutation(circleId);
+  const liveRemoveResultMutation = useLiveRemoveResultMutation(circleId);
   const shareResultsMutation = useShareWheelResultsToChatMutation(circleId);
   const closeLiveMutation = useCloseLiveWheelMutation(circleId);
   const updateSettingsMutation = useUpdateLiveWheelSettingsMutation(circleId);
@@ -303,6 +333,9 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
   // Phân quyền: Chủ phòng vs Người xem & Quyền chỉnh sửa
   const isHost = Boolean(!liveSession?.creatorId || liveSession.creatorId === user?.id);
   const allowMembersToEdit = Boolean(liveSession?.allowMembersToEdit);
+  const isParticipant = Boolean(
+    liveSession?.participants?.some((p) => p.userId === user?.id) || isHost
+  );
   const canEdit = isHost || allowMembersToEdit;
 
   const handleToggleAllowEdit = async () => {
@@ -407,47 +440,53 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
 
   // Synchronize wheels into local state
   useEffect(() => {
-    if (wheels.length === 0) return;
+    if (liveWheels.length === 0) return;
 
     setWheelsState((prev) => {
       const next = { ...prev };
-      wheels.forEach((w) => {
-        if (!next[w.id]) {
-          const text = (w.options || []).map((o) => o.optionLabel).join('\n');
-          next[w.id] = {
+      liveWheels.forEach((w) => {
+        const text = (w.options || []).map((o) => o.optionLabel).join('\n');
+        if (!next[w.wheelId]) {
+          next[w.wheelId] = {
             optionsText: text,
             rotation: 0,
             isSpinning: false,
-            lastResult: w.lastResult || null,
+            lastResult: w.winningOption?.optionLabel || null,
+          };
+        } else {
+          next[w.wheelId] = {
+            ...next[w.wheelId]!,
+            optionsText: text,
+            lastResult: w.winningOption?.optionLabel ?? next[w.wheelId]!.lastResult,
           };
         }
       });
       return next;
     });
 
-    if (!activeWheelId || !wheels.some((w) => w.id === activeWheelId)) {
-      const fallbackId = wheels[0]?.id || null;
+    if (!activeWheelId || !liveWheels.some((w) => w.wheelId === activeWheelId)) {
+      const fallbackId = liveWheels[0]?.wheelId || null;
       setActiveWheelId(fallbackId);
-      if (activeTab !== 'results' && fallbackId) {
+      if (activeTab !== 'results' && activeTab !== 'viewers' && fallbackId) {
         setActiveTab(fallbackId);
       }
     }
-  }, [wheels, activeWheelId, activeTab]);
+  }, [liveWheels, activeWheelId, activeTab]);
 
   // Active Wheel entity
   const activeWheel = useMemo(
-    () => wheels.find((w) => w.id === activeWheelId) || wheels[0] || null,
-    [wheels, activeWheelId]
+    () => liveWheels.find((w) => w.wheelId === activeWheelId) || liveWheels[0] || null,
+    [liveWheels, activeWheelId]
   );
 
   const activeLocalState = useMemo(() => {
     if (!activeWheel) return null;
     return (
-      wheelsState[activeWheel.id] || {
+      wheelsState[activeWheel.wheelId] || {
         optionsText: (activeWheel.options || []).map((o) => o.optionLabel).join('\n'),
         rotation: 0,
         isSpinning: false,
-        lastResult: activeWheel.lastResult || null,
+        lastResult: activeWheel.winningOption?.optionLabel || null,
       }
     );
   }, [activeWheel, wheelsState]);
@@ -531,12 +570,12 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
     if (!activeWheel || isAnySpinning) return;
     setWheelsState((prev) => ({
       ...prev,
-      [activeWheel.id]: {
-        ...(prev[activeWheel.id] || { rotation: 0, isSpinning: false, lastResult: null }),
+      [activeWheel.wheelId]: {
+        ...(prev[activeWheel.wheelId] || { rotation: 0, isSpinning: false, lastResult: null }),
         optionsText: newText,
       },
     }));
-    triggerAutoSave(activeWheel.id, newText);
+    triggerAutoSave(activeWheel.wheelId, newText);
   };
 
   // Shuffle options for active wheel
@@ -582,7 +621,7 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
 
     updateWheelMutation.mutate(
       {
-        wheelId: activeWheel.id,
+        wheelId: activeWheel.wheelId,
         input: {
           initialOptions: lines,
         },
@@ -599,7 +638,7 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
   // Reset options to initial
   const handleReset = () => {
     if (!activeWheel || isAnySpinning) return;
-    const initial = activeWheel.initialOptions || [];
+    const initial = (activeWheel as any).initialOptions || [];
     if (initial.length >= 2) {
       if (window.confirm(t.luckyWheel.confirmReset)) {
         handleOptionsChange(initial.join('\n'));
@@ -611,7 +650,7 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
 
   // Delete All Wheels (leaves 1 default wheel)
   const handleDeleteAllWheels = () => {
-    if (isAnySpinning || wheels.length === 0) return;
+    if (isAnySpinning || liveWheels.length === 0 || !canEdit) return;
     if (window.confirm(t.luckyWheel.confirmDeleteAllWheels)) {
       const defaultTitle = t.luckyWheel.wheelNumber.replace('{number}', '1');
       deleteAllMutation.mutate(defaultTitle, {
@@ -625,17 +664,11 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
   };
 
   // Settings toggle
-  const currentSoundEnabled = activeWheel
-    ? (activeWheel.soundEnabled ?? true)
-    : (wheels[0]?.soundEnabled ?? true);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const currentSoundEnabled = soundEnabled;
 
   const handleToggleSound = () => {
-    const target = activeWheel || wheels[0];
-    if (!target || isAnySpinning) return;
-    updateWheelMutation.mutate({
-      wheelId: target.id,
-      input: { soundEnabled: !currentSoundEnabled },
-    });
+    setSoundEnabled((prev) => !prev);
   };
 
   // Inline rename title
@@ -643,17 +676,17 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
   const [editingTitleText, setEditingTitleText] = useState('');
 
   const startEditTitle = () => {
-    if (!activeWheel || isAnySpinning) return;
-    setEditingTitleText(activeWheel.title);
+    if (!activeWheel || isAnySpinning || !canEdit) return;
+    setEditingTitleText(activeWheel.wheelTitle);
     setIsEditingTitle(true);
   };
 
   const saveEditTitle = () => {
-    if (!activeWheel || isAnySpinning) return;
+    if (!activeWheel || isAnySpinning || !canEdit) return;
     const trimmed = editingTitleText.trim();
-    if (trimmed && trimmed !== activeWheel.title) {
+    if (trimmed && trimmed !== activeWheel.wheelTitle) {
       updateWheelMutation.mutate({
-        wheelId: activeWheel.id,
+        wheelId: activeWheel.wheelId,
         input: { title: trimmed },
       });
     }
@@ -745,8 +778,8 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
             const rawBatch = [...batchResultsAccumulatorRef.current];
 
             const sortedBatch = [...rawBatch].sort((a, b) => {
-              const idxA = wheels.findIndex((w) => w.id === a.wheelId);
-              const idxB = wheels.findIndex((w) => w.id === b.wheelId);
+              const idxA = liveWheels.findIndex((w) => w.wheelId === a.wheelId);
+              const idxB = liveWheels.findIndex((w) => w.wheelId === b.wheelId);
               return idxA - idxB;
             });
 
@@ -763,121 +796,75 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
 
       requestAnimationFrame(step);
     },
-    [wheelsState, wheels]
+    [wheelsState, liveWheels]
   );
 
   // Spin a single wheel
-  const handleSpinSingle = (wheel: DecisionWheelEntity) => {
-    const localState = wheelsState[wheel.id];
-    if (localState?.isSpinning) return;
+  const handleSpinSingle = async (wheel: LiveWheelItem) => {
+    const localState = wheelsState[wheel.wheelId];
+    if (localState?.isSpinning || liveSpinMutation.isPending) return;
 
-    const parsed = parseOptions(localState?.optionsText || '');
-    if (parsed.length < 1) return;
-
-    activeSpinningBatchRef.current.add(wheel.id);
-
-    spinWheelMutation.mutate(wheel.id, {
-      onSuccess: (res) => {
-        const targetIdx =
-          res.selectedOptionIndex !== undefined
-            ? res.selectedOptionIndex
-            : parsed.findIndex((p) => p.label === res.selectedOption.optionLabel);
-        const validIdx = targetIdx >= 0 ? targetIdx : 0;
-
-        animateWheelRotation(
-          wheel.id,
-          validIdx,
-          parsed.length,
-          wheel.soundEnabled ?? true,
-          wheel.title,
-          res.selectedOption.optionLabel
-        );
-      },
-      onError: () => {
-        activeSpinningBatchRef.current.delete(wheel.id);
-      },
-    });
+    try {
+      await liveSpinMutation.mutateAsync({
+        isAll: false,
+        wheelId: wheel.wheelId,
+        channelId: liveSession?.channelId,
+      });
+    } catch (err: any) {
+      alert(err?.response?.data?.message || err?.message || 'Không thể quay vòng này');
+    }
   };
 
   // Spin ALL wheels simultaneously
-  const handleSpinAll = () => {
-    if (wheels.length === 0 || isAnySpinning || spinAllMutation.isPending) return;
+  const handleSpinAll = async () => {
+    if (liveWheels.length === 0 || isAnySpinning || liveSpinMutation.isPending) return;
 
-    wheels.forEach((w) => {
-      const parsed = parseOptions(wheelsState[w.id]?.optionsText || '');
-      if (parsed.length >= 1) {
-        activeSpinningBatchRef.current.add(w.id);
-      }
-    });
-
-    spinAllMutation.mutate(undefined, {
-      onSuccess: (results: SpinWheelResult[]) => {
-        results.forEach((r: SpinWheelResult) => {
-          const w = wheels.find((item) => item.id === r.wheelId);
-          if (!w) return;
-          const parsed = parseOptions(wheelsState[w.id]?.optionsText || '');
-          if (parsed.length < 1) return;
-
-          const targetIdx =
-            r.selectedOptionIndex !== undefined
-              ? r.selectedOptionIndex
-              : parsed.findIndex((p) => p.label === r.selectedOption.optionLabel);
-          const validIdx = targetIdx >= 0 ? targetIdx : 0;
-
-          animateWheelRotation(
-            w.id,
-            validIdx,
-            parsed.length,
-            w.soundEnabled ?? true,
-            w.title,
-            r.selectedOption.optionLabel
-          );
-        });
-      },
-      onError: () => {
-        activeSpinningBatchRef.current.clear();
-      },
-    });
+    try {
+      await liveSpinMutation.mutateAsync({
+        isAll: true,
+        channelId: liveSession?.channelId,
+      });
+    } catch (err: any) {
+      alert(err?.response?.data?.message || err?.message || 'Không thể bắt đầu quay');
+    }
   };
 
   // Remove result from a wheel
-  const handleRemoveResult = (wheelId: string, resultIndex: number) => {
-    const local = wheelsState[wheelId];
-    if (!local) return;
-    const lines = local.optionsText
-      .split('\n')
-      .map((l) => l.trim())
-      .filter((l) => l.length > 0);
-
-    if (resultIndex >= 0 && resultIndex < lines.length) {
-      lines.splice(resultIndex, 1);
-      const newText = lines.join('\n');
-      setWheelsState((prev) => ({
-        ...prev,
-        [wheelId]: {
-          ...prev[wheelId]!,
-          optionsText: newText,
-        },
-      }));
-      triggerAutoSave(wheelId, newText);
+  const handleRemoveResult = async (wheelId: string, resultLabel: string, resultIndex?: number) => {
+    try {
+      const updated = await liveRemoveResultMutation.mutateAsync({
+        wheelId,
+        optionLabel: resultLabel,
+      });
+      if (updated) {
+        setLiveSession(updated);
+      }
+      setCombinedResultsModal((prev) => {
+        if (!prev) return null;
+        const remaining = prev.filter(
+          (p) => !(p.wheelId === wheelId && p.result === resultLabel)
+        );
+        return remaining.length > 0 ? remaining : null;
+      });
+    } catch (err: any) {
+      alert(err?.response?.data?.message || err?.message || 'Không thể loại bỏ kết quả');
     }
-
-    setCombinedResultsModal((prev) => {
-      if (!prev) return null;
-      const remaining = prev.filter(
-        (p) => !(p.wheelId === wheelId && p.resultIndex === resultIndex),
-      );
-      return remaining.length > 0 ? remaining : null;
-    });
   };
 
   // Loại bỏ tất cả kết quả trúng thưởng vừa quay và đóng modal
-  const handleRemoveAllBatchResults = () => {
+  const handleRemoveAllBatchResults = async () => {
     if (!combinedResultsModal) return;
-    combinedResultsModal.forEach((item) => {
-      handleRemoveResult(item.wheelId, item.resultIndex);
-    });
-    setCombinedResultsModal(null);
+    try {
+      const updated = await liveRemoveResultMutation.mutateAsync({
+        removeAll: true,
+      });
+      if (updated) {
+        setLiveSession(updated);
+      }
+      setCombinedResultsModal(null);
+    } catch (err: any) {
+      alert(err?.response?.data?.message || err?.message || 'Không thể loại bỏ tất cả kết quả');
+    }
   };
 
   // Sort results A-Z
@@ -954,7 +941,7 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
     }
   };
 
-  // 1. Fetch active session on mount
+  // 1. Fetch active session on mount (KHÔNG tự ý bật setIsVisible(true))
   const { data: initialActiveSession } = useActiveLiveWheelQuery(circleId);
 
   useEffect(() => {
@@ -962,7 +949,7 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
       const elapsed = Date.now() - initialActiveSession.startedAt;
       if (elapsed < 4 * 60 * 60 * 1000) {
         setLiveSession(initialActiveSession);
-        setIsVisible(true);
+        // KHÔNG gọi setIsVisible(true) ở đây để không tự ý đẩy người dùng vào vòng quay
       }
     }
   }, [initialActiveSession]);
@@ -975,7 +962,10 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
     const handleStageCreated = (incoming: LiveWheelSession) => {
       if (incoming.circleId === circleId) {
         setLiveSession(incoming);
-        setIsVisible(true);
+        // CHỈ tự mở nếu chính mình là người tạo
+        if (incoming.creatorId === user?.id) {
+          setIsVisible(true);
+        }
       }
     };
 
@@ -989,39 +979,40 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
       }
     };
 
-    const handleWheelSpun = (data: any) => {
-      if (data.spunBy?.userId === user?.id) return; // Ignore own trigger already animated
+    const handleLiveWheelUpdated = (incoming: LiveWheelSession) => {
+      if (incoming.circleId === circleId) {
+        setLiveSession(incoming);
+      }
+    };
 
-      if (data.isSpinAll && Array.isArray(data.results)) {
-        data.results.forEach((r: any) => {
-          const w = wheels.find((item) => item.id === r.wheelId);
-          if (!w) return;
-          const parsed = parseOptions(wheelsState[w.id]?.optionsText || '');
-          if (parsed.length >= 1) {
+    const handleLiveWheelStarted = (incoming: LiveWheelSession) => {
+      if (incoming.circleId === circleId) {
+        setLiveSession(incoming);
+
+        batchResultsAccumulatorRef.current = [];
+        activeSpinningBatchRef.current.clear();
+
+        const wheelsToSpin =
+          incoming.wheels && incoming.wheels.length > 0
+            ? incoming.wheels.filter((w) => w.winningIndex >= 0)
+            : [];
+
+        if (wheelsToSpin.length > 0) {
+          wheelsToSpin.forEach((w) => activeSpinningBatchRef.current.add(w.wheelId));
+
+          wheelsToSpin.forEach((w) => {
+            const count = Math.max(w.options.length, 1);
+            const winIdx = w.winningIndex >= 0 ? w.winningIndex : 0;
+            const winLabel = w.winningOption?.optionLabel || w.options[winIdx]?.optionLabel || '';
             animateWheelRotation(
-              w.id,
-              r.selectedOptionIndex ?? 0,
-              parsed.length,
-              w.soundEnabled ?? true,
-              w.title,
-              r.selectedOption.optionLabel
+              w.wheelId,
+              winIdx,
+              count,
+              soundEnabled,
+              w.wheelTitle || 'Vòng quay',
+              winLabel
             );
-          }
-        });
-      } else if (data.wheelId) {
-        const w = wheels.find((item) => item.id === data.wheelId);
-        if (w) {
-          const parsed = parseOptions(wheelsState[w.id]?.optionsText || '');
-          if (parsed.length >= 1) {
-            animateWheelRotation(
-              w.id,
-              data.selectedOptionIndex ?? 0,
-              parsed.length,
-              w.soundEnabled ?? true,
-              w.title,
-              data.selectedOption.optionLabel
-            );
-          }
+          });
         }
       }
     };
@@ -1049,29 +1040,24 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
       });
     };
 
-    const handleStageUpdated = (incoming: LiveWheelSession) => {
-      if (incoming.circleId === circleId) {
-        setLiveSession(incoming);
-        queryClient.invalidateQueries({ queryKey: ['wheels', circleId] });
-      }
-    };
-
     socket.on('circle:live-wheel:stage-created', handleStageCreated);
-    socket.on('circle:live-wheel:updated', handleStageUpdated);
+    socket.on('circle:live-wheel:stage-closed', handleStageClosed);
     socket.on('circle:live-wheel:closed', handleStageClosed);
+    socket.on('circle:live-wheel:updated', handleLiveWheelUpdated);
+    socket.on('circle:live-wheel:started', handleLiveWheelStarted);
     socket.on('circle:live-wheel:participants-updated', handleParticipantsUpdated);
-    socket.on('circle:wheel-spun', handleWheelSpun);
     window.addEventListener('circle:open-live-wheel', handleOpenFromChat);
 
     return () => {
       socket.off('circle:live-wheel:stage-created', handleStageCreated);
-      socket.off('circle:live-wheel:updated', handleStageUpdated);
+      socket.off('circle:live-wheel:stage-closed', handleStageClosed);
       socket.off('circle:live-wheel:closed', handleStageClosed);
+      socket.off('circle:live-wheel:updated', handleLiveWheelUpdated);
+      socket.off('circle:live-wheel:started', handleLiveWheelStarted);
       socket.off('circle:live-wheel:participants-updated', handleParticipantsUpdated);
-      socket.off('circle:wheel-spun', handleWheelSpun);
       window.removeEventListener('circle:open-live-wheel', handleOpenFromChat);
     };
-  }, [circleId, wheels, wheelsState, user?.id, animateWheelRotation, parseOptions]);
+  }, [circleId, user?.id, soundEnabled, animateWheelRotation, queryClient]);
 
   const participants = useMemo(() => {
     const list = liveSession?.participants || [];
@@ -1209,11 +1195,11 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
             </button>
 
             {/* Spin All Pill Button (Tất cả thành viên đều có thể sử dụng chức năng quay) */}
-            {wheels.length > 0 && (
+            {liveWheels.length > 0 && (
               <button
                 type="button"
                 onClick={handleSpinAll}
-                disabled={isAnySpinning || spinAllMutation.isPending}
+                disabled={isAnySpinning || liveSpinMutation.isPending}
                 className="inline-flex items-center gap-1.5 px-4 h-9 rounded-full backdrop-blur-xl bg-circle-primary hover:bg-circle-sage text-white font-bold text-xs sm:text-sm shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer shrink-0"
               >
                 <RotateCw className={`w-4 h-4 ${isAnySpinning ? 'animate-spin' : ''}`} />
@@ -1437,76 +1423,76 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
             ) : (
               <div className="flex-1 w-full flex flex-col items-center justify-center min-h-0 overflow-y-auto py-2">
                 {/* 1 VÒNG: Hiển thị 1 vòng to chính giữa */}
-                {wheels.length === 1 && (
+                {liveWheels.length === 1 && (
                   <div className="flex flex-col items-center justify-center gap-3">
                     <button
                       type="button"
                       onClick={() => {
-                        setActiveWheelId(wheels[0]!.id);
-                        setActiveTab(wheels[0]!.id);
+                        setActiveWheelId(liveWheels[0]!.wheelId);
+                        setActiveTab(liveWheels[0]!.wheelId);
                         setIsPanelCollapsed(false);
                       }}
                       className={`flex items-center justify-center gap-1.5 px-3 py-1 rounded-xl border text-xs sm:text-sm font-bold transition-all shadow-2xs w-36 ${
-                        activeWheelId === wheels[0]!.id
+                        activeWheelId === liveWheels[0]!.wheelId
                           ? 'bg-circle-primary border-circle-primary text-white shadow-xs'
                           : 'bg-white/90 dark:bg-circle-dark-surface/90 border-circle-hairline/80 dark:border-white/12 text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash'
                       }`}
-                      title={wheels[0]!.title}
+                      title={liveWheels[0]!.wheelTitle}
                     >
                       <Compass
                         className={`w-3.5 h-3.5 shrink-0 ${
-                          activeWheelId === wheels[0]!.id
+                          activeWheelId === liveWheels[0]!.wheelId
                             ? 'text-white'
                             : 'text-circle-sage dark:text-circle-dark-primary'
                         }`}
                       />
-                      <span className="truncate">{wheels[0]!.title}</span>
+                      <span className="truncate">{liveWheels[0]!.wheelTitle}</span>
                     </button>
 
                     <WheelCanvas
-                      options={parseOptions(wheelsState[wheels[0]!.id]?.optionsText || '')}
-                      rotation={wheelsState[wheels[0]!.id]?.rotation || 0}
+                      options={parseOptions(wheelsState[liveWheels[0]!.wheelId]?.optionsText || '')}
+                      rotation={wheelsState[liveWheels[0]!.wheelId]?.rotation || 0}
                       size={wheelSize}
                       onClick={() => {
-                        handleSpinSingle(wheels[0]!);
+                        handleSpinSingle(liveWheels[0]!);
                       }}
                     />
                   </div>
                 )}
 
                 {/* 2 VÒNG: Hàng trên 2 vòng đặt cạnh nhau */}
-                {wheels.length === 2 && (
+                {liveWheels.length === 2 && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-5xl justify-items-center">
-                    {wheels.map((wheel) => {
-                      const local = wheelsState[wheel.id];
+                    {liveWheels.map((wheel) => {
+                      const local = wheelsState[wheel.wheelId];
                       const parsed = parseOptions(local?.optionsText || '');
                       return (
                         <div
-                          key={wheel.id}
+                          key={wheel.wheelId}
                           className="flex flex-col items-center gap-2.5 p-2 rounded-2xl transition-all"
                         >
                           <button
                             type="button"
                             onClick={() => {
-                              setActiveWheelId(wheel.id);
-                              setActiveTab(wheel.id);
+                              setActiveWheelId(wheel.wheelId);
+                              setActiveTab(wheel.wheelId);
                               setIsPanelCollapsed(false);
                             }}
                             className={`flex items-center justify-center gap-1.5 px-3 py-1 rounded-xl border text-xs sm:text-sm font-bold transition-all shadow-2xs w-36 ${
-                              activeWheelId === wheel.id
+                              activeWheelId === wheel.wheelId
                                 ? 'bg-circle-primary border-circle-primary text-white shadow-xs'
                                 : 'bg-white/90 dark:bg-circle-dark-surface/90 border-circle-hairline/80 dark:border-white/12 text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash'
                             }`}
-                            title={wheel.title}
+                            title={wheel.wheelTitle}
                           >
                             <Compass
                               className={`w-3.5 h-3.5 shrink-0 ${
-                                activeWheelId === wheel.id
+                                activeWheelId === wheel.wheelId
                                   ? 'text-white'
                                   : 'text-circle-sage dark:text-circle-dark-primary'
                               }`}
                             />
-                            <span className="truncate">{wheel.title}</span>
+                            <span className="truncate">{wheel.wheelTitle}</span>
                           </button>
 
                           <WheelCanvas
@@ -1524,39 +1510,39 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
                 )}
 
                 {/* 3 VÒNG: Hàng trên 2 vòng, Hàng dưới 1 vòng ở giữa */}
-                {wheels.length === 3 && (
+                {liveWheels.length === 3 && (
                   <div className="flex flex-col items-center gap-8 w-full max-w-5xl">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 w-full justify-items-center">
-                      {wheels.slice(0, 2).map((wheel) => {
-                        const local = wheelsState[wheel.id];
+                      {liveWheels.slice(0, 2).map((wheel) => {
+                        const local = wheelsState[wheel.wheelId];
                         const parsed = parseOptions(local?.optionsText || '');
                         return (
                           <div
-                            key={wheel.id}
+                            key={wheel.wheelId}
                             className="flex flex-col items-center gap-2.5 p-2 rounded-2xl transition-all"
                           >
                             <button
                               type="button"
                               onClick={() => {
-                                setActiveWheelId(wheel.id);
-                                setActiveTab(wheel.id);
+                                setActiveWheelId(wheel.wheelId);
+                                setActiveTab(wheel.wheelId);
                                 setIsPanelCollapsed(false);
                               }}
                               className={`flex items-center justify-center gap-1.5 px-3 py-1 rounded-xl border text-xs sm:text-sm font-bold transition-all shadow-2xs w-36 ${
-                                activeWheelId === wheel.id
+                                activeWheelId === wheel.wheelId
                                   ? 'bg-circle-primary border-circle-primary text-white shadow-xs'
                                   : 'bg-white/90 dark:bg-circle-dark-surface/90 border-circle-hairline/80 dark:border-white/12 text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash'
                               }`}
-                              title={wheel.title}
+                              title={wheel.wheelTitle}
                             >
                               <Compass
                                 className={`w-3.5 h-3.5 shrink-0 ${
-                                  activeWheelId === wheel.id
+                                  activeWheelId === wheel.wheelId
                                     ? 'text-white'
                                     : 'text-circle-sage dark:text-circle-dark-primary'
                                 }`}
                               />
-                              <span className="truncate">{wheel.title}</span>
+                              <span className="truncate">{wheel.wheelTitle}</span>
                             </button>
 
                             <WheelCanvas
@@ -1572,38 +1558,38 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
                       })}
                     </div>
 
-                    {wheels[2] && (
+                    {liveWheels[2] && (
                       <div className="flex flex-col items-center gap-2.5 p-2 rounded-2xl transition-all">
                         <button
                           type="button"
                           onClick={() => {
-                            setActiveWheelId(wheels[2]!.id);
-                            setActiveTab(wheels[2]!.id);
+                            setActiveWheelId(liveWheels[2]!.wheelId);
+                            setActiveTab(liveWheels[2]!.wheelId);
                             setIsPanelCollapsed(false);
                           }}
                           className={`flex items-center justify-center gap-1.5 px-3 py-1 rounded-xl border text-xs sm:text-sm font-bold transition-all shadow-2xs w-36 ${
-                            activeWheelId === wheels[2]!.id
+                            activeWheelId === liveWheels[2]!.wheelId
                               ? 'bg-circle-primary border-circle-primary text-white shadow-xs'
                               : 'bg-white/90 dark:bg-circle-dark-surface/90 border-circle-hairline/80 dark:border-white/12 text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash'
                           }`}
-                          title={wheels[2]!.title}
+                          title={liveWheels[2]!.wheelTitle}
                         >
                           <Compass
                             className={`w-3.5 h-3.5 shrink-0 ${
-                              activeWheelId === wheels[2]!.id
+                              activeWheelId === liveWheels[2]!.wheelId
                                 ? 'text-white'
                                 : 'text-circle-sage dark:text-circle-dark-primary'
                             }`}
                           />
-                          <span className="truncate">{wheels[2]!.title}</span>
+                          <span className="truncate">{liveWheels[2]!.wheelTitle}</span>
                         </button>
 
                         <WheelCanvas
-                          options={parseOptions(wheelsState[wheels[2]!.id]?.optionsText || '')}
-                          rotation={wheelsState[wheels[2]!.id]?.rotation || 0}
+                          options={parseOptions(wheelsState[liveWheels[2]!.wheelId]?.optionsText || '')}
+                          rotation={wheelsState[liveWheels[2]!.wheelId]?.rotation || 0}
                           size={wheelSize}
                           onClick={() => {
-                            handleSpinSingle(wheels[2]!);
+                            handleSpinSingle(liveWheels[2]!);
                           }}
                         />
                       </div>
@@ -1612,38 +1598,38 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
                 )}
 
                 {/* 4 VÒNG: LƯỚI 2x2 (2 vòng hàng trên, 2 vòng hàng dưới) */}
-                {wheels.length === 4 && (
+                {liveWheels.length === 4 && (
                   <div className="grid grid-cols-2 gap-4 sm:gap-8 w-full max-w-5xl justify-items-center">
-                    {wheels.map((wheel) => {
-                      const local = wheelsState[wheel.id];
+                    {liveWheels.map((wheel) => {
+                      const local = wheelsState[wheel.wheelId];
                       const parsed = parseOptions(local?.optionsText || '');
                       return (
                         <div
-                          key={wheel.id}
+                          key={wheel.wheelId}
                           className="flex flex-col items-center gap-2.5 p-2 rounded-2xl transition-all"
                         >
                           <button
                             type="button"
                             onClick={() => {
-                              setActiveWheelId(wheel.id);
-                              setActiveTab(wheel.id);
+                              setActiveWheelId(wheel.wheelId);
+                              setActiveTab(wheel.wheelId);
                               setIsPanelCollapsed(false);
                             }}
                             className={`flex items-center justify-center gap-1.5 px-3 py-1 rounded-xl border text-xs sm:text-sm font-bold transition-all shadow-2xs w-36 ${
-                              activeWheelId === wheel.id
+                              activeWheelId === wheel.wheelId
                                 ? 'bg-circle-primary border-circle-primary text-white shadow-xs'
                                 : 'bg-white/90 dark:bg-circle-dark-surface/90 border-circle-hairline/80 dark:border-white/12 text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash'
                             }`}
-                            title={wheel.title}
+                            title={wheel.wheelTitle}
                           >
                             <Compass
                               className={`w-3.5 h-3.5 shrink-0 ${
-                                activeWheelId === wheel.id
+                                activeWheelId === wheel.wheelId
                                   ? 'text-white'
                                   : 'text-circle-sage dark:text-circle-dark-primary'
                               }`}
                             />
-                            <span className="truncate">{wheel.title}</span>
+                            <span className="truncate">{wheel.wheelTitle}</span>
                           </button>
 
                           <WheelCanvas
@@ -1681,24 +1667,24 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
 
               {/* Tabs Header: Tên của từng vòng + TAB KẾT QUẢ */}
               <div className="flex items-center gap-1.5 overflow-x-auto pb-3 border-b border-circle-hairline dark:border-circle-dark-hairline no-scrollbar shrink-0">
-                {wheels.map((wheel) => {
-                  const isSelected = activeTab === wheel.id;
+                {liveWheels.map((wheel) => {
+                  const isSelected = activeTab === wheel.wheelId;
                   return (
                     <button
-                      key={wheel.id}
+                      key={wheel.wheelId}
                       type="button"
                       onClick={() => {
-                        setActiveTab(wheel.id);
-                        setActiveWheelId(wheel.id);
+                        setActiveTab(wheel.wheelId);
+                        setActiveWheelId(wheel.wheelId);
                       }}
                       className={`flex items-center justify-center w-28 px-2.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
                         isSelected
                           ? 'bg-circle-primary text-white shadow-xs font-bold'
                           : 'bg-circle-wash/60 dark:bg-circle-dark-wash/40 text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash hover:text-circle-charcoal dark:hover:text-circle-dark-text'
                       }`}
-                      title={wheel.title}
+                      title={wheel.wheelTitle}
                     >
-                      <span className="truncate">{wheel.title}</span>
+                      <span className="truncate">{wheel.wheelTitle}</span>
                     </button>
                   );
                 })}
@@ -1955,7 +1941,7 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
                       ) : (
                         <div className="flex items-center gap-2 flex-1 group">
                           <span className="font-bold text-sm text-circle-charcoal dark:text-circle-dark-text truncate max-w-[240px]">
-                            {activeWheel.title}
+                            {activeWheel.wheelTitle}
                           </span>
                           {!isAnySpinning && canEdit && (
                             <button
@@ -1971,13 +1957,13 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
                       )}
 
                       {/* Delete wheel if more than 1 wheel */}
-                      {wheels.length > 1 && canEdit && (
+                      {liveWheels.length > 1 && canEdit && (
                         <button
                           type="button"
                           onClick={() => {
                             if (isAnySpinning) return;
                             if (window.confirm(t.luckyWheel.confirmDeleteDesc)) {
-                              deleteWheelMutation.mutate(activeWheel.id);
+                              deleteWheelMutation.mutate(activeWheel.wheelId);
                             }
                           }}
                           disabled={isAnySpinning}
@@ -2198,12 +2184,13 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
                     <span>{t.luckyWheel.close}</span>
                   </button>
 
-                  {canEdit && (
+                  {(canEdit || isParticipant) && (
                     <button
                       type="button"
                       onClick={() =>
                         handleRemoveResult(
                           combinedResultsModal[0]!.wheelId,
+                          combinedResultsModal[0]!.result,
                           combinedResultsModal[0]!.resultIndex,
                         )
                       }
@@ -2234,10 +2221,10 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
                           {item.result}
                         </span>
                       </div>
-                      {canEdit && (
+                      {(canEdit || isParticipant) && (
                         <button
                           type="button"
-                          onClick={() => handleRemoveResult(item.wheelId, item.resultIndex)}
+                          onClick={() => handleRemoveResult(item.wheelId, item.result, item.resultIndex)}
                           className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 border border-transparent hover:border-rose-200 dark:hover:border-rose-900/40 transition-all shrink-0 active:scale-95 cursor-pointer"
                           title={t.luckyWheel.removeResult}
                         >
@@ -2257,7 +2244,7 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
                     <Check className="w-4 h-4" />
                     <span>{t.luckyWheel.close}</span>
                   </button>
-                  {canEdit && (
+                  {(canEdit || isParticipant) && (
                     <button
                       type="button"
                       onClick={handleRemoveAllBatchResults}

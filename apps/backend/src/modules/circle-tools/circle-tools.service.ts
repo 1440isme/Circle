@@ -1427,7 +1427,11 @@ export class CircleToolsService {
       throw new NotFoundException('Không tìm thấy phiên vòng quay đang hoạt động');
     }
 
-    if (!this.canEditLiveWheel(circleId, userId, member.role)) {
+    const isParticipant = Boolean(
+      session.participants?.some((p) => p.userId === userId) ||
+      session.creatorId === userId,
+    );
+    if (!this.canEditLiveWheel(circleId, userId, member.role) && !isParticipant) {
       throw new ForbiddenException('Chủ phòng đã khóa quyền chỉnh sửa nội dung vòng quay');
     }
 
@@ -1497,28 +1501,53 @@ export class CircleToolsService {
   ): Promise<LiveWheelSession> {
     const member = await this.getMemberOrThrow(circleId, userId);
 
-    const fourWheels = (await this.ensureFourWheels(circleId)).slice(0, 4);
+    const previousSession = this.activeLiveWheelSessions.get(circleId);
+    let baseWheels: LiveWheelItem[] = [];
 
-    const wheelsList: LiveWheelItem[] = fourWheels.map((w, idx) => {
-      const rawOptions =
-        w.options && Array.isArray(w.options) && w.options.length >= 2
+    if (previousSession?.wheels && previousSession.wheels.length > 0) {
+      baseWheels = previousSession.wheels;
+    } else {
+      const fourWheels = (await this.ensureFourWheels(circleId)).slice(0, 4);
+      baseWheels = fourWheels.map((w, idx) => {
+        const rawOptions =
+          w.options && Array.isArray(w.options) && w.options.length >= 2
+            ? w.options
+            : [
+                { optionLabel: 'Phương án 1', color: PASTEL_WHEEL_COLORS[0]! },
+                { optionLabel: 'Phương án 2', color: PASTEL_WHEEL_COLORS[1]! },
+              ];
+        const opts = rawOptions.map((o, oIdx) => ({
+          optionLabel: o.optionLabel,
+          color: o.color || PASTEL_WHEEL_COLORS[oIdx % PASTEL_WHEEL_COLORS.length]!,
+        }));
+        return {
+          wheelId: w.id,
+          wheelTitle: w.title || `Vòng ${idx + 1}`,
+          options: opts,
+          winningIndex: -1,
+          winningOption: null,
+        };
+      });
+    }
+
+    const isAll = dto.isAll !== false;
+    const wheelsList: LiveWheelItem[] = baseWheels.map((w, idx) => {
+      const opts =
+        w.options && w.options.length > 0
           ? w.options
-          : [
-              { optionLabel: 'Phương án 1', color: PASTEL_WHEEL_COLORS[0]! },
-              { optionLabel: 'Phương án 2', color: PASTEL_WHEEL_COLORS[1]! },
-            ];
-      const opts = rawOptions.map((o, oIdx) => ({
-        optionLabel: o.optionLabel,
-        color: o.color || PASTEL_WHEEL_COLORS[oIdx % PASTEL_WHEEL_COLORS.length]!,
-      }));
-      const winningIdx = Math.floor(Math.random() * opts.length);
-      return {
-        wheelId: w.id,
-        wheelTitle: w.title || `Vòng ${idx + 1}`,
-        options: opts,
-        winningIndex: winningIdx,
-        winningOption: opts[winningIdx]!,
-      };
+          : [{ optionLabel: 'Lựa chọn', color: PASTEL_WHEEL_COLORS[0]! }];
+
+      if (isAll || w.wheelId === dto.wheelId) {
+        const winningIdx = Math.floor(Math.random() * opts.length);
+        return {
+          ...w,
+          wheelTitle: w.wheelTitle || `Vòng ${idx + 1}`,
+          options: opts,
+          winningIndex: winningIdx,
+          winningOption: opts[winningIdx]!,
+        };
+      }
+      return w;
     });
 
     const wheelTitle = dto.title?.trim() || 'Vòng quay ngẫu nhiên';
@@ -1649,7 +1678,6 @@ export class CircleToolsService {
       }
     }
 
-    const previousSession = this.activeLiveWheelSessions.get(circleId);
     let participants = previousSession?.participants || [];
     if (!participants.some((p) => p.userId === userId)) {
       participants = [

@@ -219,6 +219,9 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
   // Phân quyền: Host vs Spectator
   const isHost = Boolean(session && (!session.creatorId || session.creatorId === user?.id));
   const allowMembersToEdit = session?.allowMembersToEdit ?? false;
+  const isParticipant = Boolean(
+    session?.participants?.some((p) => p.userId === user?.id) || isHost,
+  );
   const canEdit = isHost || allowMembersToEdit;
 
   // 1. Kiểm tra session đang hoạt động khi mount
@@ -253,7 +256,9 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
         if (incoming.circleId === circleId) {
           setDismissedSessionId(null);
           setSession(incoming);
-          setIsVisible(true);
+          if (incoming.creatorId === user?.id) {
+            setIsVisible(true);
+          }
           setIsFinished(false);
           rotateAnims.forEach((anim) => anim.setValue(0));
         }
@@ -1635,7 +1640,7 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
                     >
                       <Text style={styles.primaryModalBtnText}>{t.luckyWheel.close}</Text>
                     </TouchableOpacity>
-                    {canEdit && (
+                    {(canEdit || isParticipant) && (
                       <TouchableOpacity
                         style={styles.secondaryRemoveBtn}
                         onPress={() =>
@@ -1668,7 +1673,7 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
                             {r.winner}
                           </Text>
                         </View>
-                        {canEdit && (
+                        {(canEdit || isParticipant) && (
                           <TouchableOpacity
                             style={styles.multiWinnerRemoveIconBtn}
                             onPress={() => handleRemoveLiveResult(r.wheelId, r.winner)}
@@ -1690,7 +1695,7 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
                     >
                       <Text style={styles.primaryModalBtnText}>{t.luckyWheel.close}</Text>
                     </TouchableOpacity>
-                    {canEdit && (
+                    {(canEdit || isParticipant) && (
                       <TouchableOpacity
                         style={styles.secondaryRemoveBtn}
                         onPress={() => handleRemoveLiveResult(undefined, undefined, true)}
