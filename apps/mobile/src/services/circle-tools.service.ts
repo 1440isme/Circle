@@ -340,6 +340,18 @@ export async function closeLiveWheelStageApi(
   return res.data;
 }
 
+export async function dismissLiveCelebrationApi(
+  circleId: string,
+): Promise<{ success: boolean }> {
+  const res = await mobileApiRequest<{ success: boolean }>(
+    `/circles/${circleId}/wheels/live-dismiss-celebration`,
+    {
+      method: 'POST',
+    },
+  );
+  return res.data;
+}
+
 // =============================================================================
 // 3. ANONYMOUS POST / WORDS UNSAID (UC21)
 // =============================================================================

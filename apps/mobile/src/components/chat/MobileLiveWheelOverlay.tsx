@@ -4,6 +4,7 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   Modal,
   Animated,
   Easing,
@@ -47,6 +48,7 @@ import {
   liveRemoveResultApi,
   updateLiveWheelSettingsApi,
   closeLiveWheelStageApi,
+  dismissLiveCelebrationApi,
   createWheelApi,
   updateWheelApi,
   deleteWheelApi,
@@ -313,10 +315,17 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
         }
       };
 
+      const handleCelebrationDismissed = (data: { circleId: string }) => {
+        if (data.circleId === circleId) {
+          setCombinedWinnersModal(null);
+        }
+      };
+
       socket.on('circle:live-wheel:stage-created', handleStageCreated);
       socket.on('circle:live-wheel:started', handleLiveWheelStarted);
       socket.on('circle:live-wheel:participants-updated', handleParticipantsUpdated);
       socket.on('circle:live-wheel:updated', handleWheelUpdated);
+      socket.on('circle:live-wheel:celebration-dismissed', handleCelebrationDismissed);
       socket.on('circle:live-wheel:closed', handleStageClosed);
       socket.on('circle:live-wheel:stage-closed', handleStageClosed);
 
@@ -325,6 +334,7 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
         socket.off('circle:live-wheel:started', handleLiveWheelStarted);
         socket.off('circle:live-wheel:participants-updated', handleParticipantsUpdated);
         socket.off('circle:live-wheel:updated', handleWheelUpdated);
+        socket.off('circle:live-wheel:celebration-dismissed', handleCelebrationDismissed);
         socket.off('circle:live-wheel:closed', handleStageClosed);
         socket.off('circle:live-wheel:stage-closed', handleStageClosed);
       };
@@ -575,6 +585,7 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
       if (removeAll) {
         setCombinedWinnersModal(null);
         setResultsText('');
+        dismissLiveCelebrationApi(circleId).catch(() => {});
       } else if (wheelId) {
         setCombinedWinnersModal((prev) => {
           if (!prev) return null;
@@ -588,6 +599,12 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
         err?.response?.data?.message || err?.message || 'Không thể loại bỏ kết quả',
       );
     }
+  };
+
+  // Đóng modal kết quả đồng bộ cho cả 2 bên (Mobile & Web)
+  const handleDismissCombinedWinnersModal = () => {
+    setCombinedWinnersModal(null);
+    dismissLiveCelebrationApi(circleId).catch(() => {});
   };
 
   // 8. Thêm vòng quay (tối đa 4 vòng)
@@ -1603,132 +1620,139 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
           visible={!!combinedWinnersModal && combinedWinnersModal.length > 0}
           transparent
           animationType="fade"
+          onRequestClose={handleDismissCombinedWinnersModal}
         >
-          <View style={styles.modalBackdrop}>
-            <View style={styles.modalBox}>
-              {/* Nút X đóng ở góc trên bên phải */}
-              <TouchableOpacity
-                style={styles.modalCloseBtn}
-                onPress={() => setCombinedWinnersModal(null)}
-                hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
-                accessibilityLabel={t.luckyWheel.close}
-              >
-                <X size={18} color={isDark ? colors.subtle : '#94A3B8'} />
-              </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.modalBackdrop}
+            activeOpacity={1}
+            onPress={handleDismissCombinedWinnersModal}
+          >
+            <TouchableWithoutFeedback>
+              <View style={styles.modalBox}>
+                {/* Nút X đóng ở góc trên bên phải */}
+                <TouchableOpacity
+                  style={styles.modalCloseBtn}
+                  onPress={handleDismissCombinedWinnersModal}
+                  hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
+                  accessibilityLabel={t.luckyWheel.close}
+                >
+                  <X size={18} color={isDark ? colors.subtle : '#94A3B8'} />
+                </TouchableOpacity>
 
-              {/* Glowing Golden Trophy Icon */}
-              <View style={styles.trophyWrapper}>
-                <View style={styles.trophyGlow} />
-                <View style={styles.trophyIconBox}>
-                  <Trophy size={28} color="#FFFFFF" />
+                {/* Glowing Golden Trophy Icon */}
+                <View style={styles.trophyWrapper}>
+                  <View style={styles.trophyGlow} />
+                  <View style={styles.trophyIconBox}>
+                    <Trophy size={28} color="#FFFFFF" />
+                  </View>
                 </View>
-              </View>
 
-              {/* Title */}
-              <Text style={styles.celebrationTitle}>
-                🎉 {t.luckyWheel.winnerTitle}
-              </Text>
+                {/* Title */}
+                <Text style={styles.celebrationTitle}>
+                  🎉 {t.luckyWheel.winnerTitle}
+                </Text>
 
-              {/* Single Winner Layout */}
-              {combinedWinnersModal?.length === 1 && (
-                <>
-                  <View style={styles.singleWinnerCard}>
-                    <View style={styles.winnerBadgePill}>
-                      <Compass size={11} color={isDark ? '#FBBF24' : '#B45309'} />
-                      <Text style={styles.singleWinnerWheelTitle} numberOfLines={1}>
-                        {combinedWinnersModal[0]!.wheelTitle}
-                      </Text>
-                    </View>
-                    <Text style={styles.singleWinnerName} numberOfLines={2}>
-                      {combinedWinnersModal[0]!.winner}
-                    </Text>
-                    <View style={styles.sparkleRow}>
-                      <Sparkles size={12} color="#F59E0B" />
-                      <Text style={styles.sparkleSubtext}>{t.luckyWheel.luckyChoiceBadge}</Text>
-                      <Sparkles size={12} color="#F59E0B" />
-                    </View>
-                  </View>
-
-                  <View style={styles.modalButtonsCol}>
-                    <TouchableOpacity
-                      style={styles.primaryModalBtn}
-                      onPress={() => setCombinedWinnersModal(null)}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={styles.primaryModalBtnText}>{t.luckyWheel.close}</Text>
-                    </TouchableOpacity>
-                    {(canEdit || isParticipant) && (
-                      <TouchableOpacity
-                        style={styles.secondaryRemoveBtn}
-                        onPress={() =>
-                          handleRemoveLiveResult(
-                            combinedWinnersModal[0]!.wheelId,
-                            combinedWinnersModal[0]!.winner,
-                          )
-                        }
-                        activeOpacity={0.8}
-                      >
-                        <Trash2 size={14} color={isDark ? '#F87171' : '#E11D48'} />
-                        <Text style={styles.secondaryRemoveBtnText}>{t.luckyWheel.removeResult}</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                </>
-              )}
-
-              {/* Multiple Winners Layout */}
-              {combinedWinnersModal && combinedWinnersModal.length > 1 && (
-                <>
-                  <ScrollView style={styles.multiWinnersScroll} showsVerticalScrollIndicator={false}>
-                    {combinedWinnersModal.map((r) => (
-                      <View key={r.wheelId} style={styles.multiWinnerRow}>
-                        <View style={{ flex: 1, marginRight: 10 }}>
-                          <Text style={styles.multiWinnerWheelTitle} numberOfLines={1}>
-                            {r.wheelTitle}
-                          </Text>
-                          <Text style={styles.multiWinnerName} numberOfLines={1}>
-                            {r.winner}
-                          </Text>
-                        </View>
-                        {(canEdit || isParticipant) && (
-                          <TouchableOpacity
-                            style={styles.multiWinnerRemoveIconBtn}
-                            onPress={() => handleRemoveLiveResult(r.wheelId, r.winner)}
-                            hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
-                            accessibilityLabel={t.luckyWheel.removeResult}
-                          >
-                            <Trash2 size={16} color={isDark ? '#F87171' : '#E11D48'} />
-                          </TouchableOpacity>
-                        )}
-                      </View>
-                    ))}
-                  </ScrollView>
-
-                  <View style={styles.modalButtonsCol}>
-                    <TouchableOpacity
-                      style={styles.primaryModalBtn}
-                      onPress={() => setCombinedWinnersModal(null)}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={styles.primaryModalBtnText}>{t.luckyWheel.close}</Text>
-                    </TouchableOpacity>
-                    {(canEdit || isParticipant) && (
-                      <TouchableOpacity
-                        style={styles.secondaryRemoveBtn}
-                        onPress={() => handleRemoveLiveResult(undefined, undefined, true)}
-                        activeOpacity={0.8}
-                      >
-                        <Trash2 size={14} color={isDark ? '#F87171' : '#E11D48'} />
-                        <Text style={styles.secondaryRemoveBtnText}>
-                          {t.luckyWheel.removeAllResults}
+                {/* Single Winner Layout */}
+                {combinedWinnersModal?.length === 1 && (
+                  <>
+                    <View style={styles.singleWinnerCard}>
+                      <View style={styles.winnerBadgePill}>
+                        <Compass size={11} color={isDark ? '#FBBF24' : '#B45309'} />
+                        <Text style={styles.singleWinnerWheelTitle} numberOfLines={1}>
+                          {combinedWinnersModal[0]!.wheelTitle}
                         </Text>
+                      </View>
+                      <Text style={styles.singleWinnerName} numberOfLines={2}>
+                        {combinedWinnersModal[0]!.winner}
+                      </Text>
+                      <View style={styles.sparkleRow}>
+                        <Sparkles size={12} color="#F59E0B" />
+                        <Text style={styles.sparkleSubtext}>{t.luckyWheel.luckyChoiceBadge}</Text>
+                        <Sparkles size={12} color="#F59E0B" />
+                      </View>
+                    </View>
+
+                    <View style={styles.modalButtonsCol}>
+                      <TouchableOpacity
+                        style={styles.primaryModalBtn}
+                        onPress={handleDismissCombinedWinnersModal}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.primaryModalBtnText}>{t.luckyWheel.close}</Text>
                       </TouchableOpacity>
-                    )}
-                  </View>
-                </>
-              )}
-            </View>
-          </View>
+                      {(canEdit || isParticipant) && (
+                        <TouchableOpacity
+                          style={styles.secondaryRemoveBtn}
+                          onPress={() =>
+                            handleRemoveLiveResult(
+                              combinedWinnersModal[0]!.wheelId,
+                              combinedWinnersModal[0]!.winner,
+                            )
+                          }
+                          activeOpacity={0.8}
+                        >
+                          <Trash2 size={14} color={isDark ? '#F87171' : '#E11D48'} />
+                          <Text style={styles.secondaryRemoveBtnText}>{t.luckyWheel.removeResult}</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  </>
+                )}
+
+                {/* Multiple Winners Layout */}
+                {combinedWinnersModal && combinedWinnersModal.length > 1 && (
+                  <>
+                    <ScrollView style={styles.multiWinnersScroll} showsVerticalScrollIndicator={false}>
+                      {combinedWinnersModal.map((r) => (
+                        <View key={r.wheelId} style={styles.multiWinnerRow}>
+                          <View style={{ flex: 1, marginRight: 10 }}>
+                            <Text style={styles.multiWinnerWheelTitle} numberOfLines={1}>
+                              {r.wheelTitle}
+                            </Text>
+                            <Text style={styles.multiWinnerName} numberOfLines={1}>
+                              {r.winner}
+                            </Text>
+                          </View>
+                          {(canEdit || isParticipant) && (
+                            <TouchableOpacity
+                              style={styles.multiWinnerRemoveIconBtn}
+                              onPress={() => handleRemoveLiveResult(r.wheelId, r.winner)}
+                              hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+                              accessibilityLabel={t.luckyWheel.removeResult}
+                            >
+                              <Trash2 size={16} color={isDark ? '#F87171' : '#E11D48'} />
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                      ))}
+                    </ScrollView>
+
+                    <View style={styles.modalButtonsCol}>
+                      <TouchableOpacity
+                        style={styles.primaryModalBtn}
+                        onPress={handleDismissCombinedWinnersModal}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.primaryModalBtnText}>{t.luckyWheel.close}</Text>
+                      </TouchableOpacity>
+                      {(canEdit || isParticipant) && (
+                        <TouchableOpacity
+                          style={styles.secondaryRemoveBtn}
+                          onPress={() => handleRemoveLiveResult(undefined, undefined, true)}
+                          activeOpacity={0.8}
+                        >
+                          <Trash2 size={14} color={isDark ? '#F87171' : '#E11D48'} />
+                          <Text style={styles.secondaryRemoveBtnText}>
+                            {t.luckyWheel.removeAllResults}
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  </>
+                )}
+              </View>
+            </TouchableWithoutFeedback>
+          </TouchableOpacity>
         </Modal>
 
         {/* ============================================================== */}

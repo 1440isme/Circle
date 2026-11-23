@@ -543,6 +543,20 @@ export function useCloseLiveWheelMutation(circleId: string) {
   });
 }
 
+export function useDismissLiveCelebrationMutation(circleId: string) {
+  return useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest<{ success: boolean }>(
+        `/circles/${circleId}/wheels/live-dismiss-celebration`,
+        {
+          method: 'POST',
+        },
+      );
+      return res.data;
+    },
+  });
+}
+
 // =============================================================================
 // 3. ANONYMOUS POSTS / WORDS UNSAID HOOKS (UC21)
 // =============================================================================

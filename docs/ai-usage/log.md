@@ -9838,3 +9838,45 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
 - **AI Errors / Hallucinations Found:** Không có.
 - **Commit:** a7492a1
 - **PR:** #120
+
+---
+
+### AI-0173
+
+- **Date:** 2026-11-23 16:30:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120 (Event RSVP & Realtime Delights)
+- **Purpose:** 
+  1. Đồng bộ hoá toàn diện tương tác người dùng trên Live Decision Wheel giữa Web và Mobile:
+     - **Đồng bộ thao tác Tắt / Đóng Celebration Modal:** Khi một người (ở Web hoặc Mobile) nhấn nút "Đóng", nút "X", click ra ngoài backdrop, hoặc bấm nút Back phần cứng trên Android để đóng popup kết quả chúc mừng, client gọi endpoint `POST /circles/:circleId/wheels/live-dismiss-celebration`.
+     - **Backend Session Cleanup & Broadcast:** Backend dọn sạch `winningOption` và `winningIndex` trong session (tránh pop up lại kết quả cũ khi reload), đồng thời ChatGateway phát sự kiện `circle:live-wheel:celebration-dismissed` tới toàn bộ thành viên trong Circle.
+     - **Client Event Listening:** Cả Web (`LiveWheelOverlay.tsx`) và Mobile (`MobileLiveWheelOverlay.tsx`) lắng nghe sự kiện `circle:live-wheel:celebration-dismissed` để đóng modal kết quả ngay tức khắc.
+  2. Đồng bộ thao tác "Loại bỏ" và "Quay":
+     - Khi 1 bên bấm loại bỏ kết quả, backend phát `circle:live-wheel:updated`, bên kia lập tức loại bỏ kết quả đó khỏi danh sách modal chúc mừng; nếu loại bỏ hết thì cả 2 cùng đóng modal.
+     - Khi 1 bên bắt đầu lượt quay mới, cả 2 máy cùng tự động đóng modal kết quả cũ, đồng thời chạy hiệu ứng quay và cùng hiển thị modal kết quả mới đồng nhất.
+- **Prompt Summary:** Chỉ cần 1 bên ấn loại bỏ hay tắt thì cả 2 bên đều phải vậy.
+- **Files Affected:**
+  - `apps/backend/src/modules/chat/chat.gateway.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.controller.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.service.spec.ts`
+  - `apps/web/src/hooks/use-circle-tools.ts`
+  - `apps/web/src/components/chat/LiveWheelOverlay.tsx`
+  - `apps/mobile/src/services/circle-tools.service.ts`
+  - `apps/mobile/src/components/chat/MobileLiveWheelOverlay.tsx`
+  - `agentic/memory/2026-11-23.md`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% kiến trúc đồng bộ realtime WebSocket + REST mutation cho sự kiện dismiss celebration modal trên cả Web và Mobile.
+- **Human Modifications:** Người dùng yêu cầu đồng bộ thao tác tắt và loại bỏ kết quả giữa 2 bên.
+- **Verification Method:** 
+  - `npm --prefix apps/backend test -- circle-tools.service.spec.ts` pass 52/52 tests.
+  - `npx tsc -p apps/web/tsconfig.json --noEmit` pass 0 errors.
+  - `npx tsc -p apps/mobile/tsconfig.json --noEmit` pass 0 errors.
+  - `bash scripts/check-secrets.sh` pass 0 secret leaks.
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn, không chứa secret.
+- **AI Errors / Hallucinations Found:** Không có.
+- **Commit:** Pending
+- **PR:** #120

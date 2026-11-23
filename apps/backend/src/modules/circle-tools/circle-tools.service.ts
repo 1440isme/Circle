@@ -1848,6 +1848,35 @@ export class CircleToolsService {
     return { success: true };
   }
 
+  async dismissLiveCelebration(
+    circleId: string,
+    userId: string,
+  ): Promise<{ success: boolean }> {
+    await this.getMemberOrThrow(circleId, userId);
+
+    const session = this.activeLiveWheelSessions.get(circleId);
+    if (session) {
+      if (session.wheels) {
+        session.wheels.forEach((w) => {
+          w.winningOption = null;
+          w.winningIndex = -1;
+        });
+      }
+      session.winningOption = null;
+      session.winningIndex = -1;
+      this.activeLiveWheelSessions.set(circleId, session);
+    }
+
+    if (this.chatGateway) {
+      this.chatGateway.broadcastLiveWheelCelebrationDismissed(circleId, {
+        circleId,
+        dismissedBy: userId,
+      });
+    }
+
+    return { success: true };
+  }
+
   // --- Wheel Folders / Presets ---
   async getWheelFolders(circleId: string, userId: string) {
     await this.getMemberOrThrow(circleId, userId);

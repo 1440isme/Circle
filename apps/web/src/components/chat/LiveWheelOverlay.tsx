@@ -43,6 +43,7 @@ import {
   useShareWheelResultsToChatMutation,
   useActiveLiveWheelQuery,
   useCloseLiveWheelMutation,
+  useDismissLiveCelebrationMutation,
   useUpdateLiveWheelSettingsMutation,
   useLiveSpinWheelMutation,
   useLiveRemoveResultMutation,
@@ -328,6 +329,7 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
   const liveRemoveResultMutation = useLiveRemoveResultMutation(circleId);
   const shareResultsMutation = useShareWheelResultsToChatMutation(circleId);
   const closeLiveMutation = useCloseLiveWheelMutation(circleId);
+  const dismissCelebrationMutation = useDismissLiveCelebrationMutation(circleId);
   const updateSettingsMutation = useUpdateLiveWheelSettingsMutation(circleId);
 
   // Phân quyền: Chủ phòng vs Người xem & Quyền chỉnh sửa
@@ -867,6 +869,12 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
     }
   };
 
+  // Đóng modal chúc mừng kết quả đồng bộ cho cả 2 bên (Web & Mobile)
+  const handleDismissCombinedResultsModal = () => {
+    setCombinedResultsModal(null);
+    dismissCelebrationMutation.mutateAsync().catch(() => {});
+  };
+
   // Sort results A-Z
   const handleSortResults = () => {
     if (resultLines.length < 2) return;
@@ -1054,12 +1062,19 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
       });
     };
 
+    const handleCelebrationDismissed = (data: { circleId: string }) => {
+      if (data.circleId === circleId) {
+        setCombinedResultsModal(null);
+      }
+    };
+
     socket.on('circle:live-wheel:stage-created', handleStageCreated);
     socket.on('circle:live-wheel:stage-closed', handleStageClosed);
     socket.on('circle:live-wheel:closed', handleStageClosed);
     socket.on('circle:live-wheel:updated', handleLiveWheelUpdated);
     socket.on('circle:live-wheel:started', handleLiveWheelStarted);
     socket.on('circle:live-wheel:participants-updated', handleParticipantsUpdated);
+    socket.on('circle:live-wheel:celebration-dismissed', handleCelebrationDismissed);
     window.addEventListener('circle:open-live-wheel', handleOpenFromChat);
 
     return () => {
@@ -1069,6 +1084,7 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
       socket.off('circle:live-wheel:updated', handleLiveWheelUpdated);
       socket.off('circle:live-wheel:started', handleLiveWheelStarted);
       socket.off('circle:live-wheel:participants-updated', handleParticipantsUpdated);
+      socket.off('circle:live-wheel:celebration-dismissed', handleCelebrationDismissed);
       window.removeEventListener('circle:open-live-wheel', handleOpenFromChat);
     };
   }, [circleId, user?.id, soundEnabled, animateWheelRotation, queryClient]);
@@ -2136,17 +2152,21 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
       {/* COMBINED / BATCH RESULTS MODAL - CELEBRATION WINNER SHOWCASE */}
       {/* ============================================================== */}
       {combinedResultsModal && combinedResultsModal.length > 0 && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn"
+          onClick={handleDismissCombinedResultsModal}
+        >
           <div
             className="relative w-full max-w-md overflow-hidden rounded-3xl border border-amber-300/60 dark:border-amber-500/30 bg-white dark:bg-circle-dark-surface text-circle-charcoal dark:text-white shadow-2xl animate-scaleUp flex flex-col"
             role="dialog"
             aria-modal="true"
+            onClick={(e) => e.stopPropagation()}
           >
             {/* Celebration Header Background Glow */}
             <div className="relative pt-7 pb-3 px-6 flex flex-col items-center text-center bg-gradient-to-b from-amber-400/15 via-circle-wash to-transparent">
               <button
                 type="button"
-                onClick={() => setCombinedResultsModal(null)}
+                onClick={handleDismissCombinedResultsModal}
                 className="absolute top-4 right-4 p-1.5 rounded-full text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer"
                 title={t.luckyWheel.close}
               >
@@ -2191,7 +2211,7 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
                 <div className="w-full flex flex-col gap-2 mt-5">
                   <button
                     type="button"
-                    onClick={() => setCombinedResultsModal(null)}
+                    onClick={handleDismissCombinedResultsModal}
                     className="w-full py-3 px-6 rounded-2xl bg-circle-primary hover:bg-circle-sage text-white font-bold text-sm shadow-sm transition-all active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <Check className="w-4 h-4" />
@@ -2252,7 +2272,7 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
                 <div className="flex flex-col gap-2 mt-5">
                   <button
                     type="button"
-                    onClick={() => setCombinedResultsModal(null)}
+                    onClick={handleDismissCombinedResultsModal}
                     className="w-full py-3 px-6 rounded-2xl bg-circle-primary hover:bg-circle-sage text-white font-bold text-sm shadow-sm transition-all active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <Check className="w-4 h-4" />

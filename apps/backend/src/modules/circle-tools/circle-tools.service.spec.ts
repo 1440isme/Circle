@@ -25,6 +25,8 @@ describe('CircleToolsService', () => {
       broadcastLiveWheelStageCreated: jest.fn(),
       broadcastLiveWheelParticipants: jest.fn(),
       broadcastLiveWheelUpdated: jest.fn(),
+      broadcastLiveWheelCelebrationDismissed: jest.fn(),
+      broadcastLiveWheelClosed: jest.fn(),
       broadcastAnonymousPostReaction: jest.fn(),
     };
 
@@ -653,6 +655,29 @@ describe('CircleToolsService', () => {
       await expect(
         service.updateWheel('circle-1', 'wheel-1', 'user-2', { title: 'Tên mới' }),
       ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should dismiss celebration modal and broadcast to members', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValue({
+        id: 'mem-1',
+        circleId: 'circle-1',
+        userId: 'user-1',
+        role: 'MEMBER',
+        user: { profile: { displayName: 'Bình' } },
+      });
+
+      await service.createLiveWheelStage('circle-1', 'user-1');
+      const res = await service.dismissLiveCelebration('circle-1', 'user-1');
+
+      expect(res.success).toBe(true);
+      expect(mockChatGateway.broadcastLiveWheelCelebrationDismissed).toHaveBeenCalledWith(
+        'circle-1',
+        expect.objectContaining({ circleId: 'circle-1', dismissedBy: 'user-1' }),
+      );
+
+      const active = await service.getActiveLiveWheel('circle-1', 'user-1');
+      expect(active?.winningOption).toBeNull();
+      expect(active?.winningIndex).toBe(-1);
     });
   });
 
