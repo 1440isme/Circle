@@ -163,51 +163,68 @@ const WheelCanvas: React.FC<{
     ctx.rotate((rotation * Math.PI) / 180);
 
     // Draw slices
-    options.forEach((opt, idx) => {
-      const startAngle = idx * sliceAngle;
-      const endAngle = startAngle + sliceAngle;
-
+    if (options.length === 0) {
       ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.arc(0, 0, radius, startAngle, endAngle);
-      ctx.closePath();
-      ctx.fillStyle = opt.color || PASTEL_WHEEL_COLORS[idx % PASTEL_WHEEL_COLORS.length]!;
+      ctx.arc(0, 0, radius, 0, 2 * Math.PI);
+      ctx.fillStyle = '#F8FAFC';
       ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#E2E8F0';
+      ctx.stroke();
 
-      // Label text: Centered radially in the slice so it never sinks into hub or spills off rim
-      ctx.save();
-      const midAngle = startAngle + sliceAngle / 2;
-      ctx.rotate(midAngle);
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillStyle = '#1E293B';
+      ctx.fillStyle = '#94A3B8';
+      const emptyFontSize = size > 420 ? 14 : size > 300 ? 12 : 11;
+      ctx.font = `600 ${emptyFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+      ctx.fillText('Hết phương án', 0, 0);
+    } else {
+      options.forEach((opt, idx) => {
+        const startAngle = idx * sliceAngle;
+        const endAngle = startAngle + sliceAngle;
 
-      const hubRadius = size > 500 ? 32 : size > 420 ? 28 : size > 300 ? 22 : 18;
-      const outerMargin = size > 500 ? 26 : size > 420 ? 24 : size > 300 ? 20 : 14;
-      const trackLength = radius - outerMargin - hubRadius;
-      const textRadius = hubRadius + trackLength / 2;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.arc(0, 0, radius, startAngle, endAngle);
+        ctx.closePath();
+        ctx.fillStyle = opt.color || PASTEL_WHEEL_COLORS[idx % PASTEL_WHEEL_COLORS.length]!;
+        ctx.fill();
 
-      const baseFontSize = size > 500 ? 16 : size > 420 ? 15 : size > 300 ? 13 : size > 250 ? 12 : 11;
-      ctx.font = `600 ${baseFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
-      ctx.shadowColor = 'rgba(255, 255, 255, 0.7)';
-      ctx.shadowBlur = 2;
+        // Label text: Centered radially in the slice so it never sinks into hub or spills off rim
+        ctx.save();
+        const midAngle = startAngle + sliceAngle / 2;
+        ctx.rotate(midAngle);
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#1E293B';
 
-      let label = opt.label;
-      let measured = ctx.measureText(label).width;
-      if (measured > trackLength - 6) {
-        const smallerFont = Math.max(baseFontSize - 2, 9);
-        ctx.font = `600 ${smallerFont}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
-        measured = ctx.measureText(label).width;
+        const hubRadius = size > 500 ? 32 : size > 420 ? 28 : size > 300 ? 22 : 18;
+        const outerMargin = size > 500 ? 26 : size > 420 ? 24 : size > 300 ? 20 : 14;
+        const trackLength = radius - outerMargin - hubRadius;
+        const textRadius = hubRadius + trackLength / 2;
+
+        const baseFontSize = size > 500 ? 16 : size > 420 ? 15 : size > 300 ? 13 : size > 250 ? 12 : 11;
+        ctx.font = `600 ${baseFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+        ctx.shadowColor = 'rgba(255, 255, 255, 0.7)';
+        ctx.shadowBlur = 2;
+
+        let label = opt.label;
+        let measured = ctx.measureText(label).width;
         if (measured > trackLength - 6) {
-          const charWidth = smallerFont * 0.6;
-          const maxLen = Math.max(Math.floor((trackLength - 8) / charWidth), 3);
-          label = label.substring(0, maxLen - 1) + '…';
+          const smallerFont = Math.max(baseFontSize - 2, 9);
+          ctx.font = `600 ${smallerFont}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+          measured = ctx.measureText(label).width;
+          if (measured > trackLength - 6) {
+            const charWidth = smallerFont * 0.6;
+            const maxLen = Math.max(Math.floor((trackLength - 8) / charWidth), 3);
+            label = label.substring(0, maxLen - 1) + '…';
+          }
         }
-      }
 
-      ctx.fillText(label, textRadius, 0);
-      ctx.restore();
-    });
+        ctx.fillText(label, textRadius, 0);
+        ctx.restore();
+      });
+    }
 
     ctx.restore();
 
@@ -806,6 +823,11 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
     const localState = wheelsState[wheel.wheelId];
     if (localState?.isSpinning || liveSpinMutation.isPending) return;
 
+    if (!wheel.options || wheel.options.length === 0) {
+      alert(locale === 'vi' ? 'Vòng quay này đã hết phương án lựa chọn' : 'This wheel has no options left');
+      return;
+    }
+
     try {
       await liveSpinMutation.mutateAsync({
         isAll: false,
@@ -820,6 +842,12 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
   // Spin ALL wheels simultaneously
   const handleSpinAll = async () => {
     if (liveWheels.length === 0 || isAnySpinning || liveSpinMutation.isPending) return;
+
+    const hasAnyOption = liveWheels.some((w) => w.options && w.options.length > 0);
+    if (!hasAnyOption) {
+      alert(locale === 'vi' ? 'Tất cả vòng quay đã hết phương án lựa chọn' : 'All wheels have no options left');
+      return;
+    }
 
     try {
       await liveSpinMutation.mutateAsync({

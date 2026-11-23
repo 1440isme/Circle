@@ -9878,5 +9878,40 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
 - **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
 - **Security & License Check:** An toàn, không chứa secret.
 - **AI Errors / Hallucinations Found:** Không có.
-- **Commit:** Pending
+- **Commit:** 76331ce
+- **PR:** #120
+
+---
+
+### AI-0174
+
+- **Date:** 2026-11-23 17:08:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120 (Event RSVP & Realtime Delights)
+- **Purpose:** 
+  1. Triệt tiêu hoàn toàn việc tự ý sinh ra phương án mặc định `[{ optionLabel: 'Lựa chọn' }]` khi người dùng loại bỏ hết các phương án trong vòng quay:
+     - **Backend `liveSpinWheel`:** Loại bỏ fallback gán lại `'Lựa chọn'` vào `opts`. Nếu các vòng cần quay đều đã bị loại bỏ hết options, ném `BadRequestException('Vòng quay đã hết phương án lựa chọn')`. Nếu quay kết hợp mà có vòng còn, có vòng hết thì chỉ quay những vòng còn phương án (`opts.length > 0`), các vòng hết phương án giữ `winningIndex = -1, winningOption = null`.
+     - **Web `WheelCanvas`:** Khi `options.length === 0`, vẽ đĩa tròn xám với viền sạch sẽ và text `Hết phương án`, không sinh lát cắt hay nhãn "Lựa chọn".
+     - **Mobile `renderWheelSvg`:** Khi `totalOptions === 0`, render hình tròn Circle màu xám nhạt kèm SvgText `Hết phương án` / `Empty`.
+     - **Thao tác người dùng:** Cảnh báo trước khi người dùng bấm nút quay nếu vòng quay đã hết phương án.
+- **Prompt Summary:** Khi loại bỏ hết ko cần để lại là lựa chọn nữa đâu.
+- **Files Affected:**
+  - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
+  - `apps/web/src/components/chat/LiveWheelOverlay.tsx`
+  - `apps/mobile/src/components/chat/MobileLiveWheelOverlay.tsx`
+  - `agentic/memory/2026-11-23.md`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% logic xử lý trạng thái rỗng cho Live Wheel trên cả backend, web canvas và mobile svg.
+- **Human Modifications:** Người dùng yêu cầu không để lại fallback chữ "Lựa chọn" khi đã loại bỏ hết options.
+- **Verification Method:** 
+  - `npm --prefix apps/backend test -- circle-tools.service.spec.ts` pass 52/52 tests.
+  - `npx tsc -p apps/web/tsconfig.json --noEmit` pass 0 errors.
+  - `npx tsc -p apps/mobile/tsconfig.json --noEmit` pass 0 errors.
+  - `bash scripts/check-secrets.sh` pass 0 secret leaks.
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn, không chứa secret.
+- **AI Errors / Hallucinations Found:** Không có.
+- **Commit:** 0d5bba5
 - **PR:** #120

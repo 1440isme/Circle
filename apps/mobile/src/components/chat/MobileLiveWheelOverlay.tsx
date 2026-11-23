@@ -458,11 +458,35 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
   // 4. Render SVG cho từng bánh xe
   const renderWheelSvg = (options: { optionLabel: string; color?: string }[], discSize: number) => {
     const totalOptions = options.length;
-    if (totalOptions === 0) return null;
-
     const radius = discSize / 2;
     const centerX = discSize / 2;
     const centerY = discSize / 2;
+
+    if (totalOptions === 0) {
+      return (
+        <G key="slice-empty">
+          <Circle
+            cx={centerX}
+            cy={centerY}
+            r={radius}
+            fill={isDark ? '#1E293B' : '#F8FAFC'}
+            stroke={isDark ? '#334155' : '#E2E8F0'}
+            strokeWidth={1.5}
+          />
+          <SvgText
+            x={centerX}
+            y={centerY}
+            fill={isDark ? '#64748B' : '#94A3B8'}
+            fontSize={discSize > 200 ? 12 : 9}
+            fontWeight="600"
+            textAnchor="middle"
+            alignmentBaseline="central"
+          >
+            {locale === 'vi' ? 'Hết phương án' : 'Empty'}
+          </SvgText>
+        </G>
+      );
+    }
 
     if (totalOptions === 1) {
       const label = options[0]!.optionLabel;
@@ -539,6 +563,12 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
   const handleSpinClick = async () => {
     if (isSubmittingSpin || (!isFinished && session?.stageStatus === 'spinning')) return;
 
+    const hasAnyOption = wheelsList.some((w) => w.options && w.options.length > 0);
+    if (!hasAnyOption) {
+      Alert.alert(t.common.notice, locale === 'vi' ? 'Tất cả vòng quay đã hết phương án lựa chọn' : 'All wheels have no options left');
+      return;
+    }
+
     try {
       setIsSubmittingSpin(true);
       await liveSpinWheelApi(circleId, {
@@ -555,6 +585,12 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
   // 6. Xử lý khi ấn nút Quay Riêng Vòng Đang Chọn
   const handleSpinSingleWheel = async (wheelId: string) => {
     if (isSubmittingSpin || (!isFinished && session?.stageStatus === 'spinning')) return;
+
+    const target = wheelsList.find((w) => w.wheelId === wheelId);
+    if (!target || !target.options || target.options.length === 0) {
+      Alert.alert(t.common.notice, locale === 'vi' ? 'Vòng quay này đã hết phương án lựa chọn' : 'This wheel has no options left');
+      return;
+    }
 
     try {
       setIsSubmittingSpin(true);

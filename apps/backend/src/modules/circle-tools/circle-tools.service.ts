@@ -1531,13 +1531,21 @@ export class CircleToolsService {
     }
 
     const isAll = dto.isAll !== false;
-    const wheelsList: LiveWheelItem[] = baseWheels.map((w, idx) => {
-      const opts =
-        w.options && w.options.length > 0
-          ? w.options
-          : [{ optionLabel: 'Lựa chọn', color: PASTEL_WHEEL_COLORS[0]! }];
 
-      if (isAll || w.wheelId === dto.wheelId) {
+    // Kiểm tra xem các vòng cần quay có còn phương án nào không
+    const targetWheels = isAll
+      ? baseWheels
+      : baseWheels.filter((w) => w.wheelId === dto.wheelId);
+
+    const hasAnyOption = targetWheels.some((w) => w.options && w.options.length > 0);
+    if (!hasAnyOption) {
+      throw new BadRequestException('Vòng quay đã hết phương án lựa chọn');
+    }
+
+    const wheelsList: LiveWheelItem[] = baseWheels.map((w, idx) => {
+      const opts = w.options || [];
+
+      if ((isAll || w.wheelId === dto.wheelId) && opts.length > 0) {
         const winningIdx = Math.floor(Math.random() * opts.length);
         return {
           ...w,
@@ -1570,8 +1578,9 @@ export class CircleToolsService {
         }));
       winningIndex = Math.floor(Math.random() * options.length);
     } else {
-      options = wheelsList[0]?.options || [];
-      winningIndex = wheelsList[0]?.winningIndex || 0;
+      const firstWithWinner = wheelsList.find((w) => w.winningOption);
+      options = firstWithWinner?.options || wheelsList[0]?.options || [];
+      winningIndex = firstWithWinner?.winningIndex ?? -1;
     }
 
     const combinedWinners = wheelsList
@@ -1579,10 +1588,12 @@ export class CircleToolsService {
       .map((w) => w.winningOption?.optionLabel || 'N/A')
       .join(' - ');
 
-    const winningOption = {
-      optionLabel: combinedWinners,
-      color: '#0D9488',
-    };
+    const winningOption = combinedWinners
+      ? {
+          optionLabel: combinedWinners,
+          color: '#0D9488',
+        }
+      : null;
 
     let channel = dto.channelId
       ? await this.prisma.channel.findFirst({ where: { id: dto.channelId, circleId } })
