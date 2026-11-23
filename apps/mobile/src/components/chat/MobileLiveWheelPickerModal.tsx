@@ -515,7 +515,7 @@ export const MobileLiveWheelPickerModal: React.FC<MobileLiveWheelPickerModalProp
               {
                 backgroundColor: isDark ? colors.elevated : '#FFFFFF',
                 borderColor: colors.hairline,
-                paddingBottom: Math.max(insets.bottom, 12),
+                paddingBottom: 12,
               },
             ]}
           >
@@ -1008,25 +1008,29 @@ export const MobileLiveWheelPickerModal: React.FC<MobileLiveWheelPickerModalProp
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    paddingHorizontal: 16,
+    paddingVertical: 24,
   },
   keyboardContainer: {
     width: '100%',
-    justifyContent: 'flex-end',
+    maxHeight: '94%',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   sheetContainer: {
     width: '100%',
-    maxHeight: '92%',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    borderTopWidth: 1,
+    maxHeight: '100%',
+    borderRadius: 24,
+    borderWidth: 1,
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 12,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    elevation: 16,
   },
   header: {
     flexDirection: 'row',
@@ -1228,10 +1232,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 6,
+    paddingTop: 12,
+    paddingBottom: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
     flexShrink: 0,
+    minHeight: 64,
   },
   addWheelBtn: {
     flexDirection: 'row',

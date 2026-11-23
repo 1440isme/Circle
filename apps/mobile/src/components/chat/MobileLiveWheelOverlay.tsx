@@ -312,6 +312,8 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
         if (data.circleId === circleId) {
           setIsVisible(false);
           setSession(null);
+          setResultsText('');
+          setCombinedWinnersModal(null);
         }
       };
 
@@ -748,11 +750,23 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
               if (session) {
                 setDismissedSessionId(session.id);
               }
+              const lines = resultsText
+                .split('\n')
+                .map((l) => l.trim())
+                .filter((l) => l.length > 0);
+              const formattedResults =
+                lines.length > 0
+                  ? lines.map((winner, idx) => ({
+                      wheelTitle: `Lần ${idx + 1}`,
+                      winner,
+                    }))
+                  : undefined;
+
               setIsVisible(false);
               setSession(null);
               setResultsText('');
               setCombinedWinnersModal(null);
-              await closeLiveWheelStageApi(circleId);
+              await closeLiveWheelStageApi(circleId, formattedResults);
             } catch (err: any) {
               Alert.alert(t.common.error, err?.message || 'Không thể đóng phòng quay');
             }
@@ -763,10 +777,14 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
   };
 
   const handleLeaveStage = () => {
-    if (session) {
-      setDismissedSessionId(session.id);
+    if (isHost) {
+      handleCloseStage();
+    } else {
+      if (session) {
+        setDismissedSessionId(session.id);
+      }
+      setIsVisible(false);
     }
-    setIsVisible(false);
   };
 
   // 12. Lưu sửa đổi cho tab lựa chọn của vòng

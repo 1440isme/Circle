@@ -9913,5 +9913,39 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
 - **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
 - **Security & License Check:** An toàn, không chứa secret.
 - **AI Errors / Hallucinations Found:** Không có.
-- **Commit:** 0d5bba5
+- **Commit:** c9c0606
+- **PR:** #120
+
+---
+
+### AI-0175
+
+- **Date:** 2026-11-23 17:35:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120 (Event RSVP & Realtime Delights)
+- **Purpose:** 
+  1. Đồng bộ hóa toàn diện UI/UX và logic Live Decision Wheel trên ứng dụng Mobile theo đúng các yêu cầu đã chuẩn hóa trên Web:
+     - **Modal Tạo vòng quay ngẫu nhiên (`MobileLiveWheelPickerModal.tsx`):** Chuyển từ Bottom Sheet lệch đáy sang Centered Modal (màn hình chính giữa), cuộn lên xuống mượt mà; thiết lập `minHeight: 64` và `flexShrink: 0` cố định cho hàng nút hành động dưới đáy (`actionButtonsRow`, `addWheelBtn`, `spinAllBtn`) để khi bàn phím ảo xuất hiện các nút không bao giờ bị co ép hay che khuất.
+     - **Thẻ tin nhắn Chat (`MobileLiveWheelChatEmbed.tsx`):** Chuẩn hóa tiêu đề mặc định thành "Vòng quay ngẫu nhiên" (`Random Wheel`), tích hợp trạng thái kết thúc phiên (`isFinished = payload.stageStatus === 'finished'`), hiển thị tag "Đã hoàn thành" và nút "Phiên đã kết thúc" (màu xám, disabled, không hiển thị icon mũi tên).
+     - **Quy trình Đóng phòng quay trên Mobile (`MobileLiveWheelOverlay.tsx`):** Khi Host bấm nút Back ở header, kích hoạt quy trình xác nhận đóng phòng; nếu có kết quả quay thì tự động định dạng và gửi kết quả vào nhóm chat đồng nhất với Web; khi nhận sự kiện `stage-closed` thì dọn sạch kết quả và popup chiến thắng trên tất cả các thiết bị.
+- **Prompt Summary:** Khá ổn rồi hãy xây những cái tôi đã yêu cầu này cho apps nữa nha.
+- **Files Affected:**
+  - `apps/mobile/src/components/chat/MobileLiveWheelPickerModal.tsx`
+  - `apps/mobile/src/components/chat/MobileLiveWheelChatEmbed.tsx`
+  - `apps/mobile/src/components/chat/MobileLiveWheelOverlay.tsx`
+  - `agentic/memory/2026-11-23.md`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% tái cấu trúc modal layout, keyboard resilience styles và đồng bộ trạng thái chat embed trên Mobile.
+- **Human Modifications:** Người dùng yêu cầu đồng bộ các tính năng và trải nghiệm sang ứng dụng Mobile.
+- **Verification Method:** 
+  - `npm --prefix apps/backend test -- circle-tools.service.spec.ts` pass 52/52 tests.
+  - `npx tsc -p apps/web/tsconfig.json --noEmit` pass 0 errors.
+  - `npx tsc -p apps/mobile/tsconfig.json --noEmit` pass 0 errors.
+  - `bash scripts/check-secrets.sh` pass 0 secret leaks.
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn, không chứa secret.
+- **AI Errors / Hallucinations Found:** Không có.
+- **Commit:** 38db34f
 - **PR:** #120

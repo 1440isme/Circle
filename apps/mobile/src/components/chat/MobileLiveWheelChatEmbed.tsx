@@ -37,10 +37,12 @@ export const MobileLiveWheelChatEmbed: React.FC<MobileLiveWheelChatEmbedProps> =
 
   if (!payload) return null;
 
+  const isFinished = payload.stageStatus === 'finished';
   const participants = payload.participants || [];
   const participantsCount = participants.length;
 
   const handleJoin = async () => {
+    if (isFinished) return;
     let joinedSession: LiveWheelSession | null = null;
     try {
       setIsJoining(true);
@@ -63,30 +65,70 @@ export const MobileLiveWheelChatEmbed: React.FC<MobileLiveWheelChatEmbedProps> =
         styles.cardContainer,
         {
           backgroundColor: isDark ? colors.elevated : '#FFFFFF',
-          borderColor: isDark ? `${colors.primary}50` : '#99F6E4',
+          borderColor: isFinished
+            ? (isDark ? '#334155' : '#E2E8F0')
+            : (isDark ? `${colors.primary}50` : '#99F6E4'),
         },
       ]}
     >
       {/* Header */}
       <View style={[styles.headerRow, { borderBottomColor: colors.hairline }]}>
         <View style={styles.headerLeft}>
-          <View style={[styles.iconBox, { backgroundColor: `${colors.primary}20` }]}>
-            <Compass size={18} color={colors.primary} />
+          <View
+            style={[
+              styles.iconBox,
+              {
+                backgroundColor: isFinished
+                  ? (isDark ? '#334155' : '#F1F5F9')
+                  : `${colors.primary}20`,
+              },
+            ]}
+          >
+            <Compass
+              size={18}
+              color={isFinished ? (isDark ? '#64748B' : '#94A3B8') : colors.primary}
+            />
           </View>
           <View>
             <Text style={[styles.headerTitle, { color: colors.text }]}>
-              {payload.wheelTitle || (locale === 'vi' ? 'Vòng quay may mắn' : 'Lucky Wheel')}
+              {payload.wheelTitle || (locale === 'vi' ? 'Vòng quay ngẫu nhiên' : 'Random Wheel')}
             </Text>
-            <Text style={[styles.headerSubtitle, { color: colors.primary }]}>
-              {locale === 'vi' ? 'Tương tác trực tiếp' : 'Live Interactive'}
+            <Text
+              style={[
+                styles.headerSubtitle,
+                { color: isFinished ? (isDark ? '#64748B' : '#94A3B8') : colors.primary },
+              ]}
+            >
+              {isFinished
+                ? (locale === 'vi' ? 'Đã kết thúc' : 'Ended')
+                : (locale === 'vi' ? 'Tương tác trực tiếp' : 'Live Interactive')}
             </Text>
           </View>
         </View>
 
-        <View style={[styles.tagBadge, { backgroundColor: `${colors.primary}15` }]}>
-          <Sparkles size={11} color={colors.primary} />
-          <Text style={[styles.tagBadgeText, { color: colors.primary }]}>
-            {locale === 'vi' ? 'Hoạt động nhóm' : 'Group Fun'}
+        <View
+          style={[
+            styles.tagBadge,
+            {
+              backgroundColor: isFinished
+                ? (isDark ? '#334155' : '#F1F5F9')
+                : `${colors.primary}15`,
+            },
+          ]}
+        >
+          <Sparkles
+            size={11}
+            color={isFinished ? (isDark ? '#64748B' : '#94A3B8') : colors.primary}
+          />
+          <Text
+            style={[
+              styles.tagBadgeText,
+              { color: isFinished ? (isDark ? '#94A3B8' : '#64748B') : colors.primary },
+            ]}
+          >
+            {isFinished
+              ? (locale === 'vi' ? 'Đã hoàn thành' : 'Finished')
+              : (locale === 'vi' ? 'Hoạt động nhóm' : 'Group Fun')}
           </Text>
         </View>
       </View>
@@ -156,19 +198,36 @@ export const MobileLiveWheelChatEmbed: React.FC<MobileLiveWheelChatEmbedProps> =
       {/* Join Button */}
       <TouchableOpacity
         activeOpacity={0.85}
-        disabled={isJoining}
+        disabled={isJoining || isFinished}
         onPress={handleJoin}
-        style={[styles.joinBtn, { backgroundColor: colors.primary }]}
+        style={[
+          styles.joinBtn,
+          {
+            backgroundColor: isFinished
+              ? (isDark ? '#334155' : '#E2E8F0')
+              : colors.primary,
+          },
+        ]}
       >
         {isJoining ? (
           <ActivityIndicator size="small" color="#FFFFFF" />
         ) : (
           <>
-            <Compass size={15} color="#FFFFFF" />
-            <Text style={styles.joinBtnText}>
-              {locale === 'vi' ? 'Tham gia vòng quay' : 'Join Wheel'}
+            <Compass
+              size={15}
+              color={isFinished ? (isDark ? '#94A3B8' : '#64748B') : '#FFFFFF'}
+            />
+            <Text
+              style={[
+                styles.joinBtnText,
+                { color: isFinished ? (isDark ? '#94A3B8' : '#64748B') : '#FFFFFF' },
+              ]}
+            >
+              {isFinished
+                ? (locale === 'vi' ? 'Phiên đã kết thúc' : 'Stage Closed')
+                : (locale === 'vi' ? 'Tham gia vòng quay' : 'Join Wheel')}
             </Text>
-            <ArrowRight size={14} color="#FFFFFF" />
+            {!isFinished && <ArrowRight size={14} color="#FFFFFF" />}
           </>
         )}
       </TouchableOpacity>
