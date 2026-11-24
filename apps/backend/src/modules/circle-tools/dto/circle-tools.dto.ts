@@ -90,7 +90,8 @@ export class LiveSpinWheelDto implements LiveSpinWheelInput {
 }
 
 export class UpdateLiveWheelSettingsDto implements UpdateLiveWheelSettingsInput {
-  allowMembersToEdit: boolean;
+  allowMembersToEdit?: boolean;
+  newHostUserId?: string;
 }
 
 export class CreateAnonymousPostDto implements CreateAnonymousPostInput {

@@ -314,13 +314,25 @@ export async function liveRemoveResultApi(
 
 export async function updateLiveWheelSettingsApi(
   circleId: string,
-  input: { allowMembersToEdit?: boolean; soundEnabled?: boolean },
+  input: { allowMembersToEdit?: boolean; soundEnabled?: boolean; newHostUserId?: string },
 ): Promise<LiveWheelSession> {
   const res = await mobileApiRequest<LiveWheelSession>(
     `/circles/${circleId}/wheels/live-settings`,
     {
       method: 'PATCH',
       body: JSON.stringify(input || {}),
+    },
+  );
+  return res.data;
+}
+
+export async function leaveLiveWheelStageApi(
+  circleId: string,
+): Promise<{ success: boolean }> {
+  const res = await mobileApiRequest<{ success: boolean }>(
+    `/circles/${circleId}/wheels/live-leave`,
+    {
+      method: 'POST',
     },
   );
   return res.data;

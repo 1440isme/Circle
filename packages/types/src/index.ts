@@ -866,7 +866,8 @@ export interface LiveWheelSession {
 }
 
 export interface UpdateLiveWheelSettingsInput {
-  allowMembersToEdit: boolean;
+  allowMembersToEdit?: boolean;
+  newHostUserId?: string;
 }
 
 export interface LiveWheelMessagePayload {

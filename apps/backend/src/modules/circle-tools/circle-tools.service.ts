@@ -531,7 +531,7 @@ export class CircleToolsService {
 
     const title = dto.title?.trim() || `Vòng quay ${existingCount + 1}`;
 
-    return this.prisma.decisionWheel.create({
+    const created = await this.prisma.decisionWheel.create({
       data: {
         circleId,
         title,
@@ -559,6 +559,10 @@ export class CircleToolsService {
         },
       },
     });
+
+    await this.syncActiveLiveWheelFromDb(circleId);
+
+    return created;
   }
 
   async updateWheel(
@@ -806,6 +810,8 @@ export class CircleToolsService {
       },
     });
 
+    await this.syncActiveLiveWheelFromDb(circleId);
+
     return { success: true, defaultWheel };
   }
 
@@ -831,6 +837,8 @@ export class CircleToolsService {
     await this.prisma.decisionWheel.delete({
       where: { id: wheelId },
     });
+
+    await this.syncActiveLiveWheelFromDb(circleId);
 
     return { success: true };
   }
@@ -1105,6 +1113,39 @@ export class CircleToolsService {
       }));
   }
 
+  async syncActiveLiveWheelFromDb(circleId: string): Promise<LiveWheelSession | null> {
+    const liveSession = this.activeLiveWheelSessions.get(circleId);
+    if (!liveSession || liveSession.stageStatus === 'finished') {
+      return null;
+    }
+    const wheels = await this.ensureFourWheels(circleId);
+    const fourWheels = wheels.slice(0, 4);
+    liveSession.wheels = fourWheels.map((w, idx) => ({
+      wheelId: w.id,
+      wheelTitle: w.title || `Vòng ${idx + 1}`,
+      options:
+        w.options && Array.isArray(w.options) && w.options.length >= 2
+          ? w.options.map((o, oIdx) => ({
+              optionLabel: o.optionLabel,
+              color: o.color || PASTEL_WHEEL_COLORS[oIdx % PASTEL_WHEEL_COLORS.length]!,
+            }))
+          : ['Phương án 1', 'Phương án 2'].map((lbl, oIdx) => ({
+              optionLabel: lbl,
+              color: PASTEL_WHEEL_COLORS[oIdx]!,
+            })),
+      winningIndex: -1,
+      winningOption: null,
+    }));
+    if (liveSession.wheels[0]) {
+      liveSession.options = liveSession.wheels[0].options;
+    }
+    this.activeLiveWheelSessions.set(circleId, liveSession);
+    if (this.chatGateway) {
+      this.chatGateway.broadcastLiveWheelUpdated(circleId, liveSession);
+    }
+    return liveSession;
+  }
+
   async createLiveWheelStage(
     circleId: string,
     userId: string,
@@ -1115,8 +1156,14 @@ export class CircleToolsService {
     // [CÁCH 1]: Kiểm tra nếu trong Circle đang có phiên Live Wheel đang hoạt động (chưa finished)
     const existingSession = await this.getActiveLiveWheel(circleId, userId);
     if (existingSession && existingSession.stageStatus !== 'finished') {
+      const synced = await this.syncActiveLiveWheelFromDb(circleId);
       const joinedSession = await this.joinLiveWheel(circleId, userId, existingSession.id);
-      return joinedSession || existingSession;
+      const resSession = synced || joinedSession || existingSession;
+      if (this.chatGateway) {
+        this.chatGateway.broadcastLiveWheelStageCreated(circleId, resSession);
+        this.chatGateway.broadcastLiveWheelUpdated(circleId, resSession);
+      }
+      return resSession;
     }
 
     const wheels = await this.ensureFourWheels(circleId);
@@ -1760,10 +1807,32 @@ export class CircleToolsService {
 
     const isHost = !session.creatorId || session.creatorId === userId || member.role === 'OWNER';
     if (!isHost) {
-      throw new ForbiddenException('Chỉ chủ phòng mới có quyền bật/tắt thiết lập cho phép sửa');
+      throw new ForbiddenException('Chỉ chủ phòng mới có quyền thay đổi thiết lập phòng quay');
     }
 
-    session.allowMembersToEdit = Boolean(dto.allowMembersToEdit);
+    if (dto.newHostUserId) {
+      const newHostMember = await this.prisma.circleMember.findFirst({
+        where: { circleId, userId: dto.newHostUserId },
+        include: { user: { include: { profile: true } } },
+      });
+      if (newHostMember) {
+        session.creatorId = dto.newHostUserId;
+        const newHostName =
+          newHostMember.user?.profile?.displayName ||
+          newHostMember.user?.email?.split('@')[0] ||
+          newHostMember.nickname ||
+          'Chủ phòng';
+        session.spunBy = {
+          userId: dto.newHostUserId,
+          displayName: newHostName,
+          avatarUrl: newHostMember.user?.profile?.avatarUrl || null,
+        };
+      }
+    }
+
+    if (dto.allowMembersToEdit !== undefined) {
+      session.allowMembersToEdit = Boolean(dto.allowMembersToEdit);
+    }
     this.activeLiveWheelSessions.set(circleId, session);
 
     // Cập nhật card tin nhắn trong chat nếu có
@@ -1797,6 +1866,49 @@ export class CircleToolsService {
     }
 
     return session;
+  }
+
+  async leaveLiveWheelStage(circleId: string, userId: string): Promise<{ success: boolean }> {
+    const session = await this.getActiveLiveWheel(circleId, userId);
+    if (session && session.participants) {
+      session.participants = session.participants.filter((p) => p.userId !== userId);
+      this.activeLiveWheelSessions.set(circleId, session);
+
+      // Cập nhật card tin nhắn trong chat nếu có
+      if (session.messageId && session.channelId) {
+        try {
+          const payload: LiveWheelMessagePayload = {
+            type: 'LIVE_WHEEL',
+            sessionId: session.id,
+            circleId,
+            channelId: session.channelId,
+            wheelTitle: session.wheelTitle,
+            creatorId: session.creatorId || userId,
+            creatorName: session.spunBy?.displayName || 'Chủ phòng',
+            creatorAvatar: session.spunBy?.avatarUrl,
+            participants: session.participants,
+            stageStatus: session.stageStatus || 'idle',
+            startedAt: session.startedAt,
+            allowMembersToEdit: session.allowMembersToEdit,
+          };
+          await this.prisma.message.update({
+            where: { id: session.messageId },
+            data: {
+              content: `[LIVE_WHEEL]:${JSON.stringify(payload)}`,
+            },
+          });
+        } catch {}
+      }
+
+      if (this.chatGateway) {
+        this.chatGateway.broadcastLiveWheelParticipants(circleId, {
+          sessionId: session.id,
+          participants: session.participants,
+        });
+        this.chatGateway.broadcastLiveWheelUpdated(circleId, session);
+      }
+    }
+    return { success: true };
   }
 
   async closeLiveWheelStage(

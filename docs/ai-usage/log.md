@@ -9990,3 +9990,46 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
 - **AI Errors / Hallucinations Found:** Không có.
 - **Commit:** 2efcfb0
 - **PR:** #120
+
+
+---
+
+### AI-0177
+
+- **Date:** 2026-11-24 13:00:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120 (Event RSVP & Realtime Delights)
+- **Purpose:** 
+  1. Header Pill Button Quay (Mobile): Bỏ nhãn chữ "Quay tất cả" / "Quay ngay", chuyển thành nút tròn icon-only `RotateCw` 16px trắng trên nền `colors.primary`.
+  2. Sửa triệt để cơ chế quay đồng thời 2, 3 vòng (`syncActiveLiveWheelFromDb`):
+     - Trong Backend `circle-tools.service.ts`: Khi `createLiveWheelStage` được gọi và `existingSession` đã tồn tại, load danh sách 1-4 vòng mới nhất từ DB cập nhật vào `existingSession.wheels` và broadcast `circle:live-wheel:updated` để giải phóng client khỏi trạng thái kẹt ở mảng 1 vòng cũ.
+     - Khi `createWheel`, `deleteWheel`, `deleteAllWheels` được gọi: Tự động cập nhật `activeSession.wheels` và broadcast realtime.
+  3. Phân quyền Floating Header (Host vs Spectator):
+     - Nút Dấu X (`X` đỏ - đóng phòng) và Nút Ba chấm (`MoreHorizontal` - cài đặt): CHỈ CHỦ PHÒNG (`isHost`) MỚI CÓ. Người tham gia (`!isHost`) hoàn toàn không có dấu X và không có nút ba chấm.
+  4. Nút Mũi Tên Rời Phòng (`ArrowLeft` ở góc trên bên trái):
+     - Người tham gia (`!isHost`): Bấm vào -> Xác nhận rời phòng -> Gọi `leaveLiveWheelStageApi(circleId)` (backend loại bỏ khỏi participants và broadcast realtime) rồi đóng overlay trên máy mình.
+     - Chủ phòng (`isHost`): Bấm vào -> Hiển thị hộp thoại hỏi "Bạn muốn đóng phòng quay hay vẫn mở và chuyển chủ phòng cho người khác?" với 3 lựa chọn: "Hủy", "Đóng phòng" (xác nhận đóng phòng nhóm và gửi kết quả vào chat), "Vẫn mở (Chuyển chủ)" (chuyển quyền chủ phòng cho thành viên khác trong phòng qua `updateLiveWheelSettingsApi({ newHostUserId })` rồi rời).
+- **Prompt Summary:** cái Pill Button ko có nhãn (bỏ nhãn đi). Vẫn chưa ấn quay 2 3 vòng tròn cùng 1 lượt được cái dấu x là đóng vòng còn những người tham gia sẽ ko có dấu x và nút ba chấm. còn nút mũi tên là rời phòng khi chủ phòng ấn nó sẽ hỏi đóng phòng hay vẫn mở và chuyển chủ phòng  cho người khác
+- **Files Affected:**
+  - `packages/types/src/index.ts`
+  - `apps/backend/src/modules/circle-tools/dto/circle-tools.dto.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.controller.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
+  - `apps/mobile/src/services/circle-tools.service.ts`
+  - `apps/mobile/src/components/chat/MobileLiveWheelOverlay.tsx`
+  - `agentic/memory/2026-11-24.md`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% logic đồng bộ live wheel session backend, logic chuyển chủ phòng / rời phòng, và tinh chỉnh Header MobileLiveWheelOverlay.
+- **Human Modifications:** Trương Công Bình yêu cầu bỏ nhãn trên nút Pill, phân quyền host/spectator cho dấu X và 3 chấm, logic chuyển chủ phòng khi host bấm mũi tên rời phòng, và khắc phục quay 2-3 vòng cùng lượt.
+- **Verification Method:** 
+  - `npm --prefix apps/backend test -- circle-tools.service.spec.ts` pass 52/52 tests (100%).
+  - `npx tsc -p apps/web/tsconfig.json --noEmit` pass 0 errors.
+  - `npx tsc -p apps/mobile/tsconfig.json --noEmit` pass 0 errors.
+  - `bash scripts/check-secrets.sh` pass 0 secret leaks.
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn, không chứa secret.
+- **AI Errors / Hallucinations Found:** Không có.
+- **Commit:** 71338c1
+- **PR:** #120

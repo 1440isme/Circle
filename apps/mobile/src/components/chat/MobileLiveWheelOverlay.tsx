@@ -51,6 +51,7 @@ import {
   updateLiveWheelSettingsApi,
   closeLiveWheelStageApi,
   dismissLiveCelebrationApi,
+  leaveLiveWheelStageApi,
   createWheelApi,
   updateWheelApi,
   deleteWheelApi,
@@ -731,8 +732,8 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
     } catch {}
   };
 
-  // 11. Đóng phòng quay (Host) hoặc Rời phòng (Người xem)
-  const handleCloseStage = () => {
+  // 11. Đóng phòng quay hoàn toàn (Host xác nhận)
+  const handleCloseStageConfirm = () => {
     const hasResults = resultsText.trim().length > 0;
     Alert.alert(
       locale === 'vi' ? 'Đóng phòng quay' : 'Close stage',
@@ -779,15 +780,103 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
     );
   };
 
-  const handleLeaveStage = () => {
-    if (isHost) {
-      handleCloseStage();
-    } else {
+  // Chuyển chủ phòng cho người khác và rời phòng
+  const handleTransferHostAndLeave = async () => {
+    const otherParticipants = (session?.participants || []).filter(
+      (p) => p.userId !== user?.id,
+    );
+
+    if (otherParticipants.length === 0) {
+      Alert.alert(
+        locale === 'vi' ? 'Không có người thay thế' : 'No other participants',
+        locale === 'vi'
+          ? 'Hiện tại không có thành viên nào khác trong phòng để chuyển quyền chủ phòng. Bạn có muốn đóng phòng quay không?'
+          : 'There are no other participants in this stage to transfer host to. Would you like to close the stage?',
+        [
+          { text: locale === 'vi' ? 'Hủy' : 'Cancel', style: 'cancel' },
+          {
+            text: locale === 'vi' ? 'Đóng phòng' : 'Close stage',
+            style: 'destructive',
+            onPress: handleCloseStageConfirm,
+          },
+        ],
+      );
+      return;
+    }
+
+    const nextHost = otherParticipants[0]!;
+    try {
+      await updateLiveWheelSettingsApi(circleId, { newHostUserId: nextHost.userId });
+      await leaveLiveWheelStageApi(circleId);
       if (session) {
         setDismissedSessionId(session.id);
       }
       setIsVisible(false);
+      setSession(null);
+      Alert.alert(
+        t.common.notice,
+        locale === 'vi'
+          ? `Đã chuyển quyền chủ phòng cho ${nextHost.displayName} và rời phòng.`
+          : `Transferred host to ${nextHost.displayName} and left stage.`,
+      );
+    } catch (err: any) {
+      Alert.alert(t.common.error, err?.message || 'Không thể chuyển quyền chủ phòng');
     }
+  };
+
+  // Nút Mũi tên Rời phòng (Arrow / Back button)
+  const handleArrowLeaveStage = () => {
+    if (isHost) {
+      Alert.alert(
+        locale === 'vi' ? 'Rời phòng quay' : 'Leave stage',
+        locale === 'vi'
+          ? 'Bạn muốn đóng phòng quay hay vẫn mở và chuyển chủ phòng cho người khác?'
+          : 'Do you want to close the stage or keep it open and transfer host to another member?',
+        [
+          {
+            text: locale === 'vi' ? 'Hủy' : 'Cancel',
+            style: 'cancel',
+          },
+          {
+            text: locale === 'vi' ? 'Đóng phòng' : 'Close stage',
+            style: 'destructive',
+            onPress: handleCloseStageConfirm,
+          },
+          {
+            text: locale === 'vi' ? 'Vẫn mở (Chuyển chủ)' : 'Transfer Host',
+            onPress: handleTransferHostAndLeave,
+          },
+        ],
+      );
+    } else {
+      Alert.alert(
+        locale === 'vi' ? 'Rời phòng quay' : 'Leave stage',
+        locale === 'vi'
+          ? 'Bạn có chắc chắn muốn rời khỏi phòng quay không?'
+          : 'Are you sure you want to leave this stage?',
+        [
+          { text: t.common.cancel, style: 'cancel' },
+          {
+            text: locale === 'vi' ? 'Rời phòng' : 'Leave',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                if (session) {
+                  setDismissedSessionId(session.id);
+                }
+                setIsVisible(false);
+                setSession(null);
+                await leaveLiveWheelStageApi(circleId);
+              } catch {}
+            },
+          },
+        ],
+      );
+    }
+  };
+
+  const handleLeaveStage = () => {
+    handleArrowLeaveStage();
   };
 
   // 12. Lưu sửa đổi cho tab lựa chọn của vòng
@@ -1065,14 +1154,14 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
         {/* FLOATING HEADER BAR: ICON-ONLY FLOATING PILL BUTTONS           */}
         {/* ============================================================== */}
         <View style={[styles.floatingHeaderArea, { top: floatingToolbarTop }]} pointerEvents="box-none">
-          {/* Left: Back Button (icon only) + Tên vòng quay dạng label (không khung) */}
+          {/* Left: Nút Mũi Tên Rời Phòng (icon only) + Tên vòng quay dạng label (không khung) */}
           <View style={styles.headerLeftGroup} pointerEvents="box-none">
             <TouchableOpacity
               activeOpacity={0.7}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              onPress={handleLeaveStage}
+              onPress={handleArrowLeaveStage}
               style={styles.floatingPillIconBtn}
-              accessibilityLabel={t.common.back}
+              accessibilityLabel={locale === 'vi' ? 'Rời phòng quay' : 'Leave stage'}
             >
               <ArrowLeft size={16} color={colors.text} />
             </TouchableOpacity>
@@ -1082,7 +1171,7 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
             </Text>
           </View>
 
-          {/* Right: Results, Viewers, Add Wheel, More, Close/Leave, Spin All (ICON ONLY) */}
+          {/* Right: Results, Viewers, Add Wheel (Host), More (Host), Spin All (ICON ONLY), Close (Host) */}
           <View style={styles.floatingRightActions}>
             {/* Nút Kết Quả Nhanh (Icon only) */}
             <TouchableOpacity
@@ -1139,21 +1228,23 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
               </TouchableOpacity>
             )}
 
-            {/* Nút 3 Chấm Cài Đặt (Icon only) */}
-            <TouchableOpacity
-              style={styles.floatingPillIconBtn}
-              onPress={() => setIsMoreMenuVisible(true)}
-              activeOpacity={0.8}
-              accessibilityLabel={locale === 'vi' ? 'Cài đặt phòng quay' : 'Stage settings'}
-            >
-              <MoreHorizontal size={16} color={colors.text} />
-            </TouchableOpacity>
+            {/* Nút 3 Chấm Cài Đặt (CHỈ CHỦ PHÒNG MỚI CÓ) */}
+            {isHost && (
+              <TouchableOpacity
+                style={styles.floatingPillIconBtn}
+                onPress={() => setIsMoreMenuVisible(true)}
+                activeOpacity={0.8}
+                accessibilityLabel={locale === 'vi' ? 'Cài đặt phòng quay' : 'Stage settings'}
+              >
+                <MoreHorizontal size={16} color={colors.text} />
+              </TouchableOpacity>
+            )}
 
-            {/* Nút Quay Tất Cả (Primary Pill Button có Text + Icon, giống Web) */}
+            {/* Nút Quay Tất Cả (Primary Pill Button ICON ONLY, bỏ text nhãn) */}
             {wheelsList.length > 0 && (
               <TouchableOpacity
                 style={[
-                  styles.floatingPillSpinAllBtn,
+                  styles.floatingPillPrimaryIconBtn,
                   (isSpinning || isSubmittingSpin) && { opacity: 0.5 },
                 ]}
                 disabled={isSpinning || isSubmittingSpin}
@@ -1161,33 +1252,19 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
                 activeOpacity={0.8}
                 accessibilityLabel={t.luckyWheel.spinAll}
               >
-                <RotateCw size={14} color="#FFFFFF" />
-                <Text style={styles.floatingPillSpinAllText}>
-                  {wheelsList.length > 1
-                    ? (t.luckyWheel.spinAll || (locale === 'vi' ? 'Quay tất cả' : 'Spin all'))
-                    : (locale === 'vi' ? 'Quay ngay' : 'Spin now')}
-                </Text>
+                <RotateCw size={16} color="#FFFFFF" />
               </TouchableOpacity>
             )}
 
-            {/* Nút Đóng phòng (Host) hoặc Rời phòng (Spectator) (Nút HỦY / ĐÓNG đứng ngoài cùng bên phải) */}
-            {isHost ? (
+            {/* Nút Đóng phòng (Dấu X) (CHỈ CHỦ PHÒNG MỚI CÓ) */}
+            {isHost && (
               <TouchableOpacity
                 style={styles.floatingPillIconBtn}
-                onPress={handleCloseStage}
+                onPress={handleCloseStageConfirm}
                 activeOpacity={0.8}
                 accessibilityLabel={locale === 'vi' ? 'Đóng phòng quay' : 'Close stage'}
               >
                 <X size={16} color="#EF4444" />
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                style={styles.floatingPillIconBtn}
-                onPress={handleLeaveStage}
-                activeOpacity={0.8}
-                accessibilityLabel={locale === 'vi' ? 'Rời phòng quay' : 'Leave stage'}
-              >
-                <LogOut size={16} color={colors.text} />
               </TouchableOpacity>
             )}
           </View>
