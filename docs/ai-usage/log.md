@@ -10033,3 +10033,41 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
 - **AI Errors / Hallucinations Found:** Không có.
 - **Commit:** 71338c1
 - **PR:** #120
+
+
+---
+
+### AI-0178
+
+- **Date:** 2026-11-24 13:20:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120 (Event RSVP & Realtime Delights)
+- **Purpose:** 
+  1. Đổi chỗ nút Quay và nút Ba chấm trên Floating Header: Nút Quay (Pill xanh) đứng trước, nút Ba chấm (`MoreHorizontal`) đứng sau.
+  2. Bỏ text nhãn `Vòng quay ngẫu nhiên` ở góc trái Floating Header (chỉ giữ lại nút mũi tên `ArrowLeft` tròn gọn gàng).
+  3. Khắc phục triệt để lỗi "chưa ấn quay được nhiều vòng":
+     - Backend `circle-tools.service.ts`: Trong `liveSpinWheel`, luôn map theo `currentDbWheels.slice(0, 4)` từ DB kết hợp session options hiện có, đảm bảo khi có 2, 3 vòng quay thì tất cả các vòng đều được tính kết quả và quay đồng thời.
+     - Mobile `MobileLiveWheelOverlay.tsx`:
+       + Tái cấu trúc logic xác định `isSpinning` và khóa nút quay dựa trên thời gian thực `Date.now() - startedAt < durationMs`, ngăn chặn tình trạng bị kẹt nút quay do server giữ trạng thái `spinning`.
+       + Lũy kế góc xoay `lastRotations.current[idx]` qua các lượt quay liên tiếp để các đĩa quay xoay mượt mà từ vị trí đang dừng.
+       + Luôn set `setIsFinished(true)` khi animation hoàn tất hoặc khi `activeTimings.length === 0`.
+- **Prompt Summary:** đổi chỗ btn quay và btn ba chấm. fix lỗi chưa ấn quay  được nhiều vòng. bỏ text nhãn vòng quay ở đây đi cũng đc
+- **Files Affected:**
+  - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
+  - `apps/mobile/src/components/chat/MobileLiveWheelOverlay.tsx`
+  - `agentic/memory/2026-11-24.md`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% logic đồng bộ `baseWheels` trong `liveSpinWheel`, công thức lũy kế góc xoay `lastRotations`, tinh chỉnh UI Header.
+- **Human Modifications:** Trương Công Bình yêu cầu đổi chỗ nút quay và 3 chấm, bỏ nhãn tiêu đề ở header, và khắc phục lỗi chưa ấn quay được nhiều vòng.
+- **Verification Method:** 
+  - `npm --prefix apps/backend test -- circle-tools.service.spec.ts` pass 52/52 tests (100%).
+  - `npx tsc -p apps/web/tsconfig.json --noEmit` pass 0 errors.
+  - `npx tsc -p apps/mobile/tsconfig.json --noEmit` pass 0 errors.
+  - `bash scripts/check-secrets.sh` pass 0 secret leaks.
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn, không chứa secret.
+- **AI Errors / Hallucinations Found:** Không có.
+- **Commit:** 48c575c
+- **PR:** #120

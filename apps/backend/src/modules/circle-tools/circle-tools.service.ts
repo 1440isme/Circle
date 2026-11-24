@@ -1548,34 +1548,40 @@ export class CircleToolsService {
   ): Promise<LiveWheelSession> {
     const member = await this.getMemberOrThrow(circleId, userId);
 
+    const currentDbWheels = (await this.ensureFourWheels(circleId)).slice(0, 4);
     const previousSession = this.activeLiveWheelSessions.get(circleId);
-    let baseWheels: LiveWheelItem[] = [];
 
-    if (previousSession?.wheels && previousSession.wheels.length > 0) {
-      baseWheels = previousSession.wheels;
-    } else {
-      const fourWheels = (await this.ensureFourWheels(circleId)).slice(0, 4);
-      baseWheels = fourWheels.map((w, idx) => {
-        const rawOptions =
-          w.options && Array.isArray(w.options) && w.options.length >= 2
-            ? w.options
-            : [
-                { optionLabel: 'Phương án 1', color: PASTEL_WHEEL_COLORS[0]! },
-                { optionLabel: 'Phương án 2', color: PASTEL_WHEEL_COLORS[1]! },
-              ];
-        const opts = rawOptions.map((o, oIdx) => ({
-          optionLabel: o.optionLabel,
-          color: o.color || PASTEL_WHEEL_COLORS[oIdx % PASTEL_WHEEL_COLORS.length]!,
-        }));
+    // Luôn đồng bộ theo danh sách vòng mới nhất từ DB để đảm bảo quay được 2, 3 hoặc 4 vòng
+    const baseWheels: LiveWheelItem[] = currentDbWheels.map((dbW, idx) => {
+      const prevW = previousSession?.wheels?.find((w) => w.wheelId === dbW.id);
+      if (prevW && prevW.options && prevW.options.length > 0) {
         return {
-          wheelId: w.id,
-          wheelTitle: w.title || `Vòng ${idx + 1}`,
-          options: opts,
+          wheelId: dbW.id,
+          wheelTitle: dbW.title || `Vòng ${idx + 1}`,
+          options: prevW.options,
           winningIndex: -1,
           winningOption: null,
         };
-      });
-    }
+      }
+      const rawOptions =
+        dbW.options && Array.isArray(dbW.options) && dbW.options.length >= 2
+          ? dbW.options
+          : [
+              { optionLabel: 'Phương án 1', color: PASTEL_WHEEL_COLORS[0]! },
+              { optionLabel: 'Phương án 2', color: PASTEL_WHEEL_COLORS[1]! },
+            ];
+      const opts = rawOptions.map((o, oIdx) => ({
+        optionLabel: o.optionLabel,
+        color: o.color || PASTEL_WHEEL_COLORS[oIdx % PASTEL_WHEEL_COLORS.length]!,
+      }));
+      return {
+        wheelId: dbW.id,
+        wheelTitle: dbW.title || `Vòng ${idx + 1}`,
+        options: opts,
+        winningIndex: -1,
+        winningOption: null,
+      };
+    });
 
     const isAll = dto.isAll !== false;
 

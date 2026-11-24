@@ -148,6 +148,7 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
     () => [rotAnim0, rotAnim1, rotAnim2, rotAnim3],
     [rotAnim0, rotAnim1, rotAnim2, rotAnim3],
   );
+  const lastRotations = useRef<number[]>([0, 0, 0, 0]);
 
   // Stable Animated Interpolations để tránh re-attaching native driver animation gây nháy đĩa quay
   const rot0Interpolate = useRef(
@@ -388,6 +389,7 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
     if (session.stageStatus === 'idle') {
       setIsFinished(false);
       rotateAnims.forEach((anim) => anim.setValue(0));
+      lastRotations.current = [0, 0, 0, 0];
       return;
     }
 
@@ -407,18 +409,24 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
       const winIdx = wheel.winningIndex;
       const targetCenterDeg = winIdx * sliceDeg + sliceDeg / 2;
       const stopAngle = (360 - (targetCenterDeg % 360)) % 360;
+
+      const base = lastRotations.current[idx] || 0;
+      const prevNorm = base % 360;
+      let delta = stopAngle - prevNorm;
+      if (delta < 0) delta += 360;
       const extraSpins = (6 + idx) * 360;
-      const finalRot = extraSpins + stopAngle;
+      const finalRot = base + extraSpins + delta;
 
       if (elapsed >= duration) {
         anim.setValue(finalRot);
+        lastRotations.current[idx] = finalRot;
         return null;
       }
 
       const remaining = duration - elapsed;
       const initialProgress = Math.max(elapsed / duration, 0);
       const easeOutInitial = 1 - Math.pow(1 - initialProgress, 4);
-      const startRot = finalRot * easeOutInitial;
+      const startRot = base + (finalRot - base) * easeOutInitial;
 
       anim.setValue(startRot);
 
@@ -451,6 +459,20 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
     if (activeTimings.length > 0) {
       Animated.parallel(activeTimings).start(() => {
         setIsFinished(true);
+        // Cập nhật giá trị dừng cuối cùng vào lastRotations để các lượt quay sau tiếp tục xoay lũy kế
+        wheelsList.forEach((w, idx) => {
+          if (w.winningIndex >= 0 && w.winningOption) {
+            const count = Math.max(w.options.length, 1);
+            const sliceDeg = 360 / count;
+            const targetCenterDeg = w.winningIndex * sliceDeg + sliceDeg / 2;
+            const stopAngle = (360 - (targetCenterDeg % 360)) % 360;
+            const base = lastRotations.current[idx] || 0;
+            const prevNorm = base % 360;
+            let delta = stopAngle - prevNorm;
+            if (delta < 0) delta += 360;
+            lastRotations.current[idx] = base + (6 + idx) * 360 + delta;
+          }
+        });
         recordWinners(winnersList);
         try {
           if (soundEnabled) {
@@ -458,6 +480,9 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
           }
         } catch {}
       });
+    } else {
+      setIsFinished(true);
+      recordWinners(winnersList);
     }
   }, [isVisible, session, wheelsList, rotateAnims, rotAnim0, soundEnabled, recordWinners]);
 
@@ -567,7 +592,12 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
 
   // 5. Xử lý khi ấn nút Quay Tất Cả
   const handleSpinClick = async () => {
-    if (isSubmittingSpin || (!isFinished && session?.stageStatus === 'spinning')) return;
+    const elapsed = Date.now() - (session?.startedAt || 0);
+    const duration = session?.durationMs || 6000;
+    const isCurrentlySpinning = Boolean(
+      session?.stageStatus === 'spinning' && elapsed < duration && !isFinished,
+    );
+    if (isSubmittingSpin || isCurrentlySpinning) return;
 
     const hasAnyOption = wheelsList.some((w) => w.options && w.options.length > 0);
     if (!hasAnyOption) {
@@ -590,7 +620,12 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
 
   // 6. Xử lý khi ấn nút Quay Riêng Vòng Đang Chọn
   const handleSpinSingleWheel = async (wheelId: string) => {
-    if (isSubmittingSpin || (!isFinished && session?.stageStatus === 'spinning')) return;
+    const elapsed = Date.now() - (session?.startedAt || 0);
+    const duration = session?.durationMs || 6000;
+    const isCurrentlySpinning = Boolean(
+      session?.stageStatus === 'spinning' && elapsed < duration && !isFinished,
+    );
+    if (isSubmittingSpin || isCurrentlySpinning) return;
 
     const target = wheelsList.find((w) => w.wheelId === wheelId);
     if (!target || !target.options || target.options.length === 0) {
@@ -1121,7 +1156,11 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
     );
   }
 
-  const isSpinning = !isFinished && session.stageStatus === 'spinning';
+  const isSpinning = Boolean(
+    session.stageStatus === 'spinning' &&
+    Date.now() - (session.startedAt || 0) < (session.durationMs || 6000) &&
+    !isFinished,
+  );
   const participants = session.participants || [];
 
   // Wheel đang được chọn hiển thị trong Tabbed Board
@@ -1154,7 +1193,7 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
         {/* FLOATING HEADER BAR: ICON-ONLY FLOATING PILL BUTTONS           */}
         {/* ============================================================== */}
         <View style={[styles.floatingHeaderArea, { top: floatingToolbarTop }]} pointerEvents="box-none">
-          {/* Left: Nút Mũi Tên Rời Phòng (icon only) + Tên vòng quay dạng label (không khung) */}
+          {/* Left: Nút Mũi Tên Rời Phòng (icon only) */}
           <View style={styles.headerLeftGroup} pointerEvents="box-none">
             <TouchableOpacity
               activeOpacity={0.7}
@@ -1165,13 +1204,9 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
             >
               <ArrowLeft size={16} color={colors.text} />
             </TouchableOpacity>
-
-            <Text style={styles.headerTitleLabelText} numberOfLines={1} ellipsizeMode="tail">
-              {locale === 'vi' ? 'Vòng quay ngẫu nhiên' : 'Random Wheel'}
-            </Text>
           </View>
 
-          {/* Right: Results, Viewers, Add Wheel (Host), More (Host), Spin All (ICON ONLY), Close (Host) */}
+          {/* Right: Results, Viewers, Add Wheel (Host), Spin All, More (Host), Close (Host) */}
           <View style={styles.floatingRightActions}>
             {/* Nút Kết Quả Nhanh (Icon only) */}
             <TouchableOpacity
@@ -1228,19 +1263,7 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
               </TouchableOpacity>
             )}
 
-            {/* Nút 3 Chấm Cài Đặt (CHỈ CHỦ PHÒNG MỚI CÓ) */}
-            {isHost && (
-              <TouchableOpacity
-                style={styles.floatingPillIconBtn}
-                onPress={() => setIsMoreMenuVisible(true)}
-                activeOpacity={0.8}
-                accessibilityLabel={locale === 'vi' ? 'Cài đặt phòng quay' : 'Stage settings'}
-              >
-                <MoreHorizontal size={16} color={colors.text} />
-              </TouchableOpacity>
-            )}
-
-            {/* Nút Quay Tất Cả (Primary Pill Button ICON ONLY, bỏ text nhãn) */}
+            {/* Nút Quay Tất Cả (Primary Pill Button ICON ONLY, ĐỔI CHỖ LÊN TRƯỚC NÚT 3 CHẤM) */}
             {wheelsList.length > 0 && (
               <TouchableOpacity
                 style={[
@@ -1253,6 +1276,18 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
                 accessibilityLabel={t.luckyWheel.spinAll}
               >
                 <RotateCw size={16} color="#FFFFFF" />
+              </TouchableOpacity>
+            )}
+
+            {/* Nút 3 Chấm Cài Đặt (CHỈ CHỦ PHÒNG MỚI CÓ - ĐỔI CHỖ RA SAU NÚT QUAY) */}
+            {isHost && (
+              <TouchableOpacity
+                style={styles.floatingPillIconBtn}
+                onPress={() => setIsMoreMenuVisible(true)}
+                activeOpacity={0.8}
+                accessibilityLabel={locale === 'vi' ? 'Cài đặt phòng quay' : 'Stage settings'}
+              >
+                <MoreHorizontal size={16} color={colors.text} />
               </TouchableOpacity>
             )}
 
