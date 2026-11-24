@@ -11,23 +11,16 @@ import {
   Platform,
   KeyboardAvoidingView,
   Alert,
-  Animated,
-  Easing,
   useWindowDimensions,
   DeviceEventEmitter,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Path, G, Circle, Rect, Text as SvgText } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import {
   Compass,
   X,
   Plus,
   Trash2,
-  Trophy,
-  RotateCw,
-  Volume2,
-  VolumeX,
   Shuffle,
   RotateCcw,
   Edit2,
@@ -35,9 +28,6 @@ import {
   ArrowDownAZ,
   BookmarkCheck,
   Sparkles,
-  ArrowLeft,
-  Play,
-  ArrowRight,
 } from 'lucide-react-native';
 import { DecisionWheelEntity } from '@circle/types';
 import {
@@ -46,7 +36,6 @@ import {
   updateWheelApi,
   deleteWheelApi,
   deleteAllWheelsApi,
-  liveSpinWheelApi,
   createLiveWheelStageApi,
 } from '../../services/circle-tools.service';
 import { useLanguageStore } from '../../stores/language.store';
@@ -88,9 +77,7 @@ export const MobileLiveWheelPickerModal: React.FC<MobileLiveWheelPickerModalProp
   const { locale, t } = useLanguageStore();
   const { user } = useAuthStore();
 
-  // Mode: 'setup' (bảng cấu hình) hoặc 'arena' (sân khấu các vòng tròn quay khi bấm Tạo)
-  const [viewMode, setViewMode] = useState<'setup' | 'arena'>('setup');
-
+  // State các vòng quay
   const [wheels, setWheels] = useState<DecisionWheelEntity[]>([]);
   const [isLoadingWheels, setIsLoadingWheels] = useState(false);
   const [activeWheelId, setActiveWheelId] = useState<string | null>(null);
@@ -101,11 +88,7 @@ export const MobileLiveWheelPickerModal: React.FC<MobileLiveWheelPickerModalProp
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editingTitleText, setEditingTitleText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Arena Spinning states
-  const [isSpinning, setIsSpinning] = useState(false);
-  const [lastSpinResult, setLastSpinResult] = useState<string | null>(null);
-  const rotateAnim = useRef(new Animated.Value(0)).current;
+  const [saveInitialFeedback, setSaveInitialFeedback] = useState(false);
 
   const scrollViewRef = useRef<React.ElementRef<typeof ScrollView>>(null);
 
@@ -185,10 +168,6 @@ export const MobileLiveWheelPickerModal: React.FC<MobileLiveWheelPickerModalProp
 
   useEffect(() => {
     if (visible) {
-      setViewMode('setup');
-      setLastSpinResult(null);
-      setIsSpinning(false);
-      rotateAnim.setValue(0);
       loadWheels();
     }
   }, [visible]);
@@ -333,6 +312,8 @@ export const MobileLiveWheelPickerModal: React.FC<MobileLiveWheelPickerModalProp
           color: PASTEL_WHEEL_COLORS[idx % PASTEL_WHEEL_COLORS.length]!,
         })),
       });
+      setSaveInitialFeedback(true);
+      setTimeout(() => setSaveInitialFeedback(false), 2000);
       Alert.alert(t.common.notice, t.luckyWheel.saveAsInitialSuccess);
     } catch {}
   };
@@ -384,118 +365,6 @@ export const MobileLiveWheelPickerModal: React.FC<MobileLiveWheelPickerModalProp
     }
   };
 
-  // KHI BẤM NÚT "QUAY" / "QUAY TẤT CẢ" TRÊN SÂN KHẤU
-  const handleStartSpin = async () => {
-    if (wheels.length === 0 || isSpinning || isSubmitting) return;
-
-    try {
-      setIsSubmitting(true);
-      setIsSpinning(true);
-      setLastSpinResult(null);
-
-      const session = await liveSpinWheelApi(circleId, {
-        isAll: true,
-        wheelId: activeWheel?.id,
-        channelId: channelId || undefined,
-      });
-
-      const duration = session.durationMs || 6000;
-      const targetSlices = session.options.length;
-      const sliceDeg = 360 / Math.max(targetSlices, 1);
-      const targetCenterDeg = session.winningIndex * sliceDeg + sliceDeg / 2;
-      const stopAngle = (360 - (targetCenterDeg % 360)) % 360;
-      const extraSpins = 6 * 360;
-      const finalRot = extraSpins + stopAngle;
-
-      rotateAnim.setValue(0);
-
-      Animated.timing(rotateAnim, {
-        toValue: finalRot,
-        duration: duration,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }).start(() => {
-        setIsSpinning(false);
-        setIsSubmitting(false);
-        setLastSpinResult(session.winningOption?.optionLabel || '');
-        try {
-          if (soundEnabled) {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          }
-        } catch {}
-      });
-    } catch (err: any) {
-      setIsSpinning(false);
-      setIsSubmitting(false);
-      Alert.alert(t.common.error, err?.message || 'Không thể bắt đầu quay');
-    }
-  };
-
-  // Render SVG Slices cho từng vòng tròn
-  const renderWheelSvg = (optionsText: string, discSize: number) => {
-    const options = parseOptions(optionsText);
-    const count = options.length;
-    if (count === 0) return null;
-
-    const radius = discSize / 2;
-    const centerX = discSize / 2;
-    const centerY = discSize / 2;
-    const arcAngle = (2 * Math.PI) / count;
-
-    return options.map((label, idx) => {
-      const angle1 = idx * arcAngle;
-      const angle2 = (idx + 1) * arcAngle;
-      const color = PASTEL_WHEEL_COLORS[idx % PASTEL_WHEEL_COLORS.length]!;
-
-      const x1 = centerX + radius * Math.cos(angle1);
-      const y1 = centerY + radius * Math.sin(angle1);
-      const x2 = centerX + radius * Math.cos(angle2);
-      const y2 = centerY + radius * Math.sin(angle2);
-
-      const largeArcFlag = angle2 - angle1 > Math.PI ? 1 : 0;
-      const pathD = `M ${centerX} ${centerY} L ${x1} ${y1} A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2} ${y2} Z`;
-
-      const midAngle = angle1 + arcAngle / 2;
-      const midAngleDeg = (midAngle * 180) / Math.PI;
-
-      const textRadius = radius * 0.62;
-      const tx = centerX + textRadius * Math.cos(midAngle);
-      const ty = centerY + textRadius * Math.sin(midAngle);
-
-      const maxLen = discSize > 200 ? 10 : 6;
-      const displayLabel = label.length > maxLen ? label.slice(0, maxLen - 1) + '…' : label;
-
-      return (
-        <G key={`slice-${idx}`}>
-          <Path d={pathD} fill={color} />
-          <SvgText
-            x={tx}
-            y={ty}
-            fill="#1E293B"
-            fontSize={discSize > 200 ? 11 : 9}
-            fontWeight="bold"
-            textAnchor="middle"
-            alignmentBaseline="middle"
-            transform={`rotate(${midAngleDeg}, ${tx}, ${ty})`}
-          >
-            {displayLabel}
-          </SvgText>
-        </G>
-      );
-    });
-  };
-
-  // Kích thước vòng quay phù hợp layout
-  const discSize = useMemo(() => {
-    if (wheels.length === 1) return Math.min(width - 80, 240);
-    return Math.min((width - 70) / 2, 135);
-  }, [wheels.length, width]);
-
-  const rotateInterpolate = rotateAnim.interpolate({
-    inputRange: [0, 360],
-    outputRange: ['0deg', '360deg'],
-  });
-
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.backdrop}>
@@ -522,16 +391,6 @@ export const MobileLiveWheelPickerModal: React.FC<MobileLiveWheelPickerModalProp
             {/* Header */}
             <View style={[styles.header, { borderBottomColor: colors.hairline }]}>
               <View style={styles.headerLeft}>
-                {viewMode === 'arena' && (
-                  <TouchableOpacity
-                    style={styles.backBtn}
-                    disabled={isSpinning}
-                    onPress={() => setViewMode('setup')}
-                  >
-                    <ArrowLeft size={18} color={colors.text} />
-                  </TouchableOpacity>
-                )}
-
                 <View style={[styles.iconCircle, { backgroundColor: 'rgba(37, 99, 235, 0.12)' }]}>
                   <Compass size={18} color="#2563EB" />
                 </View>
@@ -540,468 +399,304 @@ export const MobileLiveWheelPickerModal: React.FC<MobileLiveWheelPickerModalProp
                     {t.luckyWheel.createRandomWheel || (locale === 'vi' ? 'Tạo vòng quay ngẫu nhiên' : 'Create Random Wheel')}
                   </Text>
                   <Text style={[styles.headerSubtitle, { color: colors.subtle }]}>
-                    {viewMode === 'setup'
-                      ? (locale === 'vi' ? 'Thiết lập danh sách lựa chọn' : 'Setup options list')
-                      : (locale === 'vi' ? 'Sân khấu trực tiếp trong nhóm' : 'Live stage in group')}
+                    {locale === 'vi'
+                      ? 'Thiết lập danh sách lựa chọn cho vòng quay'
+                      : 'Configure options for random wheel'}
                   </Text>
                 </View>
               </View>
 
-              <TouchableOpacity style={styles.closeBtn} disabled={isSpinning} onPress={onClose}>
+              <TouchableOpacity style={styles.closeBtn} disabled={isSubmitting} onPress={onClose}>
                 <X size={20} color={colors.subtle} />
               </TouchableOpacity>
             </View>
 
-          {/* ============================================================== */}
-          {/* VIEW MODE 1: SETUP (BẢNG THIẾT LẬP - BỎ KẾT QUẢ ĐI)            */}
-          {/* ============================================================== */}
-          {viewMode === 'setup' ? (
-            <>
-              {/* Dãy Tabs các vòng (KHÔNG CÒN TAB KẾT QUẢ) */}
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                style={[styles.tabsBar, { borderBottomColor: colors.hairline }]}
-                contentContainerStyle={styles.tabsBarContent}
-              >
-                {wheels.map((wheel) => {
-                  const isSelected = activeWheelId === wheel.id;
-                  return (
-                    <TouchableOpacity
-                      key={wheel.id}
-                      activeOpacity={0.8}
-                      onPress={() => {
-                        setIsEditingTitle(false);
-                        setActiveWheelId(wheel.id);
-                      }}
+            {/* Dãy Tabs các vòng */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={[styles.tabsBar, { borderBottomColor: colors.hairline }]}
+              contentContainerStyle={styles.tabsBarContent}
+            >
+              {wheels.map((wheel) => {
+                const isSelected = activeWheelId === wheel.id;
+                return (
+                  <TouchableOpacity
+                    key={wheel.id}
+                    activeOpacity={0.8}
+                    onPress={() => {
+                      setIsEditingTitle(false);
+                      setActiveWheelId(wheel.id);
+                    }}
+                    style={[
+                      styles.tabItem,
+                      {
+                        backgroundColor: isSelected
+                          ? colors.primary
+                          : isDark
+                          ? colors.surface
+                          : '#F1F5F9',
+                      },
+                    ]}
+                  >
+                    <Text
                       style={[
-                        styles.tabItem,
-                        {
-                          backgroundColor: isSelected
-                            ? colors.primary
-                            : isDark
-                            ? colors.surface
-                            : '#F1F5F9',
-                        },
+                        styles.tabItemText,
+                        { color: isSelected ? '#FFFFFF' : colors.text },
+                        isSelected && styles.tabItemTextBold,
                       ]}
+                      numberOfLines={1}
                     >
+                      {wheel.title}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            {/* Content Body Setup */}
+            <ScrollView
+              ref={scrollViewRef}
+              style={styles.scrollBody}
+              contentContainerStyle={styles.scrollContent}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
+            >
+              {isLoadingWheels ? (
+                <View style={styles.loadingBox}>
+                  <ActivityIndicator size="small" color={colors.primary} />
+                  <Text style={[styles.loadingText, { color: colors.subtle }]}>
+                    {locale === 'vi' ? 'Đang tải danh sách...' : 'Loading wheels...'}
+                  </Text>
+                </View>
+              ) : (
+                activeWheel && (
+                  <View style={styles.wheelSetupSection}>
+                    {/* Wheel Title Row */}
+                    <View style={styles.titleRow}>
+                      {isEditingTitle ? (
+                        <View style={styles.titleEditBox}>
+                          <TextInput
+                            value={editingTitleText}
+                            onChangeText={setEditingTitleText}
+                            maxLength={50}
+                            autoFocus
+                            style={[
+                              styles.titleInput,
+                              {
+                                backgroundColor: isDark ? colors.surface : '#F8FAFC',
+                                borderColor: colors.primary,
+                                color: colors.text,
+                              },
+                            ]}
+                          />
+                          <TouchableOpacity style={styles.titleConfirmBtn} onPress={saveEditTitle}>
+                            <Check size={16} color="#FFFFFF" />
+                          </TouchableOpacity>
+                        </View>
+                      ) : (
+                        <View style={styles.titleDisplayRow}>
+                          <Text
+                            style={[styles.activeWheelTitleText, { color: colors.text }]}
+                            numberOfLines={1}
+                          >
+                            {activeWheel.title}
+                          </Text>
+                          <TouchableOpacity
+                            style={styles.editTitleBtn}
+                            onPress={() => {
+                              setEditingTitleText(activeWheel.title);
+                              setIsEditingTitle(true);
+                            }}
+                          >
+                            <Edit2 size={14} color={colors.subtle} />
+                          </TouchableOpacity>
+                        </View>
+                      )}
+
+                      {wheels.length > 1 && (
+                        <TouchableOpacity
+                          style={styles.delWheelBtn}
+                          onPress={handleDeleteCurrentWheel}
+                        >
+                          <Trash2 size={16} color="#EF4444" />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+
+                    {/* Options Counter Row */}
+                    <View style={styles.labelRow}>
+                      <Text style={[styles.inputLabel, { color: colors.text }]}>
+                        {t.luckyWheel.optionsListTitle}
+                      </Text>
                       <Text
                         style={[
-                          styles.tabItemText,
-                          { color: isSelected ? '#FFFFFF' : colors.text },
-                          isSelected && styles.tabItemTextBold,
+                          styles.counterValue,
+                          {
+                            color: activeParsed.length < 2 ? '#D97706' : colors.primary,
+                          },
                         ]}
-                        numberOfLines={1}
                       >
-                        {wheel.title}
+                        {t.luckyWheel.optionsCount.replace('{count}', String(activeParsed.length))}
                       </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
+                    </View>
 
-              {/* Content Body Setup */}
-              <ScrollView
-                ref={scrollViewRef}
-                style={styles.scrollBody}
-                contentContainerStyle={styles.scrollContent}
-                keyboardShouldPersistTaps="handled"
-                keyboardDismissMode="on-drag"
-              >
-                {isLoadingWheels ? (
-                  <View style={styles.loadingBox}>
-                    <ActivityIndicator size="small" color={colors.primary} />
-                    <Text style={[styles.loadingText, { color: colors.subtle }]}>
-                      {locale === 'vi' ? 'Đang tải danh sách...' : 'Loading wheels...'}
+                    {/* Options Textarea */}
+                    <TextInput
+                      value={activeLocalState?.optionsText || ''}
+                      onChangeText={handleOptionsChange}
+                      onFocus={() => {
+                        setTimeout(() => {
+                          scrollViewRef.current?.scrollToEnd({ animated: true });
+                        }, 200);
+                      }}
+                      multiline
+                      numberOfLines={5}
+                      placeholder={t.luckyWheel.optionsPlaceholder}
+                      placeholderTextColor={isDark ? '#64748B' : '#94A3B8'}
+                      style={[
+                        styles.optionsTextarea,
+                        {
+                          backgroundColor: isDark ? colors.surface : '#F8FAFC',
+                          borderColor: colors.hairline,
+                          color: colors.text,
+                        },
+                      ]}
+                    />
+
+                    <Text style={[styles.hintText, { color: colors.subtle }]}>
+                      {t.luckyWheel.optionsHint}
                     </Text>
-                  </View>
-                ) : (
-                  activeWheel && (
-                    <View style={styles.wheelSetupSection}>
-                      {/* Wheel Title Row */}
-                      <View style={styles.titleRow}>
-                        {isEditingTitle ? (
-                          <View style={styles.titleEditBox}>
-                            <TextInput
-                              value={editingTitleText}
-                              onChangeText={setEditingTitleText}
-                              maxLength={50}
-                              autoFocus
-                              style={[
-                                styles.titleInput,
-                                {
-                                  backgroundColor: isDark ? colors.surface : '#F8FAFC',
-                                  borderColor: colors.primary,
-                                  color: colors.text,
-                                },
-                              ]}
-                            />
-                            <TouchableOpacity style={styles.titleConfirmBtn} onPress={saveEditTitle}>
-                              <Check size={16} color="#FFFFFF" />
-                            </TouchableOpacity>
-                          </View>
-                        ) : (
-                          <View style={styles.titleDisplayRow}>
-                            <Text
-                              style={[styles.activeWheelTitleText, { color: colors.text }]}
-                              numberOfLines={1}
-                            >
-                              {activeWheel.title}
-                            </Text>
-                            <TouchableOpacity
-                              style={styles.editTitleBtn}
-                              onPress={() => {
-                                setEditingTitleText(activeWheel.title);
-                                setIsEditingTitle(true);
-                              }}
-                            >
-                              <Edit2 size={14} color={colors.subtle} />
-                            </TouchableOpacity>
-                          </View>
-                        )}
 
-                        {wheels.length > 1 && (
-                          <TouchableOpacity
-                            style={styles.delWheelBtn}
-                            onPress={handleDeleteCurrentWheel}
-                          >
-                            <Trash2 size={16} color="#EF4444" />
-                          </TouchableOpacity>
-                        )}
-                      </View>
-
-                      {/* Options Counter Row */}
-                      <View style={styles.labelRow}>
-                        <Text style={[styles.inputLabel, { color: colors.text }]}>
-                          {t.luckyWheel.optionsListTitle}
-                        </Text>
-                        <Text
-                          style={[
-                            styles.counterValue,
-                            {
-                              color: activeParsed.length < 2 ? '#D97706' : colors.primary,
-                            },
-                          ]}
-                        >
-                          {t.luckyWheel.optionsCount.replace('{count}', String(activeParsed.length))}
-                        </Text>
-                      </View>
-
-                      {/* Options Textarea */}
-                      <TextInput
-                        value={activeLocalState?.optionsText || ''}
-                        onChangeText={handleOptionsChange}
-                        onFocus={() => {
-                          setTimeout(() => {
-                            scrollViewRef.current?.scrollToEnd({ animated: true });
-                          }, 200);
-                        }}
-                        multiline
-                        numberOfLines={5}
-                        placeholder={t.luckyWheel.optionsPlaceholder}
-                        placeholderTextColor={isDark ? '#64748B' : '#94A3B8'}
+                    {/* 4 Action Buttons Row: Shuffle, Sort A-Z, BookmarkCheck, RotateCcw */}
+                    <View style={[styles.boardActionsRow, { borderTopColor: colors.hairline }]}>
+                      <TouchableOpacity
                         style={[
-                          styles.optionsTextarea,
+                          styles.boardActionBtnIconOnly,
                           {
                             backgroundColor: isDark ? colors.surface : '#F8FAFC',
                             borderColor: colors.hairline,
-                            color: colors.text,
                           },
                         ]}
-                      />
+                        onPress={handleShuffle}
+                      >
+                        <Shuffle size={16} color={isDark ? colors.primary : '#0D9488'} />
+                      </TouchableOpacity>
 
-                      <Text style={[styles.hintText, { color: colors.subtle }]}>
-                        {t.luckyWheel.optionsHint}
-                      </Text>
+                      <TouchableOpacity
+                        style={[
+                          styles.boardActionBtnIconOnly,
+                          {
+                            backgroundColor: isDark ? colors.surface : '#F8FAFC',
+                            borderColor: colors.hairline,
+                          },
+                        ]}
+                        onPress={handleSortAZ}
+                      >
+                        <ArrowDownAZ size={16} color="#6366F1" />
+                      </TouchableOpacity>
 
-                      {/* 4 Action Buttons Row: Shuffle, Sort A-Z, BookmarkCheck, RotateCcw */}
-                      <View style={[styles.boardActionsRow, { borderTopColor: colors.hairline }]}>
-                        <TouchableOpacity
-                          style={[
-                            styles.boardActionBtnIconOnly,
-                            {
-                              backgroundColor: isDark ? colors.surface : '#F8FAFC',
-                              borderColor: colors.hairline,
-                            },
-                          ]}
-                          onPress={handleShuffle}
-                        >
-                          <Shuffle size={16} color={isDark ? colors.primary : '#0D9488'} />
-                        </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[
+                          styles.boardActionBtnIconOnly,
+                          {
+                            backgroundColor: saveInitialFeedback
+                              ? `${colors.primary}20`
+                              : isDark
+                              ? colors.surface
+                              : '#F8FAFC',
+                            borderColor: saveInitialFeedback ? colors.primary : colors.hairline,
+                          },
+                        ]}
+                        onPress={handleSaveAsInitial}
+                      >
+                        <BookmarkCheck
+                          size={16}
+                          color={saveInitialFeedback ? colors.primary : isDark ? colors.primary : '#0D9488'}
+                        />
+                      </TouchableOpacity>
 
-                        <TouchableOpacity
-                          style={[
-                            styles.boardActionBtnIconOnly,
-                            {
-                              backgroundColor: isDark ? colors.surface : '#F8FAFC',
-                              borderColor: colors.hairline,
-                            },
-                          ]}
-                          onPress={handleSortAZ}
-                        >
-                          <ArrowDownAZ size={16} color="#6366F1" />
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                          style={[
-                            styles.boardActionBtnIconOnly,
-                            {
-                              backgroundColor: isDark ? colors.surface : '#F8FAFC',
-                              borderColor: colors.hairline,
-                            },
-                          ]}
-                          onPress={handleSaveAsInitial}
-                        >
-                          <BookmarkCheck size={16} color={isDark ? colors.primary : '#0D9488'} />
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                          style={[
-                            styles.boardActionBtnIconOnly,
-                            {
-                              backgroundColor: isDark ? colors.surface : '#F8FAFC',
-                              borderColor: colors.hairline,
-                            },
-                          ]}
-                          onPress={handleReset}
-                        >
-                          <RotateCcw size={16} color="#D97706" />
-                        </TouchableOpacity>
-                      </View>
-
-                      {/* Hàng thiết lập: Xóa tất cả vòng (Đồng bộ Cái Bảng bên trong ScrollView) */}
-                      <View style={[styles.togglesRow, { borderTopColor: colors.hairline, justifyContent: 'flex-end' }]}>
-                        <TouchableOpacity
-                          style={styles.toggleItem}
-                          onPress={handleDeleteAllWheels}
-                          disabled={wheels.length === 0}
-                        >
-                          <Trash2 size={15} color="#EF4444" />
-                          <Text style={[styles.toggleItemText, { color: '#EF4444', fontWeight: 'bold' }]}>
-                            {t.luckyWheel.deleteAllWheels}
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
+                      <TouchableOpacity
+                        style={[
+                          styles.boardActionBtnIconOnly,
+                          {
+                            backgroundColor: isDark ? colors.surface : '#F8FAFC',
+                            borderColor: colors.hairline,
+                          },
+                        ]}
+                        onPress={handleReset}
+                      >
+                        <RotateCcw size={16} color="#D97706" />
+                      </TouchableOpacity>
                     </View>
-                  )
-                )}
-              </ScrollView>
+                  </View>
+                )
+              )}
+            </ScrollView>
 
-              {/* HÀNG NÚT DƯỚI BẬT TẮT ÂM THANH: [Thêm vòng xoay] & [Tạo] */}
-              <View style={[styles.actionButtonsRow, { borderTopColor: colors.hairline }]}>
-                {/* Nút Thêm vòng xoay */}
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  disabled={wheels.length >= 4 || isSubmitting}
-                  onPress={handleAddDefaultWheel}
-                  style={[
-                    styles.addWheelBtn,
-                    {
-                      backgroundColor: isDark ? colors.surface : '#F1F5F9',
-                      borderColor: colors.hairline,
-                    },
-                    wheels.length >= 4 && { opacity: 0.4 },
-                  ]}
-                >
-                  <Plus size={16} color={colors.primary} />
-                  <Text style={[styles.addWheelBtnText, { color: colors.text }]}>
-                    {t.luckyWheel.addWheel}
-                  </Text>
-                </TouchableOpacity>
-
-                {/* Nút TẠO (Thay thế nút Quay tất cả theo yêu cầu) */}
-                <TouchableOpacity
-                  activeOpacity={0.85}
-                  disabled={wheels.length === 0 || isSubmitting}
-                  onPress={handleCreateStage}
-                  style={[
-                    styles.spinAllBtn,
-                    { backgroundColor: colors.primary },
-                    (wheels.length === 0 || isSubmitting) && { opacity: 0.5 },
-                  ]}
-                >
-                  <Sparkles size={16} color="#FFFFFF" />
-                  <Text style={styles.spinAllBtnText}>{locale === 'vi' ? 'Tạo' : 'Create'}</Text>
-                </TouchableOpacity>
-              </View>
-            </>
-          ) : (
-            /* ============================================================== */
-            /* VIEW MODE 2: SÂN KHẤU CÁC VÒNG TRÒN (CÓ NÚT QUAY & KẾT QUẢ)   */
-            /* ============================================================== */
-            <View style={styles.arenaContainer}>
-              {/* VÙNG CÁC VÒNG TRÒN ĐƯỢC TẠO RA */}
-              <ScrollView
-                style={styles.arenaScroll}
-                contentContainerStyle={styles.arenaScrollContent}
+            {/* Hàng thiết lập: Xóa tất cả vòng (Cố định phía trên bottom action bar, giống Web) */}
+            <View style={[styles.togglesRow, { borderTopColor: colors.hairline, justifyContent: 'flex-end', paddingHorizontal: 16, paddingTop: 8, paddingBottom: 6 }]}>
+              <TouchableOpacity
+                style={styles.toggleItem}
+                onPress={handleDeleteAllWheels}
+                disabled={wheels.length === 0}
               >
-                <View
-                  style={[
-                    styles.arenaGrid,
-                    wheels.length >= 2 && styles.arenaGridTwoCols,
-                  ]}
-                >
-                  {wheels.map((wheel) => {
-                    const optionsText = wheelsState[wheel.id]?.optionsText || '';
-
-                    return (
-                      <View key={wheel.id} style={styles.arenaWheelBox}>
-                        <Text
-                          style={[styles.arenaWheelTitle, { color: colors.text }]}
-                          numberOfLines={1}
-                        >
-                          {wheel.title}
-                        </Text>
-                        <View style={[styles.discOuter, { width: discSize, height: discSize }]}>
-                          <Animated.View
-                            style={[
-                              styles.wheelRotateBox,
-                              {
-                                width: discSize,
-                                height: discSize,
-                                transform: [{ rotate: rotateInterpolate }],
-                              },
-                            ]}
-                          >
-                            <Svg width={discSize} height={discSize}>
-                              {renderWheelSvg(optionsText, discSize)}
-                              <Circle
-                                cx={discSize / 2}
-                                cy={discSize / 2}
-                                r={discSize > 200 ? 18 : 12}
-                                fill="#FFFFFF"
-                                stroke="#E2E8F0"
-                                strokeWidth={2}
-                              />
-                              <Circle
-                                cx={discSize / 2}
-                                cy={discSize / 2}
-                                r={discSize > 200 ? 7 : 5}
-                                fill={colors.primary}
-                              />
-                            </Svg>
-                          </Animated.View>
-
-                          {/* Kim chỉ bên phải */}
-                          <View
-                            style={[styles.pointerRight, { right: discSize > 200 ? -12 : -10 }]}
-                            pointerEvents="none"
-                          >
-                            <Svg width={24} height={16} viewBox="0 0 30 20">
-                              <Path
-                                d="M2 10L18 2C20 1 21 2 21 4V16C21 18 20 19 18 18L2 10Z"
-                                fill={colors.primary}
-                                stroke={isDark ? colors.elevated : '#FFFFFF'}
-                                strokeWidth={1.5}
-                                strokeLinejoin="round"
-                              />
-                              <Rect
-                                x={19}
-                                y={4}
-                                width={9}
-                                height={12}
-                                rx={3}
-                                fill={isDark ? colors.primaryDark : '#0F766E'}
-                                stroke={isDark ? colors.elevated : '#FFFFFF'}
-                                strokeWidth={1.5}
-                              />
-                              <Circle cx={23.5} cy={10} r={2.5} fill={isDark ? colors.elevated : '#FFFFFF'} />
-                              <Circle cx={23.5} cy={10} r={1.2} fill={colors.primary} />
-                            </Svg>
-                          </View>
-                        </View>
-                      </View>
-                    );
-                  })}
-                </View>
-              </ScrollView>
-
-              {/* PHẦN KẾT QUẢ VÒNG QUAY */}
-              <View style={styles.resultBoxWrapper}>
-                {isSpinning ? (
-                  <View style={[styles.spinningAlert, { backgroundColor: `${colors.primary}15` }]}>
-                    <ActivityIndicator size="small" color={colors.primary} />
-                    <Text style={[styles.spinningAlertText, { color: colors.primary }]}>
-                      {t.luckyWheel.spinningLive}
-                    </Text>
-                  </View>
-                ) : lastSpinResult ? (
-                  <View style={styles.winnerShowcaseCard}>
-                    <View style={styles.winnerHeader}>
-                      <Trophy size={14} color="#D97706" />
-                      <Text style={styles.winnerHeaderText}>{t.luckyWheel.winnerAnnounce}</Text>
-                    </View>
-                    <Text style={styles.winnerText} numberOfLines={2}>
-                      {lastSpinResult}
-                    </Text>
-                  </View>
-                ) : (
-                  <Text style={[styles.promptText, { color: colors.subtle }]}>
-                    {locale === 'vi'
-                      ? 'Nhấn nút "Quay" bên dưới để bắt đầu quay trực tiếp trong nhóm!'
-                      : 'Press "Spin" below to start live spinning for the group!'}
-                  </Text>
-                )}
-              </View>
-
-              {/* NÚT QUAY VÀ THAO TÁC Ở SÂN KHẤU */}
-              <View style={[styles.arenaActionsRow, { borderTopColor: colors.hairline }]}>
-                <TouchableOpacity
-                  activeOpacity={0.85}
-                  disabled={isSpinning || wheels.length === 0}
-                  onPress={handleStartSpin}
-                  style={[
-                    styles.arenaSpinBtn,
-                    { backgroundColor: colors.primary },
-                    (isSpinning || wheels.length === 0) && { opacity: 0.5 },
-                  ]}
-                >
-                  {isSpinning ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
-                  ) : (
-                    <Play size={18} color="#FFFFFF" fill="#FFFFFF" />
-                  )}
-                  <Text style={styles.arenaSpinBtnText}>
-                    {isSpinning
-                      ? t.luckyWheel.spinning
-                      : lastSpinResult
-                      ? t.luckyWheel.spinAgain
-                      : wheels.length > 1
-                      ? t.luckyWheel.spinAll
-                      : t.luckyWheel.spin}
-                  </Text>
-                </TouchableOpacity>
-
-                <View style={styles.arenaSecondaryRow}>
-                  <TouchableOpacity
-                    style={styles.arenaSecondaryBtn}
-                    disabled={isSpinning}
-                    onPress={() => setViewMode('setup')}
-                  >
-                    <ArrowLeft size={14} color={colors.subtle} />
-                    <Text style={[styles.arenaSecondaryText, { color: colors.text }]}>
-                      {locale === 'vi' ? 'Chỉnh sửa vòng quay' : 'Edit wheel'}
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.arenaSecondaryBtn}
-                    disabled={isSpinning}
-                    onPress={onClose}
-                  >
-                    <Text style={[styles.arenaSecondaryText, { color: colors.text }]}>
-                      {t.luckyWheel.backToChat}
-                    </Text>
-                    <ArrowRight size={14} color={colors.subtle} />
-                  </TouchableOpacity>
-                </View>
-              </View>
+                <Trash2 size={15} color="#EF4444" />
+                <Text style={[styles.toggleItemText, { color: '#EF4444', fontWeight: 'bold' }]}>
+                  {t.luckyWheel.deleteAllWheels}
+                </Text>
+              </TouchableOpacity>
             </View>
-          )}
-        </View>
-      </KeyboardAvoidingView>
-    </View>
-  </Modal>
+
+            {/* HÀNG NÚT DƯỚI CÙNG: [Thêm vòng xoay] & [Tạo vòng quay] */}
+            <View style={[styles.actionButtonsRow, { borderTopColor: colors.hairline }]}>
+              {/* Nút Thêm vòng xoay */}
+              <TouchableOpacity
+                activeOpacity={0.8}
+                disabled={wheels.length >= 4 || isSubmitting}
+                onPress={handleAddDefaultWheel}
+                style={[
+                  styles.addWheelBtn,
+                  {
+                    backgroundColor: isDark ? colors.surface : '#F1F5F9',
+                    borderColor: colors.hairline,
+                  },
+                  wheels.length >= 4 && { opacity: 0.4 },
+                ]}
+              >
+                <Plus size={16} color={colors.primary} />
+                <Text style={[styles.addWheelBtnText, { color: colors.text }]}>
+                  {t.luckyWheel.addWheel}
+                </Text>
+              </TouchableOpacity>
+
+              {/* Nút TẠO VÒNG QUAY (Hiển thị icon Sparkles / ActivityIndicator và text đầy đủ giống Web) */}
+              <TouchableOpacity
+                activeOpacity={0.85}
+                disabled={wheels.length === 0 || isSubmitting}
+                onPress={handleCreateStage}
+                style={[
+                  styles.spinAllBtn,
+                  { backgroundColor: colors.primary },
+                  (wheels.length === 0 || isSubmitting) && { opacity: 0.5 },
+                ]}
+              >
+                {isSubmitting ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Sparkles size={16} color="#FFFFFF" />
+                )}
+                <Text style={styles.spinAllBtnText}>
+                  {isSubmitting
+                    ? (locale === 'vi' ? 'Đang tạo...' : 'Creating...')
+                    : (locale === 'vi' ? 'Tạo vòng quay' : 'Create Wheel')}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </View>
+    </Modal>
   );
 };
 

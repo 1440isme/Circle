@@ -9949,3 +9949,44 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
 - **AI Errors / Hallucinations Found:** Không có.
 - **Commit:** 38db34f
 - **PR:** #120
+
+---
+
+### AI-0176
+
+- **Date:** 2026-11-24 12:25:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120 (Event RSVP & Realtime Delights)
+- **Purpose:** 
+  1. Đồng bộ hóa thiết kế Bảng Setup của Mobile app với Web:
+     - **Bảng Setup (`MobileLiveWheelPickerModal.tsx`):**
+       + Dọn sạch khối code tàn dư `viewMode === 'arena'` để bảng setup thuần túy và ổn định.
+       + Cố định nút "Xóa tất cả vòng" (`Trash2` màu đỏ + text `Xóa tất cả vòng`) ở hàng thiết lập bên dưới ScrollView, căn phải phía trên bottom action bar.
+       + Chuẩn hóa hàng nút đáy: Nút bên trái `[+ Thêm vòng xoay]`, nút bên phải `[Tạo vòng quay]` (icon `Sparkles`, khi submitting hiện `ActivityIndicator` và text "Đang tạo...").
+       + Thêm visual feedback khi bấm `BookmarkCheck` (Lưu làm ban đầu).
+     - **Cái Bảng tùy chọn trong sân khấu (`MobileLiveWheelOverlay.tsx`):**
+       + Đồng bộ 4 nút icon: `Shuffle`, `ArrowDownAZ`, `BookmarkCheck` (Lưu làm ban đầu), `RotateCcw` (Reset về ban đầu).
+       + Hàng thiết lập căn phải: Nút `Xóa tất cả vòng` (`Trash2` màu đỏ + text `Xóa tất cả vòng`), gọi `handleDeleteAllWheels()`.
+  2. Đồng bộ cơ chế hoạt động quay nhiều vòng đồng thời trên Mobile app:
+     - Trên Floating Header: Nâng cấp nút "Quay tất cả" thành Pill Button nổi bật có icon `RotateCw` VÀ chữ "Quay tất cả" / "Quay ngay" giống hệt Web.
+     - Trên Sân khấu: Thêm nút trung tâm to rõ `arenaCenterSpinBtn` "Quay tất cả" đặt ngay bên dưới các vòng tròn quay, cho phép ấn quay đồng thời 2, 3 hoặc 4 vòng; đồng thời vẫn giữ khả năng chạm trực tiếp vào từng vòng để quay riêng lẻ.
+- **Prompt Summary:** phần thiết kế bảng setup của app phải giống của web (tức là các nút chức năng ở dưới phải giống v) , cơ chế hoạt động cũng phải giống luôn(ấn quay đc 2, 3 cái cũng đc chứ ko phải 1 cái)
+- **Files Affected:**
+  - `apps/mobile/src/components/chat/MobileLiveWheelPickerModal.tsx`
+  - `apps/mobile/src/components/chat/MobileLiveWheelOverlay.tsx`
+  - `agentic/memory/2026-11-24.md`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% tái cấu trúc giao diện setup modal, thêm nút quay trung tâm và đồng bộ các nút tính năng trong tabbed board trên Mobile.
+- **Human Modifications:** Người dùng yêu cầu đồng bộ chính xác layout các nút chức năng ở đáy bảng setup và cơ chế quay 2, 3 vòng đồng thời trên Mobile app.
+- **Verification Method:** 
+  - `npm --prefix apps/backend test -- circle-tools.service.spec.ts` pass 52/52 tests (100%).
+  - `npx tsc -p apps/web/tsconfig.json --noEmit` pass 0 errors.
+  - `npx tsc -p apps/mobile/tsconfig.json --noEmit` pass 0 errors.
+  - `bash scripts/check-secrets.sh` pass 0 secret leaks.
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn, không chứa secret.
+- **AI Errors / Hallucinations Found:** Không có.
+- **Commit:** 2efcfb0
+- **PR:** #120
