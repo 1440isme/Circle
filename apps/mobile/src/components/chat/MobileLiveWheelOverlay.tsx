@@ -104,8 +104,6 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
   const [session, setSession] = useState<LiveWheelSession | null>(null);
   const [isVisible, setIsVisible] = useState(false);
   const [dismissedSessionId, setDismissedSessionId] = useState<string | null>(null);
-  const [isFinished, setIsFinished] = useState(false);
-  const [isSubmittingSpin, setIsSubmittingSpin] = useState(false);
 
   // Active Tab: wheelId hoặc 'results' hoặc 'participants'
   const [activeTab, setActiveTab] = useState<string>('results');
@@ -131,7 +129,16 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [isUpdatingSettings, setIsUpdatingSettings] = useState(false);
   const [isAddingWheel, setIsAddingWheel] = useState(false);
+
+  // Trạng thái quay theo từng vòng riêng biệt & accumulator
   const [spinningWheelIds, setSpinningWheelIds] = useState<Record<string, boolean>>({});
+  const activeSpinningBatchRef = useRef<Set<string>>(new Set());
+  const batchResultsAccumulatorRef = useRef<
+    { wheelId: string; wheelTitle: string; winner: string; winningIndex: number }[]
+  >([]);
+  const submittingSpinRef = useRef<Set<string>>(new Set());
+  const [submittingWheelIds, setSubmittingWheelIds] = useState<Record<string, boolean>>({});
+  const [isSubmittingSpinAll, setIsSubmittingSpinAll] = useState(false);
 
   // Local state chỉnh sửa options và title cho từng vòng khi có quyền
   const [wheelEditingState, setWheelEditingState] = useState<Record<string, string>>({});
@@ -232,6 +239,114 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
   );
   const canEdit = isHost || allowMembersToEdit;
 
+  // Refs đồng bộ tránh stale closure
+  const wheelsListRef = useRef<LiveWheelItem[]>(wheelsList);
+  useEffect(() => {
+    wheelsListRef.current = wheelsList;
+  }, [wheelsList]);
+
+  const soundEnabledRef = useRef(soundEnabled);
+  useEffect(() => {
+    soundEnabledRef.current = soundEnabled;
+  }, [soundEnabled]);
+
+  // Animation độc lập cho từng bánh xe (quay đồng thời hoặc nối tiếp mượt mà, không bị khóa)
+  const animateWheelRotation = useCallback(
+    (
+      wheelId: string,
+      targetIndex: number,
+      totalCount: number,
+      wheelTitle: string,
+      resultLabel: string,
+      customDuration?: number,
+    ) => {
+      const currentWheels = wheelsListRef.current;
+      const idx = currentWheels.findIndex((w) => w.wheelId === wheelId);
+      if (idx < 0) return;
+
+      const anim = rotateAnims[idx];
+      if (!anim) return;
+
+      const sliceDeg = 360 / Math.max(totalCount, 1);
+      const targetCenterDeg = targetIndex * sliceDeg + sliceDeg / 2;
+      const stopAngle = (360 - (targetCenterDeg % 360)) % 360;
+
+      const base = lastRotations.current[idx] || 0;
+      const prevNorm = base % 360;
+      let delta = stopAngle - prevNorm;
+      if (delta < 0) delta += 360;
+      const extraSpins = (6 + idx) * 360;
+      const finalRot = base + extraSpins + delta;
+
+      const duration = customDuration ?? 6000;
+
+      activeSpinningBatchRef.current.add(wheelId);
+      setSpinningWheelIds((prev) => ({ ...prev, [wheelId]: true }));
+
+      Animated.timing(anim, {
+        toValue: finalRot,
+        duration,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }).start(({ finished }) => {
+        if (finished) {
+          lastRotations.current[idx] = finalRot;
+        }
+
+        setSpinningWheelIds((prev) => {
+          const next = { ...prev };
+          delete next[wheelId];
+          return next;
+        });
+
+        activeSpinningBatchRef.current.delete(wheelId);
+
+        batchResultsAccumulatorRef.current.push({
+          wheelId,
+          wheelTitle,
+          winner: resultLabel,
+          winningIndex: targetIndex,
+        });
+
+        // Khi tất cả các vòng đang quay trong đợt này đã hoàn thành
+        if (activeSpinningBatchRef.current.size === 0) {
+          const finishedBatch = [...batchResultsAccumulatorRef.current];
+          batchResultsAccumulatorRef.current = [];
+
+          // Sắp xếp lại theo thứ tự hiển thị của các vòng
+          const sortedBatch = finishedBatch.sort((a, b) => {
+            const idxA = currentWheels.findIndex((w) => w.wheelId === a.wheelId);
+            const idxB = currentWheels.findIndex((w) => w.wheelId === b.wheelId);
+            return idxA - idxB;
+          });
+
+          // Ghi kết quả vào resultsText
+          const roundLine = sortedBatch.map((b) => `${b.wheelTitle}: ${b.winner}`).join(' - ');
+          setResultsText((prev) => {
+            const lines = prev.split('\n').filter(Boolean);
+            if (lines[lines.length - 1] === roundLine) return prev;
+            return prev ? `${prev}\n${roundLine}` : roundLine;
+          });
+
+          // Hiển thị Celebration Modal
+          setCombinedWinnersModal(sortedBatch);
+
+          try {
+            if (soundEnabledRef.current) {
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            }
+          } catch {}
+        }
+      });
+    },
+    [rotateAnims],
+  );
+
+  const animateWheelRotationRef = useRef(animateWheelRotation);
+  useEffect(() => {
+    animateWheelRotationRef.current = animateWheelRotation;
+  }, [animateWheelRotation]);
+
   // 1. Kiểm tra session đang hoạt động khi mount
   useEffect(() => {
     if (!circleId) return;
@@ -241,11 +356,6 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
           const elapsed = Date.now() - active.startedAt;
           if (elapsed < 4 * 60 * 60 * 1000) {
             setSession(active);
-            if (active.stageStatus === 'idle') {
-              setIsFinished(false);
-            } else if (elapsed >= (active.durationMs || 6000)) {
-              setIsFinished(true);
-            }
           }
         }
       })
@@ -267,8 +377,8 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
           if (incoming.creatorId === user?.id) {
             setIsVisible(true);
           }
-          setIsFinished(false);
           rotateAnims.forEach((anim) => anim.setValue(0));
+          lastRotations.current = [0, 0, 0, 0];
         }
       };
 
@@ -278,7 +388,30 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
           // Tự động đóng popup kết quả cũ trên cả 2 máy khi có lượt quay mới bắt đầu
           setCombinedWinnersModal(null);
           setSession(incoming);
-          setIsFinished(false);
+
+          const isSingle = Boolean(incoming.wheelId);
+          const incomingWheels = incoming.wheels || [];
+          const wheelsToSpin = incomingWheels.filter((w) => {
+            if (isSingle) return w.wheelId === incoming.wheelId;
+            return w.winningIndex >= 0 && w.winningOption;
+          });
+
+          if (wheelsToSpin.length > 0) {
+            const duration = incoming.durationMs || 6000;
+            wheelsToSpin.forEach((w) => {
+              const count = Math.max(w.options.length, 1);
+              const winIdx = w.winningIndex;
+              const winLabel = w.winningOption?.optionLabel || w.options[winIdx]?.optionLabel || '';
+              animateWheelRotationRef.current(
+                w.wheelId,
+                winIdx,
+                count,
+                w.wheelTitle || 'Vòng quay',
+                winLabel,
+                duration,
+              );
+            });
+          }
         }
       };
 
@@ -371,165 +504,48 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
     };
   }, [circleId, rotateAnims]);
 
-  // Cập nhật kết quả vào resultsText & hiển thị Celebration Modal
-  const recordWinners = useCallback(
-    (
-      winners: { wheelId: string; wheelTitle: string; winner: string; winningIndex: number }[],
-      isSingle = false,
-    ) => {
-      if (winners.length === 0) return;
-      if (!isSingle) {
-        setCombinedWinnersModal(winners);
-      }
-      const roundLine = winners.map((b) => `${b.wheelTitle}: ${b.winner}`).join(' - ');
-      setResultsText((prev) => {
-        const lines = prev.split('\n').filter(Boolean);
-        if (lines[lines.length - 1] === roundLine) return prev;
-        return prev ? `${prev}\n${roundLine}` : roundLine;
-      });
-    },
-    [],
-  );
-
-  // 3. Tính toán và chạy Animation đồng bộ
+  // 3. Resume animation khi mở overlay lên lúc phòng đang quay (chỉ kích hoạt 1 lần cho mỗi phiên)
+  const hasResumedSessionRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!isVisible || !session || wheelsList.length === 0) return;
-
-    if (session.stageStatus === 'idle') {
-      setIsFinished(false);
-      setSpinningWheelIds({});
-      rotateAnims.forEach((anim) => anim.setValue(0));
-      lastRotations.current = [0, 0, 0, 0];
-      return;
-    }
-
-    const duration = session.durationMs || 6000;
-    const startedAt = session.startedAt;
-    const elapsed = Date.now() - startedAt;
-    const isSingleSpin = Boolean(session.wheelId);
-    const targetSingleWheelId = session.wheelId;
-
-    // Đánh dấu đúng vòng nào đang quay
-    if (isSingleSpin && targetSingleWheelId) {
-      setSpinningWheelIds((prev) => ({ ...prev, [targetSingleWheelId]: true }));
-    } else {
-      const allSpinning: Record<string, boolean> = {};
-      wheelsList.forEach((w) => {
-        allSpinning[w.wheelId] = true;
-      });
-      setSpinningWheelIds(allSpinning);
-    }
-
-    const animations: { anim: Animated.CompositeAnimation; wheelId: string }[] = [];
-
-    wheelsList.forEach((wheel, idx) => {
-      // Nếu là lượt quay đơn lẻ 1 vòng, không can thiệp các vòng khác
-      if (isSingleSpin && wheel.wheelId !== targetSingleWheelId) {
-        return;
-      }
-
-      // Chỉ chạy animation cho vòng nào có winningOption và winningIndex >= 0
-      if (wheel.winningIndex < 0 || !wheel.winningOption) {
-        return;
-      }
-
-      const anim = rotateAnims[idx] || rotAnim0;
-      const count = Math.max(wheel.options.length, 1);
-      const sliceDeg = 360 / count;
-      const winIdx = wheel.winningIndex;
-      const targetCenterDeg = winIdx * sliceDeg + sliceDeg / 2;
-      const stopAngle = (360 - (targetCenterDeg % 360)) % 360;
-
-      const base = lastRotations.current[idx] || 0;
-      const prevNorm = base % 360;
-      let delta = stopAngle - prevNorm;
-      if (delta < 0) delta += 360;
-      const extraSpins = (6 + idx) * 360;
-      const finalRot = base + extraSpins + delta;
-
-      if (elapsed >= duration) {
-        anim.setValue(finalRot);
-        lastRotations.current[idx] = finalRot;
-        setSpinningWheelIds((prev) => ({ ...prev, [wheel.wheelId]: false }));
-        return;
-      }
-
-      const remaining = duration - elapsed;
-      const initialProgress = Math.max(elapsed / duration, 0);
-      const easeOutInitial = 1 - Math.pow(1 - initialProgress, 4);
-      const startRot = base + (finalRot - base) * easeOutInitial;
-
-      anim.setValue(startRot);
-
-      animations.push({
-        wheelId: wheel.wheelId,
-        anim: Animated.timing(anim, {
-          toValue: finalRot,
-          duration: remaining,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
-        }),
-      });
-    });
-
-    const targetWinners = wheelsList
-      .filter((w) => {
-        if (isSingleSpin) return w.wheelId === targetSingleWheelId;
-        return true;
-      })
-      .filter((w) => w.winningOption && w.winningIndex >= 0)
-      .map((w) => ({
-        wheelId: w.wheelId,
-        wheelTitle: w.wheelTitle || 'Vòng quay',
-        winner: w.winningOption!.optionLabel,
-        winningIndex: w.winningIndex,
-      }));
-
-    if (elapsed >= duration) {
-      setIsFinished(true);
-      setSpinningWheelIds({});
-      recordWinners(targetWinners, isSingleSpin);
-      return;
-    }
-
-    if (animations.length > 0) {
-      Animated.parallel(animations.map((a) => a.anim)).start(() => {
-        setIsFinished(true);
-        // Cập nhật giá trị dừng cuối cùng vào lastRotations
-        wheelsList.forEach((w, idx) => {
-          if (w.winningIndex >= 0 && w.winningOption) {
-            if (isSingleSpin && w.wheelId !== targetSingleWheelId) return;
+    if (!isVisible || !session) return;
+    if (session.stageStatus === 'spinning' && hasResumedSessionRef.current !== session.id) {
+      hasResumedSessionRef.current = session.id;
+      const elapsed = Date.now() - session.startedAt;
+      const duration = session.durationMs || 6000;
+      if (elapsed < duration) {
+        const remaining = duration - elapsed;
+        const isSingle = Boolean(session.wheelId);
+        const wheelsToSpin = (session.wheels || []).filter((w) => {
+          if (isSingle) return w.wheelId === session.wheelId;
+          return w.winningIndex >= 0 && w.winningOption;
+        });
+        wheelsToSpin.forEach((w) => {
+          const count = Math.max(w.options.length, 1);
+          const winIdx = w.winningIndex;
+          const winLabel = w.winningOption?.optionLabel || w.options[winIdx]?.optionLabel || '';
+          animateWheelRotation(
+            w.wheelId,
+            winIdx,
+            count,
+            w.wheelTitle || 'Vòng quay',
+            winLabel,
+            remaining,
+          );
+        });
+      } else {
+        (session.wheels || []).forEach((w, idx) => {
+          if (w.winningIndex >= 0 && w.winningOption && rotateAnims[idx]) {
             const count = Math.max(w.options.length, 1);
             const sliceDeg = 360 / count;
             const targetCenterDeg = w.winningIndex * sliceDeg + sliceDeg / 2;
             const stopAngle = (360 - (targetCenterDeg % 360)) % 360;
-            const base = lastRotations.current[idx] || 0;
-            const prevNorm = base % 360;
-            let delta = stopAngle - prevNorm;
-            if (delta < 0) delta += 360;
-            lastRotations.current[idx] = base + (6 + idx) * 360 + delta;
+            rotateAnims[idx]?.setValue(stopAngle);
+            lastRotations.current[idx] = stopAngle;
           }
         });
-        setSpinningWheelIds((prev) => {
-          const next = { ...prev };
-          animations.forEach((a) => {
-            next[a.wheelId] = false;
-          });
-          return next;
-        });
-        recordWinners(targetWinners, isSingleSpin);
-        try {
-          if (soundEnabled) {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          }
-        } catch {}
-      });
-    } else {
-      setIsFinished(true);
-      setSpinningWheelIds({});
-      recordWinners(targetWinners, isSingleSpin);
+      }
     }
-  }, [isVisible, session, wheelsList, rotateAnims, rotAnim0, soundEnabled, recordWinners]);
+  }, [isVisible, session, animateWheelRotation, rotateAnims]);
 
   // 4. Render SVG cho từng bánh xe
   const renderWheelSvg = (options: { optionLabel: string; color?: string }[], discSize: number) => {
@@ -638,7 +654,7 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
   // 5. Xử lý khi ấn nút Quay Tất Cả
   const handleSpinClick = async () => {
     const isAnySpinning = Object.values(spinningWheelIds).some(Boolean);
-    if (isSubmittingSpin || isAnySpinning) return;
+    if (isSubmittingSpinAll || isAnySpinning) return;
 
     const hasAnyOption = wheelsList.some((w) => w.options && w.options.length > 0);
     if (!hasAnyOption) {
@@ -647,7 +663,7 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
     }
 
     try {
-      setIsSubmittingSpin(true);
+      setIsSubmittingSpinAll(true);
       await liveSpinWheelApi(circleId, {
         isAll: true,
         channelId: session?.channelId,
@@ -655,14 +671,14 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
     } catch (err: any) {
       Alert.alert(t.common.error, err?.message || 'Không thể bắt đầu quay');
     } finally {
-      setIsSubmittingSpin(false);
+      setIsSubmittingSpinAll(false);
     }
   };
 
-  // 6. Xử lý khi ấn nút Quay Riêng Vòng Đang Chọn
+  // 6. Xử lý khi ấn nút Quay Riêng Vòng Đang Chọn (độc lập từng vòng)
   const handleSpinSingleWheel = async (wheelId: string) => {
-    // CHỈ KIỂM TRA CHÍNH VÒNG NÀY CÓ ĐANG QUAY KHÔNG - KHÔNG KHÓA VÒNG KHÁC!
-    if (isSubmittingSpin || Boolean(spinningWheelIds[wheelId])) return;
+    // CHỈ KIỂM TRA CHÍNH VÒNG NÀY CÓ ĐANG QUAY HOẶC ĐANG GỬI API KHÔNG - TUYỆT ĐỐI KHÔNG KHÓA VÒNG KHÁC!
+    if (Boolean(spinningWheelIds[wheelId]) || submittingSpinRef.current.has(wheelId)) return;
 
     const target = wheelsList.find((w) => w.wheelId === wheelId);
     if (!target || !target.options || target.options.length === 0) {
@@ -671,7 +687,8 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
     }
 
     try {
-      setIsSubmittingSpin(true);
+      submittingSpinRef.current.add(wheelId);
+      setSubmittingWheelIds((prev) => ({ ...prev, [wheelId]: true }));
       await liveSpinWheelApi(circleId, {
         isAll: false,
         wheelId,
@@ -680,7 +697,12 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
     } catch (err: any) {
       Alert.alert(t.common.error, err?.message || 'Không thể quay vòng này');
     } finally {
-      setIsSubmittingSpin(false);
+      submittingSpinRef.current.delete(wheelId);
+      setSubmittingWheelIds((prev) => {
+        const next = { ...prev };
+        delete next[wheelId];
+        return next;
+      });
     }
   };
 
@@ -1089,6 +1111,7 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
     const isSelected = activeTab === tabKey;
     const rotateInterpolate = rotateInterpolates[idx] || rot0Interpolate;
     const isThisWheelSpinning = Boolean(spinningWheelIds[wheel.wheelId]);
+    const isThisWheelSubmitting = Boolean(submittingWheelIds[wheel.wheelId]);
 
     return (
       <View key={wheel.wheelId || `wheel-${idx}`} style={styles.smallWheelItemWrapper}>
@@ -1115,7 +1138,7 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
 
         <TouchableOpacity
           activeOpacity={0.9}
-          disabled={isThisWheelSpinning || isSubmittingSpin}
+          disabled={isThisWheelSpinning || isThisWheelSubmitting}
           onPress={() => handleSpinSingleWheel(wheel.wheelId)}
           style={[styles.cleanSmallWheelCard, isThisWheelSpinning && { opacity: 0.9 }]}
         >
@@ -1307,9 +1330,9 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
               <TouchableOpacity
                 style={[
                   styles.floatingPillPrimaryIconBtn,
-                  (isSpinning || isSubmittingSpin) && { opacity: 0.5 },
+                  (isSpinning || isSubmittingSpinAll) && { opacity: 0.5 },
                 ]}
-                disabled={isSpinning || isSubmittingSpin}
+                disabled={isSpinning || isSubmittingSpinAll}
                 onPress={handleSpinClick}
                 activeOpacity={0.8}
                 accessibilityLabel={t.luckyWheel.spinAll}
@@ -1402,7 +1425,10 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
 
                   <TouchableOpacity
                     activeOpacity={0.9}
-                    disabled={Boolean(spinningWheelIds[wheelsList[0]!.wheelId]) || isSubmittingSpin}
+                    disabled={
+                      Boolean(spinningWheelIds[wheelsList[0]!.wheelId]) ||
+                      Boolean(submittingWheelIds[wheelsList[0]!.wheelId])
+                    }
                     onPress={() => handleSpinSingleWheel(wheelsList[0]!.wheelId)}
                     style={styles.cleanWheelCard}
                   >
@@ -1495,12 +1521,12 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
               <View style={styles.arenaCenterSpinWrapper}>
                 <TouchableOpacity
                   activeOpacity={0.85}
-                  disabled={isSpinning || isSubmittingSpin}
+                  disabled={isSpinning || isSubmittingSpinAll}
                   onPress={handleSpinClick}
                   style={[
                     styles.arenaCenterSpinBtn,
                     { backgroundColor: colors.primary },
-                    (isSpinning || isSubmittingSpin) && { opacity: 0.5 },
+                    (isSpinning || isSubmittingSpinAll) && { opacity: 0.5 },
                   ]}
                 >
                   <RotateCw size={18} color="#FFFFFF" />

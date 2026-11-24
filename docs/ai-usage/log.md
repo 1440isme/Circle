@@ -10107,3 +10107,43 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
 - **AI Errors / Hallucinations Found:** Không có.
 - **Commit:** 9624fa5
 - **PR:** #120
+
+
+---
+
+### AI-0180
+
+- **Date:** 2026-11-24 14:05:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120 (Event RSVP & Realtime Delights)
+- **Purpose:** 
+  1. Khắc phục triệt để lỗi "lỗi rồi" (Infinite Re-render loop / React Maximum update depth exceeded):
+     - Xác định chính xác nguyên nhân: `useEffect` chạy animation trong `MobileLiveWheelOverlay.tsx` gọi `setSpinningWheelIds` và `recordWinners` vô điều kiện trong thân effect phụ thuộc vào `session`, gây crash re-render vô tận khi mở hoặc khi quay.
+     - Tách hoàn toàn logic animation ra khỏi `useEffect`. Chuyển sang kích hoạt animation trực tiếp từ socket listener `handleLiveWheelStarted` (y hệt kiến trúc ổn định trên Web `LiveWheelOverlay.tsx`), loại bỏ vĩnh viễn nguy cơ lặp re-render.
+  2. Cho phép quay độc lập nhiều vòng cùng một lượt ("ấn quay được 2, 3 cái cũng được chứ không phải 1 cái", "ấn 1 cái không bị khóa cái kia"):
+     - Thay thế state khóa chung `isSubmittingSpin` bằng `submittingSpinRef` và `submittingWheelIds` theo từng vòng riêng biệt.
+     - Nút đĩa quay của từng vòng chỉ kiểm tra chính vòng đó: Vòng 1 đang quay thì Vòng 2, Vòng 3 hoàn toàn KHÔNG bị disable, người dùng bấm vào là quay được ngay lập tức.
+     - Dùng `activeSpinningBatchRef` và `batchResultsAccumulatorRef` để gom kết quả của các vòng quay đồng thời. Chỉ khi tất cả các vòng đang quay trong đợt đó hoàn tất dừng lại, Celebration Modal mới hiển thị vinh danh đầy đủ các vòng.
+  3. Đồng bộ hoàn hảo giữa Web và Mobile:
+     - Trên Web `LiveWheelOverlay.tsx`: Tinh chỉnh `handleLiveWheelStarted` để chỉ quay đúng vòng có `wheelId === incoming.wheelId` khi nhận event quay đơn lẻ, bảo toàn trạng thái dừng của các vòng khác.
+     - Trên Mobile: Bảng setup và Floating Header đồng bộ 100% với Web (Icon-only floating buttons, không có text nhãn thừa, đầy đủ 4 nút chức năng Shuffle, Sort A-Z, BookmarkCheck, Reset và nút Xóa tất cả).
+- **Prompt Summary:** vẫn chưa đc khi ấn 1 cái là cái kia bị khoá ko quay đc, lỗi rồi
+- **Files Affected:**
+  - `apps/mobile/src/components/chat/MobileLiveWheelOverlay.tsx`
+  - `apps/web/src/components/chat/LiveWheelOverlay.tsx`
+  - `agentic/memory/2026-11-24.md`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% kiến trúc điều khiển animation độc lập per-wheel, khử triệt để infinite loop, đồng bộ realtime WebSocket giữa Web và Mobile.
+- **Human Modifications:** Trương Công Bình phản hồi lỗi crash và yêu cầu quay được nhiều vòng cùng lúc độc lập.
+- **Verification Method:** 
+  - `npm --prefix apps/backend test -- circle-tools.service.spec.ts` pass 52/52 tests (100%).
+  - `npx tsc -p apps/web/tsconfig.json --noEmit` pass 0 errors.
+  - `npx tsc -p apps/mobile/tsconfig.json --noEmit` pass 0 errors.
+  - `bash scripts/check-secrets.sh` pass 0 secret leaks.
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn, không chứa secret.
+- **AI Errors / Hallucinations Found:** Không có.
+- **Commit:** Pending
+- **PR:** #120

@@ -446,6 +446,9 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
   }
   const [wheelsState, setWheelsState] = useState<Record<string, WheelLocalState>>({});
 
+  // Submitting ref per wheel để không khóa các vòng khác khi quay 1 vòng
+  const submittingWheelRef = useRef<Set<string>>(new Set());
+
   // Batch Spinning Accumulator
   const activeSpinningBatchRef = useRef<Set<string>>(new Set());
   const batchResultsAccumulatorRef = useRef<
@@ -818,10 +821,10 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
     [wheelsState, liveWheels]
   );
 
-  // Spin a single wheel
+  // Spin a single wheel (cho phép quay độc lập từng vòng mà không khóa vòng khác)
   const handleSpinSingle = async (wheel: LiveWheelItem) => {
     const localState = wheelsState[wheel.wheelId];
-    if (localState?.isSpinning || liveSpinMutation.isPending) return;
+    if (localState?.isSpinning || submittingWheelRef.current.has(wheel.wheelId)) return;
 
     if (!wheel.options || wheel.options.length === 0) {
       alert(locale === 'vi' ? 'Vòng quay này đã hết phương án lựa chọn' : 'This wheel has no options left');
@@ -829,6 +832,7 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
     }
 
     try {
+      submittingWheelRef.current.add(wheel.wheelId);
       await liveSpinMutation.mutateAsync({
         isAll: false,
         wheelId: wheel.wheelId,
@@ -836,6 +840,8 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
       });
     } catch (err: any) {
       alert(err?.response?.data?.message || err?.message || 'Không thể quay vòng này');
+    } finally {
+      submittingWheelRef.current.delete(wheel.wheelId);
     }
   };
 
@@ -1039,12 +1045,13 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
         // Tự động đóng popup kết quả cũ trên cả 2 máy khi có lượt quay mới bắt đầu
         setCombinedResultsModal(null);
 
-        batchResultsAccumulatorRef.current = [];
-        activeSpinningBatchRef.current.clear();
-
+        const isSingle = Boolean(incoming.wheelId);
         const wheelsToSpin =
           incoming.wheels && incoming.wheels.length > 0
-            ? incoming.wheels.filter((w) => w.winningIndex >= 0 && w.winningOption)
+            ? incoming.wheels.filter((w) => {
+                if (isSingle) return w.wheelId === incoming.wheelId;
+                return w.winningIndex >= 0 && w.winningOption;
+              })
             : [];
 
         if (wheelsToSpin.length > 0) {
