@@ -129,9 +129,16 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [isUpdatingSettings, setIsUpdatingSettings] = useState(false);
   const [isAddingWheel, setIsAddingWheel] = useState(false);
+  const [saveInitialFeedback, setSaveInitialFeedback] = useState<Record<string, boolean>>({});
 
   // Trạng thái quay theo từng vòng riêng biệt & accumulator
   const [spinningWheelIds, setSpinningWheelIds] = useState<Record<string, boolean>>({});
+  const isAnySpinning = useMemo(
+    () => Object.values(spinningWheelIds).some(Boolean),
+    [spinningWheelIds],
+  );
+  const isSpinning = isAnySpinning;
+
   const activeSpinningBatchRef = useRef<Set<string>>(new Set());
   const batchResultsAccumulatorRef = useRef<
     { wheelId: string; wheelTitle: string; winner: string; winningIndex: number }[]
@@ -1004,8 +1011,6 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
     }
   };
 
-  const [saveInitialFeedback, setSaveInitialFeedback] = useState<Record<string, boolean>>({});
-
   const handleShuffleWheel = (wheelId: string) => {
     const text = wheelEditingState[wheelId] || '';
     const arr = text.split('\n').filter((l) => l.trim().length > 0);
@@ -1218,11 +1223,6 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
     );
   }
 
-  const isAnySpinning = useMemo(
-    () => Object.values(spinningWheelIds).some(Boolean),
-    [spinningWheelIds],
-  );
-  const isSpinning = isAnySpinning;
   const participants = session.participants || [];
 
   // Wheel đang được chọn hiển thị trong Tabbed Board

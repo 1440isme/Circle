@@ -10147,3 +10147,33 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
 - **AI Errors / Hallucinations Found:** Không có.
 - **Commit:** Pending
 - **PR:** #120
+
+
+---
+
+### AI-0181
+
+- **Date:** 2026-11-24 14:20:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120 (Event RSVP & Realtime Delights)
+- **Purpose:** 
+  - Khắc phục lỗi React Native runtime: `ERROR [Error: Rendered more hooks than during the previous render.]` tại `MobileLiveWheelOverlay.tsx:1221:32`.
+  - Nguyên nhân: Hook `const isAnySpinning = useMemo(...)` bị đặt sau câu lệnh early return `if (!isVisible) return null;` và `if (!session) return (...)`. Khi `isVisible = false`, component return null sớm nên không gọi hook này. Khi `isVisible = true`, component chạy tiếp và gọi `useMemo`, làm thay đổi số lượng hooks giữa 2 lần render và vi phạm React Rules of Hooks.
+  - Xử lý: Di chuyển `isAnySpinning = useMemo(...)`, `isSpinning = isAnySpinning` và `saveInitialFeedback = useState(...)` lên đầu component trước toàn bộ các câu lệnh return, đảm bảo mọi lần render đều gọi số lượng hooks cố định.
+- **Prompt Summary:** ERROR [Error: Rendered more hooks than during the previous render.] MobileLiveWheelOverlay.tsx:1221:32
+- **Files Affected:**
+  - `apps/mobile/src/components/chat/MobileLiveWheelOverlay.tsx`
+  - `agentic/memory/2026-11-24.md`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% tái sắp xếp và tối ưu hóa vị trí React Hooks chuẩn mực.
+- **Human Modifications:** Trương Công Bình gửi log crash runtime từ Expo Router.
+- **Verification Method:** 
+  - `npx tsc -p apps/mobile/tsconfig.json --noEmit` pass 0 errors.
+  - `bash scripts/check-secrets.sh` pass 0 secret leaks.
+- **Official Source Checked:** React Rules of Hooks, `PROJECT_GOD.md`.
+- **Security & License Check:** An toàn, không chứa secret.
+- **AI Errors / Hallucinations Found:** Không có.
+- **Commit:** Pending
+- **PR:** #120
