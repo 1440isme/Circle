@@ -10071,3 +10071,39 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
 - **AI Errors / Hallucinations Found:** Không có.
 - **Commit:** 48c575c
 - **PR:** #120
+
+
+---
+
+### AI-0179
+
+- **Date:** 2026-11-24 13:30:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120 (Event RSVP & Realtime Delights)
+- **Purpose:** 
+  1. Khắc phục triệt để lỗi "ấn 1 cái là cái kia bị khóa không quay được":
+     - Backend `circle-tools.service.ts`: Khi `liveSpinWheel` quay riêng 1 vòng (`dto.isAll === false` và `dto.wheelId`), bảo toàn kết quả trước đó của các vòng khác và gán `session.wheelId = dto.wheelId` để client nhận diện chính xác vòng nào được quay.
+     - Mobile `MobileLiveWheelOverlay.tsx`: 
+       + Quản lý trạng thái quay theo từng vòng riêng biệt (`spinningWheelIds: Record<string, boolean>`).
+       + Trong `handleSpinSingleWheel(wheelId)`, chỉ kiểm tra chính vòng đó có đang quay không. Các vòng khác hoàn toàn không bị khóa, người dùng có thể thoải mái ấn quay vòng 1 rồi ấn quay vòng 2.
+       + Animation runner: Nếu là lượt quay đơn lẻ (`session.wheelId`), chỉ trigger animation xoay cho đúng vòng được quay, các vòng khác tiếp tục đứng yên ở góc dừng hiện tại.
+       + Đĩa quay `cleanSmallWheelCard`: Chỉ tạm khóa đĩa của chính vòng đang xoay để tránh double-click, các đĩa khác không bị vô hiệu hóa.
+- **Prompt Summary:** vẫn chưa đc  khi ấn 1 cái là cái kia bị khoá ko quay đc
+- **Files Affected:**
+  - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
+  - `apps/mobile/src/components/chat/MobileLiveWheelOverlay.tsx`
+  - `agentic/memory/2026-11-24.md`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% logic phân tách trạng thái quay độc lập per-wheel cả backend lẫn frontend mobile.
+- **Human Modifications:** Trương Công Bình báo lỗi khi ấn 1 vòng thì vòng kia bị khóa không quay được.
+- **Verification Method:** 
+  - `npm --prefix apps/backend test -- circle-tools.service.spec.ts` pass 52/52 tests (100%).
+  - `npx tsc -p apps/mobile/tsconfig.json --noEmit` pass 0 errors.
+  - `bash scripts/check-secrets.sh` pass 0 secret leaks.
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn, không chứa secret.
+- **AI Errors / Hallucinations Found:** Không có.
+- **Commit:** 9624fa5
+- **PR:** #120

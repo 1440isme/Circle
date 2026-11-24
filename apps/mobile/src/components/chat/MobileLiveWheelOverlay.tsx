@@ -131,6 +131,7 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [isUpdatingSettings, setIsUpdatingSettings] = useState(false);
   const [isAddingWheel, setIsAddingWheel] = useState(false);
+  const [spinningWheelIds, setSpinningWheelIds] = useState<Record<string, boolean>>({});
 
   // Local state chỉnh sửa options và title cho từng vòng khi có quyền
   const [wheelEditingState, setWheelEditingState] = useState<Record<string, string>>({});
@@ -371,16 +372,24 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
   }, [circleId, rotateAnims]);
 
   // Cập nhật kết quả vào resultsText & hiển thị Celebration Modal
-  const recordWinners = useCallback((winners: { wheelId: string; wheelTitle: string; winner: string; winningIndex: number }[]) => {
-    if (winners.length === 0) return;
-    setCombinedWinnersModal(winners);
-    const roundLine = winners.map((b) => b.winner).join(' - ');
-    setResultsText((prev) => {
-      const lines = prev.split('\n').filter(Boolean);
-      if (lines[lines.length - 1] === roundLine) return prev;
-      return prev ? `${prev}\n${roundLine}` : roundLine;
-    });
-  }, []);
+  const recordWinners = useCallback(
+    (
+      winners: { wheelId: string; wheelTitle: string; winner: string; winningIndex: number }[],
+      isSingle = false,
+    ) => {
+      if (winners.length === 0) return;
+      if (!isSingle) {
+        setCombinedWinnersModal(winners);
+      }
+      const roundLine = winners.map((b) => `${b.wheelTitle}: ${b.winner}`).join(' - ');
+      setResultsText((prev) => {
+        const lines = prev.split('\n').filter(Boolean);
+        if (lines[lines.length - 1] === roundLine) return prev;
+        return prev ? `${prev}\n${roundLine}` : roundLine;
+      });
+    },
+    [],
+  );
 
   // 3. Tính toán và chạy Animation đồng bộ
   useEffect(() => {
@@ -388,6 +397,7 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
 
     if (session.stageStatus === 'idle') {
       setIsFinished(false);
+      setSpinningWheelIds({});
       rotateAnims.forEach((anim) => anim.setValue(0));
       lastRotations.current = [0, 0, 0, 0];
       return;
@@ -396,11 +406,31 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
     const duration = session.durationMs || 6000;
     const startedAt = session.startedAt;
     const elapsed = Date.now() - startedAt;
+    const isSingleSpin = Boolean(session.wheelId);
+    const targetSingleWheelId = session.wheelId;
 
-    const animations = wheelsList.map((wheel, idx) => {
-      // Chỉ chạy animation cho vòng nào có winningOption và winningIndex >= 0 trong lượt quay này
+    // Đánh dấu đúng vòng nào đang quay
+    if (isSingleSpin && targetSingleWheelId) {
+      setSpinningWheelIds((prev) => ({ ...prev, [targetSingleWheelId]: true }));
+    } else {
+      const allSpinning: Record<string, boolean> = {};
+      wheelsList.forEach((w) => {
+        allSpinning[w.wheelId] = true;
+      });
+      setSpinningWheelIds(allSpinning);
+    }
+
+    const animations: { anim: Animated.CompositeAnimation; wheelId: string }[] = [];
+
+    wheelsList.forEach((wheel, idx) => {
+      // Nếu là lượt quay đơn lẻ 1 vòng, không can thiệp các vòng khác
+      if (isSingleSpin && wheel.wheelId !== targetSingleWheelId) {
+        return;
+      }
+
+      // Chỉ chạy animation cho vòng nào có winningOption và winningIndex >= 0
       if (wheel.winningIndex < 0 || !wheel.winningOption) {
-        return null;
+        return;
       }
 
       const anim = rotateAnims[idx] || rotAnim0;
@@ -420,7 +450,8 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
       if (elapsed >= duration) {
         anim.setValue(finalRot);
         lastRotations.current[idx] = finalRot;
-        return null;
+        setSpinningWheelIds((prev) => ({ ...prev, [wheel.wheelId]: false }));
+        return;
       }
 
       const remaining = duration - elapsed;
@@ -430,15 +461,22 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
 
       anim.setValue(startRot);
 
-      return Animated.timing(anim, {
-        toValue: finalRot,
-        duration: remaining,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
+      animations.push({
+        wheelId: wheel.wheelId,
+        anim: Animated.timing(anim, {
+          toValue: finalRot,
+          duration: remaining,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
       });
     });
 
-    const winnersList = wheelsList
+    const targetWinners = wheelsList
+      .filter((w) => {
+        if (isSingleSpin) return w.wheelId === targetSingleWheelId;
+        return true;
+      })
       .filter((w) => w.winningOption && w.winningIndex >= 0)
       .map((w) => ({
         wheelId: w.wheelId,
@@ -449,19 +487,18 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
 
     if (elapsed >= duration) {
       setIsFinished(true);
-      recordWinners(winnersList);
+      setSpinningWheelIds({});
+      recordWinners(targetWinners, isSingleSpin);
       return;
     }
 
-    setIsFinished(false);
-    const activeTimings = animations.filter(Boolean) as Animated.CompositeAnimation[];
-
-    if (activeTimings.length > 0) {
-      Animated.parallel(activeTimings).start(() => {
+    if (animations.length > 0) {
+      Animated.parallel(animations.map((a) => a.anim)).start(() => {
         setIsFinished(true);
-        // Cập nhật giá trị dừng cuối cùng vào lastRotations để các lượt quay sau tiếp tục xoay lũy kế
+        // Cập nhật giá trị dừng cuối cùng vào lastRotations
         wheelsList.forEach((w, idx) => {
           if (w.winningIndex >= 0 && w.winningOption) {
+            if (isSingleSpin && w.wheelId !== targetSingleWheelId) return;
             const count = Math.max(w.options.length, 1);
             const sliceDeg = 360 / count;
             const targetCenterDeg = w.winningIndex * sliceDeg + sliceDeg / 2;
@@ -473,7 +510,14 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
             lastRotations.current[idx] = base + (6 + idx) * 360 + delta;
           }
         });
-        recordWinners(winnersList);
+        setSpinningWheelIds((prev) => {
+          const next = { ...prev };
+          animations.forEach((a) => {
+            next[a.wheelId] = false;
+          });
+          return next;
+        });
+        recordWinners(targetWinners, isSingleSpin);
         try {
           if (soundEnabled) {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -482,7 +526,8 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
       });
     } else {
       setIsFinished(true);
-      recordWinners(winnersList);
+      setSpinningWheelIds({});
+      recordWinners(targetWinners, isSingleSpin);
     }
   }, [isVisible, session, wheelsList, rotateAnims, rotAnim0, soundEnabled, recordWinners]);
 
@@ -592,12 +637,8 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
 
   // 5. Xử lý khi ấn nút Quay Tất Cả
   const handleSpinClick = async () => {
-    const elapsed = Date.now() - (session?.startedAt || 0);
-    const duration = session?.durationMs || 6000;
-    const isCurrentlySpinning = Boolean(
-      session?.stageStatus === 'spinning' && elapsed < duration && !isFinished,
-    );
-    if (isSubmittingSpin || isCurrentlySpinning) return;
+    const isAnySpinning = Object.values(spinningWheelIds).some(Boolean);
+    if (isSubmittingSpin || isAnySpinning) return;
 
     const hasAnyOption = wheelsList.some((w) => w.options && w.options.length > 0);
     if (!hasAnyOption) {
@@ -620,12 +661,8 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
 
   // 6. Xử lý khi ấn nút Quay Riêng Vòng Đang Chọn
   const handleSpinSingleWheel = async (wheelId: string) => {
-    const elapsed = Date.now() - (session?.startedAt || 0);
-    const duration = session?.durationMs || 6000;
-    const isCurrentlySpinning = Boolean(
-      session?.stageStatus === 'spinning' && elapsed < duration && !isFinished,
-    );
-    if (isSubmittingSpin || isCurrentlySpinning) return;
+    // CHỈ KIỂM TRA CHÍNH VÒNG NÀY CÓ ĐANG QUAY KHÔNG - KHÔNG KHÓA VÒNG KHÁC!
+    if (isSubmittingSpin || Boolean(spinningWheelIds[wheelId])) return;
 
     const target = wheelsList.find((w) => w.wheelId === wheelId);
     if (!target || !target.options || target.options.length === 0) {
@@ -1051,6 +1088,7 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
     const tabKey = wheel.wheelId || String(idx);
     const isSelected = activeTab === tabKey;
     const rotateInterpolate = rotateInterpolates[idx] || rot0Interpolate;
+    const isThisWheelSpinning = Boolean(spinningWheelIds[wheel.wheelId]);
 
     return (
       <View key={wheel.wheelId || `wheel-${idx}`} style={styles.smallWheelItemWrapper}>
@@ -1077,8 +1115,9 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
 
         <TouchableOpacity
           activeOpacity={0.9}
+          disabled={isThisWheelSpinning || isSubmittingSpin}
           onPress={() => handleSpinSingleWheel(wheel.wheelId)}
-          style={styles.cleanSmallWheelCard}
+          style={[styles.cleanSmallWheelCard, isThisWheelSpinning && { opacity: 0.9 }]}
         >
           <View style={{ width: discSize, height: discSize, position: 'relative' }}>
             <Animated.View
@@ -1156,11 +1195,11 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
     );
   }
 
-  const isSpinning = Boolean(
-    session.stageStatus === 'spinning' &&
-    Date.now() - (session.startedAt || 0) < (session.durationMs || 6000) &&
-    !isFinished,
+  const isAnySpinning = useMemo(
+    () => Object.values(spinningWheelIds).some(Boolean),
+    [spinningWheelIds],
   );
+  const isSpinning = isAnySpinning;
   const participants = session.participants || [];
 
   // Wheel đang được chọn hiển thị trong Tabbed Board
@@ -1363,6 +1402,7 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
 
                   <TouchableOpacity
                     activeOpacity={0.9}
+                    disabled={Boolean(spinningWheelIds[wheelsList[0]!.wheelId]) || isSubmittingSpin}
                     onPress={() => handleSpinSingleWheel(wheelsList[0]!.wheelId)}
                     style={styles.cleanWheelCard}
                   >

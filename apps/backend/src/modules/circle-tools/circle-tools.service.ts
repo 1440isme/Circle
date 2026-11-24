@@ -1608,12 +1608,15 @@ export class CircleToolsService {
           winningOption: opts[winningIdx]!,
         };
       }
+
+      // Khi chỉ quay riêng 1 vòng, bảo toàn kết quả trước đó của các vòng khác
+      const prevW = previousSession?.wheels?.find((item) => item.wheelId === w.wheelId);
       return {
         ...w,
         wheelTitle: w.wheelTitle || `Vòng ${idx + 1}`,
         options: opts,
-        winningIndex: -1,
-        winningOption: null,
+        winningIndex: prevW?.winningIndex ?? -1,
+        winningOption: prevW?.winningOption ?? null,
       };
     });
 
@@ -1770,7 +1773,7 @@ export class CircleToolsService {
       circleId,
       creatorId: previousSession?.creatorId || userId,
       channelId: channel?.id,
-      wheelId: wheelsList[0]?.wheelId,
+      wheelId: isAll ? undefined : dto.wheelId,
       wheelTitle,
       options,
       winningIndex,
