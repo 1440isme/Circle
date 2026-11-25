@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Modal,
   View,
@@ -23,17 +23,18 @@ import {
   Check,
   AlertCircle,
   UserPlus,
+  History,
 } from 'lucide-react-native';
 import { useThemeStore } from '../../stores/theme.store';
 import { useLanguageStore } from '../../stores/language.store';
 import { useCircleStore } from '../../stores/circle.store';
 import { getGlassTheme } from '../../constants/glass-theme';
-import {
-  useCreateCircleMutation,
-  useSelectableFriendsQuery,
-} from '../../hooks/use-circle-queries';
+import { useCreateCircleMutation } from '../../hooks/use-circle-queries';
 import { useEdgeSwipeDismiss } from '../../hooks/use-edge-swipe';
 import { createCircleSchemas } from '@circle/shared';
+import { PublicUserEntity } from '@circle/types';
+import { getStorageItem, setStorageItem } from '../../services/storage';
+import { searchPublicUsersApi } from '../../services/api';
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -52,11 +53,26 @@ export function CreateCircleModal() {
   const visible = useCircleStore((s) => s.createModalVisible);
   const setVisible = useCircleStore((s) => s.setCreateModalVisible);
 
+  const [name, setName] = useState('');
+  const [isPrivate, setIsPrivate] = useState(false);
+  const [selectedUsers, setSelectedUsers] = useState<PublicUserEntity[]>([]);
+  const [friendSearch, setFriendSearch] = useState('');
+  const [searchResults, setSearchResults] = useState<PublicUserEntity[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [recentUsers, setRecentUsers] = useState<PublicUserEntity[]>([]);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [serverError, setServerError] = useState<string | null>(null);
+
+  const searchTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const createCircleMutation = useCreateCircleMutation();
+
   const handleClose = () => {
     setName('');
     setIsPrivate(false);
-    setSelectedFriendIds([]);
+    setSelectedUsers([]);
     setFriendSearch('');
+    setSearchResults([]);
+    setIsSearching(false);
     setFieldErrors({});
     setServerError(null);
     setVisible(false);
@@ -64,38 +80,89 @@ export function CreateCircleModal() {
 
   const edgePan = useEdgeSwipeDismiss({ onDismiss: handleClose });
 
-  const [name, setName] = useState('');
-  const [isPrivate, setIsPrivate] = useState(false);
-  const [selectedFriendIds, setSelectedFriendIds] = useState<string[]>([]);
-  const [friendSearch, setFriendSearch] = useState('');
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  const [serverError, setServerError] = useState<string | null>(null);
+  useEffect(() => {
+    if (visible) {
+      getStorageItem('circle_recent_user_searches').then((raw) => {
+        if (raw) {
+          try {
+            setRecentUsers(JSON.parse(raw));
+          } catch {}
+        }
+      });
+    }
+  }, [visible]);
 
-  const createCircleMutation = useCreateCircleMutation();
-  const { data: selectableFriends = [], isLoading: isLoadingFriends } =
-    useSelectableFriendsQuery();
+  useEffect(() => {
+    const q = friendSearch.trim();
+    if (!q) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
 
-  const handleToggleFriend = (friendId: string) => {
-    setSelectedFriendIds((prev) =>
-      prev.includes(friendId)
-        ? prev.filter((id) => id !== friendId)
-        : [...prev, friendId],
-    );
+    setIsSearching(true);
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(async () => {
+      try {
+        const res = await searchPublicUsersApi(q);
+        setSearchResults(res || []);
+      } catch {
+        setSearchResults([]);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 250);
+
+    return () => {
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    };
+  }, [friendSearch]);
+
+  const handleToggleUser = (user: PublicUserEntity) => {
+    setSelectedUsers((prev) => {
+      const exists = prev.some((u) => u.id === user.id);
+      if (exists) {
+        return prev.filter((u) => u.id !== user.id);
+      } else {
+        if (prev.length >= 99) {
+          setServerError(locale === 'vi' ? 'Bạn chỉ có thể chọn tối đa 99 thành viên' : 'You can select up to 99 members');
+          return prev;
+        }
+        getStorageItem('circle_recent_user_searches').then((raw) => {
+          let list: PublicUserEntity[] = [];
+          if (raw) {
+            try {
+              list = JSON.parse(raw);
+            } catch {}
+          }
+          const updated = [user, ...list.filter((u) => u.id !== user.id)].slice(0, 8);
+          setStorageItem('circle_recent_user_searches', JSON.stringify(updated));
+          setRecentUsers(updated);
+        });
+        return [...prev, user];
+      }
+    });
     if (fieldErrors.name) {
       setFieldErrors((prev) => ({ ...prev, name: '' }));
     }
   };
 
-  const filteredFriends = selectableFriends.filter((f) => {
-    const q = friendSearch.toLowerCase().trim();
-    if (!q) return true;
-    const cleanQ = q.replace(/^@/, '');
-    return (
-      f.displayName.toLowerCase().includes(q) ||
-      (f.handle && f.handle.toLowerCase().includes(cleanQ)) ||
-      f.email.toLowerCase().includes(q)
-    );
-  });
+  const handleRemoveSelected = (userId: string) => {
+    setSelectedUsers((prev) => prev.filter((u) => u.id !== userId));
+  };
+
+  const handleRemoveRecent = (userId: string) => {
+    const updated = recentUsers.filter((u) => u.id !== userId);
+    setRecentUsers(updated);
+    setStorageItem('circle_recent_user_searches', JSON.stringify(updated));
+  };
+
+  const handleClearAllRecent = () => {
+    setRecentUsers([]);
+    setStorageItem('circle_recent_user_searches', JSON.stringify([]));
+  };
+
+  const selectedFriendIds = selectedUsers.map((u) => u.id);
 
   const handleSubmit = async () => {
     setServerError(null);
@@ -103,7 +170,7 @@ export function CreateCircleModal() {
 
     const { createCircleSchema } = createCircleSchemas(locale);
     const payload = {
-      ...(name.trim() ? { name: name.trim() } : {}),
+      name: name.trim(),
       ...(selectedFriendIds.length > 0 ? { memberIds: selectedFriendIds } : {}),
       isPrivate,
     };
@@ -129,7 +196,7 @@ export function CreateCircleModal() {
     }
   };
 
-  const canSubmit = name.trim().length >= 2 || selectedFriendIds.length > 0;
+  const canSubmit = name.trim().length >= 2 && selectedFriendIds.length <= 99;
 
   return (
     <Modal
@@ -215,7 +282,7 @@ export function CreateCircleModal() {
             <View style={styles.formGroup}>
               <View style={styles.labelRow}>
                 <Text style={[styles.label, { color: colors.text }]}>
-                  {t.circle.nameLabel}
+                  {t.circle.nameLabel} <Text style={{ color: colors.danger }}>*</Text>
                 </Text>
                 <Text style={[styles.hintText, { color: colors.subtle }]}>
                   {name.length}/40
@@ -277,7 +344,7 @@ export function CreateCircleModal() {
               />
             </View>
 
-            {/* Field: Friend Selector */}
+            {/* Field: Member Selector */}
             <View style={styles.formGroup}>
               <View style={styles.labelRow}>
                 <View style={styles.friendSectionHeader}>
@@ -286,16 +353,45 @@ export function CreateCircleModal() {
                     {t.circle.selectFriendsLabel}
                   </Text>
                 </View>
-                {selectedFriendIds.length > 0 && (
+                {selectedUsers.length > 0 && (
                   <View style={[styles.counterBadge, { backgroundColor: colors.primary }]}>
                     <Text style={[styles.counterText, { color: colors.onPrimary }]}>
-                      {selectedFriendIds.length}
+                      {selectedUsers.length}
                     </Text>
                   </View>
                 )}
               </View>
 
-              {/* Friend Search Input */}
+              {/* Selected Members Chips */}
+              {selectedUsers.length > 0 && (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.selectedChipsScroll}
+                >
+                  {selectedUsers.map((u) => (
+                    <View
+                      key={u.id}
+                      style={[
+                        styles.selectedChip,
+                        { backgroundColor: colors.surface, borderColor: colors.hairline },
+                      ]}
+                    >
+                      <Text style={[styles.selectedChipText, { color: colors.text }]}>
+                        {u.displayName}
+                      </Text>
+                      <TouchableOpacity
+                        onPress={() => handleRemoveSelected(u.id)}
+                        hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                      >
+                        <X size={12} color={colors.subtle} />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </ScrollView>
+              )}
+
+              {/* Member Search Input */}
               <View
                 style={[
                   styles.searchBar,
@@ -313,93 +409,203 @@ export function CreateCircleModal() {
                   placeholderTextColor={colors.subtle}
                   style={[styles.searchInput, { color: colors.text }]}
                 />
+                {friendSearch.length > 0 && (
+                  <TouchableOpacity onPress={() => setFriendSearch('')}>
+                    <X size={16} color={colors.subtle} />
+                  </TouchableOpacity>
+                )}
               </View>
 
-              {/* Friend List */}
-              {isLoadingFriends ? (
-                <ActivityIndicator
-                  style={{ marginVertical: 16 }}
-                  color={colors.sage}
-                />
-              ) : filteredFriends.length === 0 ? (
-                <View style={[styles.emptyFriendsBox, { backgroundColor: colors.wash }]}>
-                  <Text style={[styles.emptyFriendsText, { color: colors.subtle }]}>
-                    {friendSearch
-                      ? t.circle.noFriendsFound
-                      : t.circle.noSelectableFriends}
-                  </Text>
-                </View>
-              ) : (
-                <View style={styles.friendListContainer}>
-                  {filteredFriends.map((f) => {
-                    const isSelected = selectedFriendIds.includes(f.id);
-                    return (
-                      <TouchableOpacity
-                        key={f.id}
-                        activeOpacity={0.75}
-                        onPress={() => handleToggleFriend(f.id)}
-                        style={[
-                          styles.friendItem,
-                          {
-                            backgroundColor: isSelected
-                              ? `${colors.sage}12`
-                              : colors.surface,
-                            borderColor: isSelected
-                              ? colors.sage
-                              : colors.hairline,
-                          },
-                        ]}
-                      >
-                        <View style={styles.friendLeft}>
-                          <View
-                            style={[
-                              styles.avatarPlaceholder,
-                              { backgroundColor: colors.wash },
-                            ]}
-                          >
-                            <Text
-                              style={[
-                                styles.avatarText,
-                                { color: colors.sage },
-                              ]}
-                            >
-                              {getInitials(f.displayName || f.email)}
-                            </Text>
-                          </View>
-                          <View style={styles.friendInfo}>
-                            <Text
-                              numberOfLines={1}
-                              style={[styles.friendName, { color: colors.text }]}
-                            >
-                              {f.displayName}
-                            </Text>
-                            <Text
-                              numberOfLines={1}
-                              style={[styles.friendHandle, { color: colors.sage }]}
-                            >
-                              @{f.handle || f.email.split('@')[0]}
-                            </Text>
-                          </View>
-                        </View>
-
-                        <View
+              {/* Member List / Recent Searches */}
+              {friendSearch.trim().length > 0 ? (
+                isSearching ? (
+                  <ActivityIndicator
+                    style={{ marginVertical: 16 }}
+                    color={colors.sage}
+                  />
+                ) : searchResults.length === 0 ? (
+                  <View style={[styles.emptyFriendsBox, { backgroundColor: colors.wash }]}>
+                    <Text style={[styles.emptyFriendsText, { color: colors.subtle }]}>
+                      {t.circle.noFriendsFound}
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={styles.friendListContainer}>
+                    {searchResults.map((f) => {
+                      const isSelected = selectedUsers.some((u) => u.id === f.id);
+                      return (
+                        <TouchableOpacity
+                          key={f.id}
+                          activeOpacity={0.75}
+                          onPress={() => handleToggleUser(f)}
                           style={[
-                            styles.checkbox,
+                            styles.friendItem,
                             {
-                              borderColor: isSelected
-                                ? colors.primary
-                                : colors.subtle,
                               backgroundColor: isSelected
-                                ? colors.primary
-                                : 'transparent',
+                                ? `${colors.sage}12`
+                                : colors.surface,
+                              borderColor: isSelected
+                                ? colors.sage
+                                : colors.hairline,
                             },
                           ]}
                         >
-                          {isSelected && <Check size={14} color={colors.onPrimary} />}
-                        </View>
-                      </TouchableOpacity>
-                    );
-                  })}
+                          <View style={styles.friendLeft}>
+                            <View
+                              style={[
+                                styles.avatarPlaceholder,
+                                { backgroundColor: colors.wash },
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.avatarText,
+                                  { color: colors.sage },
+                                ]}
+                              >
+                                {getInitials(f.displayName)}
+                              </Text>
+                            </View>
+                            <View style={styles.friendInfo}>
+                              <Text
+                                numberOfLines={1}
+                                style={[styles.friendName, { color: colors.text }]}
+                              >
+                                {f.displayName}
+                              </Text>
+                              <Text
+                                numberOfLines={1}
+                                style={[styles.friendHandle, { color: colors.sage }]}
+                              >
+                                @{f.handle}
+                              </Text>
+                            </View>
+                          </View>
+
+                          <View
+                            style={[
+                              styles.checkbox,
+                              {
+                                borderColor: isSelected
+                                  ? colors.primary
+                                  : colors.subtle,
+                                backgroundColor: isSelected
+                                  ? colors.primary
+                                  : 'transparent',
+                              },
+                            ]}
+                          >
+                            {isSelected && <Check size={14} color={colors.onPrimary} />}
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                )
+              ) : recentUsers.length > 0 ? (
+                <View style={{ gap: 8 }}>
+                  <View style={styles.recentHeader}>
+                    <View style={styles.recentHeaderLeft}>
+                      <History size={13} color={colors.subtle} />
+                      <Text style={[styles.recentHeaderText, { color: colors.subtle }]}>
+                        {t.circle.recentSearches}
+                      </Text>
+                    </View>
+                    <TouchableOpacity onPress={handleClearAllRecent}>
+                      <Text style={[styles.recentClearText, { color: colors.sage }]}>
+                        {t.circle.clearRecentSearches}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={styles.friendListContainer}>
+                    {recentUsers.map((f) => {
+                      const isSelected = selectedUsers.some((u) => u.id === f.id);
+                      return (
+                        <TouchableOpacity
+                          key={f.id}
+                          activeOpacity={0.75}
+                          onPress={() => handleToggleUser(f)}
+                          style={[
+                            styles.friendItem,
+                            {
+                              backgroundColor: isSelected
+                                ? `${colors.sage}12`
+                                : colors.surface,
+                              borderColor: isSelected
+                                ? colors.sage
+                                : colors.hairline,
+                            },
+                          ]}
+                        >
+                          <View style={styles.friendLeft}>
+                            <View
+                              style={[
+                                styles.avatarPlaceholder,
+                                { backgroundColor: colors.wash },
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.avatarText,
+                                  { color: colors.sage },
+                                ]}
+                              >
+                                {getInitials(f.displayName)}
+                              </Text>
+                            </View>
+                            <View style={styles.friendInfo}>
+                              <Text
+                                numberOfLines={1}
+                                style={[styles.friendName, { color: colors.text }]}
+                              >
+                                {f.displayName}
+                              </Text>
+                              <Text
+                                numberOfLines={1}
+                                style={[styles.friendHandle, { color: colors.sage }]}
+                              >
+                                @{f.handle}
+                              </Text>
+                            </View>
+                          </View>
+
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                            <TouchableOpacity
+                              onPress={() => handleRemoveRecent(f.id)}
+                              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                              style={styles.removeRecentBtn}
+                            >
+                              <X size={14} color={colors.subtle} />
+                            </TouchableOpacity>
+
+                            <View
+                              style={[
+                                styles.checkbox,
+                                {
+                                  borderColor: isSelected
+                                    ? colors.primary
+                                    : colors.subtle,
+                                  backgroundColor: isSelected
+                                    ? colors.primary
+                                    : 'transparent',
+                                },
+                              ]}
+                            >
+                              {isSelected && <Check size={14} color={colors.onPrimary} />}
+                            </View>
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              ) : (
+                <View style={[styles.emptyFriendsBox, { backgroundColor: colors.wash }]}>
+                  <Search size={18} color={colors.subtle} style={{ opacity: 0.5, marginBottom: 4 }} />
+                  <Text style={[styles.emptyFriendsText, { color: colors.subtle }]}>
+                    {t.circle.searchPrompt}
+                  </Text>
                 </View>
               )}
             </View>
@@ -718,5 +924,46 @@ const styles = StyleSheet.create({
   submitBtnText: {
     fontSize: 14,
     fontWeight: '700',
+  },
+  selectedChipsScroll: {
+    flexDirection: 'row',
+    gap: 6,
+    paddingVertical: 2,
+  },
+  selectedChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  selectedChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  recentHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 4,
+    paddingTop: 2,
+  },
+  recentHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  recentHeaderText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  recentClearText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  removeRecentBtn: {
+    padding: 4,
   },
 });

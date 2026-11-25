@@ -11,55 +11,30 @@ export function createCircleSchemas(locale: Locale = 'vi') {
   const dict = locales[locale] || locales.vi;
   const v = dict.validation;
 
-  const createCircleSchema = z
-    .object({
-      name: z
-        .string()
-        .trim()
-        .max(50, v.circleNameMaxLength)
-        .optional()
-        .or(z.literal('')),
-      handle: z
-        .string()
-        .trim()
-        .min(3, v.circleHandleMinLength)
-        .max(30, v.circleHandleMaxLength)
-        .toLowerCase()
-        .regex(handleRegex, v.circleHandleInvalid)
-        .optional()
-        .or(z.literal('')),
-      memberIds: z.array(z.string()).optional(),
-      avatarUrl: z
-        .string()
-        .url(v.circleAvatarInvalid)
-        .optional()
-        .or(z.literal('')),
-      isPrivate: z.boolean().optional(),
-      maxMembers: z.number().int().min(2).max(1000).optional().nullable(),
-    })
-    .refine(
-      (data) => {
-        if (data.name && data.name.trim().length > 0) {
-          return data.name.trim().length >= 2;
-        }
-        return Array.isArray(data.memberIds) && data.memberIds.length > 0;
-      },
-      {
-        message: v.circleNameMinLength,
-        path: ['name'],
-      },
-    )
-    .refine(
-      (data) => {
-        const hasName = Boolean(data.name && data.name.trim().length >= 2);
-        const hasFriends = Boolean(Array.isArray(data.memberIds) && data.memberIds.length > 0);
-        return hasName || hasFriends;
-      },
-      {
-        message: v.circleNameOrFriendsRequired,
-        path: ['name'],
-      },
-    );
+  const createCircleSchema = z.object({
+    name: z
+      .string()
+      .trim()
+      .min(2, v.circleNameMinLength)
+      .max(50, v.circleNameMaxLength),
+    handle: z
+      .string()
+      .trim()
+      .min(3, v.circleHandleMinLength)
+      .max(30, v.circleHandleMaxLength)
+      .toLowerCase()
+      .regex(handleRegex, v.circleHandleInvalid)
+      .optional()
+      .or(z.literal('')),
+    memberIds: z.array(z.string()).max(99).optional(),
+    avatarUrl: z
+      .string()
+      .url(v.circleAvatarInvalid)
+      .optional()
+      .or(z.literal('')),
+    isPrivate: z.boolean().optional(),
+    maxMembers: z.number().int().min(2).max(100).optional().nullable(),
+  });
 
   const updateCircleSchema = z.object({
     name: z
@@ -74,7 +49,7 @@ export function createCircleSchemas(locale: Locale = 'vi') {
       .optional()
       .or(z.literal('')),
     isPrivate: z.boolean().optional(),
-    maxMembers: z.number().int().min(2).max(1000).optional().nullable(),
+    maxMembers: z.number().int().min(2).max(100).optional().nullable(),
     themeColor: z.string().optional().nullable(),
   });
 

@@ -4325,7 +4325,7 @@
 
 ---
 
-### AI-0102: Tinh chỉnh Toàn diện Header, Chat Composer Trung tính, Khắc phục Persistence Theme Mobile, Đồng bộ Ranh giới Web, Dual Camera Hardware Fallback & Tối ưu Responsive
+## AI-0102: Tinh chỉnh Toàn diện Header, Chat Composer Trung tính, Khắc phục Persistence Theme Mobile, Đồng bộ Ranh giới Web, Dual Camera Hardware Fallback & Tối ưu Responsive
 
 - **Date:** 2026-10-18 00:38:00 +07:00
 - **Developer:** Trương Công Bình
@@ -4428,7 +4428,7 @@
 
 ---
 
-### AI-0124: Tinh chỉnh ô ảnh Lịch sử khoảnh khắc & Khắc phục hiển thị Bản đồ Web/App (#94)
+## AI-0124: Tinh chỉnh ô ảnh Lịch sử khoảnh khắc & Khắc phục hiển thị Bản đồ Web/App (#94)
 - **Timestamp:** 2026-10-23T14:55:00+07:00
 - **Task ID:** Issue #94 (Epic #20: Moments & Shared Stories)
 - **Engineers:** Trương Công Bình & Ninh Thị Mỹ Hạnh
@@ -4454,7 +4454,7 @@
 
 ---
 
-### AI-0125: Chuyển đổi Bản đồ Web sang Leaflet Native (Dynamic SSR False) (#94)
+## AI-0125: Chuyển đổi Bản đồ Web sang Leaflet Native (Dynamic SSR False) (#94)
 - **Timestamp:** 2026-10-23T15:15:00+07:00
 - **Task ID:** Issue #94 (Epic #20: Moments & Shared Stories)
 - **Engineers:** Trương Công Bình & Ninh Thị Mỹ Hạnh
@@ -4479,7 +4479,7 @@
 
 ---
 
-### AI-0126: Phân tích nguyên nhân Nền xám Leaflet trên Web & Khởi tạo Layout (#94)
+## AI-0126: Phân tích nguyên nhân Nền xám Leaflet trên Web & Khởi tạo Layout (#94)
 - **Timestamp:** 2026-10-23T15:30:00+07:00
 - **Task ID:** Issue #94 (Epic #20: Moments & Shared Stories)
 - **Engineers:** Trương Công Bình & Ninh Thị Mỹ Hạnh
@@ -4500,7 +4500,7 @@
 
 ---
 
-### AI-0127: Xử lý triệt để Lifecycle Leaflet trong React StrictMode (#94)
+## AI-0127: Xử lý triệt để Lifecycle Leaflet trong React StrictMode (#94)
 - **Timestamp:** 2026-10-23T15:45:00+07:00
 - **Task ID:** Issue #94 (Epic #20: Moments & Shared Stories)
 - **Engineers:** Trương Công Bình & Ninh Thị Mỹ Hạnh
@@ -4524,7 +4524,7 @@
 
 ---
 
-### AI-0128: Chuyển sang Esri World Street Map loại bỏ Watermark "API KEY REQUIRED" (#94)
+## AI-0128: Chuyển sang Esri World Street Map loại bỏ Watermark "API KEY REQUIRED" (#94)
 - **Timestamp:** 2026-10-23T15:55:00+07:00
 - **Task ID:** Issue #94 (Epic #20: Moments & Shared Stories)
 - **Engineers:** Trương Công Bình & Ninh Thị Mỹ Hạnh
@@ -4547,7 +4547,7 @@
 
 ---
 
-### AI-0129: Khắc phục lỗi Bản đồ tự động thu nhỏ khi click vào Ghim ảnh (#94)
+## AI-0129: Khắc phục lỗi Bản đồ tự động thu nhỏ khi click vào Ghim ảnh (#94)
 - **Timestamp:** 2026-10-23T16:05:00+07:00
 - **Task ID:** Issue #94 (Epic #20: Moments & Shared Stories)
 - **Engineers:** Trương Công Bình & Ninh Thị Mỹ Hạnh
@@ -4571,7 +4571,7 @@
 
 ---
 
-### AI-0130: Triển khai Trọn gói Module 7.1 — Circle Utilities: Shared Album, Decision Wheel, Words Unsaid & Group Calendar (#96)
+## AI-0130: Triển khai Trọn gói Module 7.1 — Circle Utilities: Shared Album, Decision Wheel, Words Unsaid & Group Calendar (#96)
 - **Timestamp:** 2026-10-23T17:05:00+07:00
 - **Task ID:** Issue #96 (Parent Epic: #21)
 - **Engineers:** Ninh Thị Mỹ Hạnh & Trương Công Bình
@@ -5561,6 +5561,8 @@
 
 ---
 
+---
+
 ## AI-0151: Mở Rộng Cuộn Năm Vô Hạn & Chuẩn Hóa Bộ Chọn Ngày Giờ CustomDateTimePicker Trên Web và Mobile (#120)
 
 - **Date:** 2026-11-04 14:20:00 +07:00
@@ -5592,6 +5594,8 @@
 
 ---
 
+---
+
 ## AI-0152: Khắc Phục Triệt Để Lỗi Bóc Tách và Lọc Rò Rỉ Chuỗi JSON Recurrence Khỏi Ghi Chú Lịch Hẹn (#120)
 
 - **Date:** 2026-11-04 19:40:00 +07:00
@@ -5616,6 +5620,8 @@
 - **AI Errors / Hallucinations Found:** None.
 - **Commit:** b4405bf
 - **PR:** #127
+
+---
 
 ---
 
@@ -5651,6 +5657,8 @@
 
 ---
 
+---
+
 ## AI-0154: Vòng Xoay May Mắn: Hỗ Trợ Quay Khi Còn 1 Lựa Chọn, Modal Kết Quả Minimalist & Kiến Trúc Single Instant Wheel (#120)
 
 - **Date:** 2026-11-06 14:10:00 +07:00
@@ -5679,6 +5687,8 @@
 - **AI Errors / Hallucinations Found:** None.
 - **Commit:** 116f048
 - **PR:** #127
+
+---
 
 ---
 
@@ -5714,6 +5724,8 @@
 
 ---
 
+---
+
 ## AI-0156: Tái Thiết Kế Form Sự Kiện & Màn Hình Chi Tiết Full-View Hàng Dọc Icon-Driven (w-full, Dropdown Chu Kỳ Lặp & Floating Pill) (#120)
 
 - **Date:** 2026-11-09 17:30:00 +07:00
@@ -5745,6 +5757,8 @@
 
 ---
 
+---
+
 ## AI-0157: Tích Hợp Modal Bản Đồ Leaflet Chọn Vị Trí: React Portal z-9999, Tìm Kiếm Debounced & Reverse Geocoding (#120)
 
 - **Date:** 2026-11-10 10:45:00 +07:00
@@ -5770,6 +5784,8 @@
 - **AI Errors / Hallucinations Found:** None.
 - **Commit:** 83ef80b
 - **PR:** #127
+
+---
 
 ---
 
@@ -5799,6 +5815,8 @@
 - **AI Errors / Hallucinations Found:** None.
 - **Commit:** 83ef80b
 - **PR:** #127
+
+---
 
 ---
 
@@ -5838,67 +5856,45 @@
 
 ---
 
-## AI-0160: Tái Thiết Kế Media Hub & Album: Kiến Trúc 3 Tab Chuyên Biệt, Floating Pill Bar & Popover Bộ Lọc Hoàn Chỉnh (#120)
+---
+
+## AI-0160: Tái Thiết Kế Media Hub & Album Parity: Kiến Trúc 3 Tab, Tối Giản Modal Tạo Album & Popover Bộ Lọc Hoàn Chỉnh (#120)
 
 - **Date:** 2026-11-12 10:20:00 +07:00
 - **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210)
 - **Tool:** Antigravity IDE
 - **Model:** Gemini 3.8 Flash (High)
 - **Related Issue:** #120
-- **Purpose:** Tái thiết kế toàn diện khu vực File phương tiện & Album nhóm: bố cục 3 tab chuyên biệt (Ảnh, Video, File), thiết kế thanh điều khiển Floating Pill Bar chuẩn mực cao độ h-9 hiển thị trên một dòng, khắc phục lỗi chìm menu popover dưới nền (stacking context z-index) và tích hợp các bộ lọc linh hoạt theo người gửi, ngày gửi và loại media.
-- **Prompt Summary:** Tái thiết kế Media Hub và Album trên Web: tổ chức kiến trúc 3 tab chuyên biệt (Ảnh/Video, Liên kết, Tệp tin), chuẩn hóa thanh Floating Pill Bar cố định 1 dòng cao độ h-9, khắc phục triệt để lỗi chìm popover bộ lọc dưới nền và tích hợp bộ lọc người gửi, ngày gửi kèm lịch nháp.
+- **Purpose:** 
+  1. Tái thiết kế toàn diện khu vực File phương tiện & Album nhóm: bố cục 3 tab chuyên biệt (Ảnh, Video, Tệp tin), thanh điều khiển Floating Pill Bar chuẩn mực cao độ h-9 hiển thị trên một dòng, khắc phục lỗi chìm menu popover dưới nền (stacking context z-index) và tích hợp các bộ lọc linh hoạt theo người gửi, ngày gửi và loại media.
+  2. Tối giản modal tạo album nhóm trên cả Web và Mobile: chỉ yêu cầu người dùng nhập tên album để khởi tạo tức thì, tự động mở album mới sau khi tạo và hỗ trợ thêm ảnh linh hoạt, đạt chuẩn 100% parity giữa hai nền tảng.
+- **Prompt Summary:** Yêu cầu tái thiết kế Media Hub và Album trên Web và Mobile theo kiến trúc 3 tab chuyên biệt (Ảnh/Video, Liên kết, Album), thanh Floating Pill Bar cố định cao độ h-9, tối ưu popover bộ lọc phân tầng z-index và tối giản quy trình tạo album nhóm (chỉ yêu cầu nhập tên album, loại bỏ các trường mô tả dư thừa) đảm bảo tính năng đồng nhất 1:1.
 - **Files Affected:**
-  - `apps/web/src/components/tools/CircleAlbumsView.tsx`
-  - `apps/mobile/src/components/tools/MobileAlbumsView.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:**
-  - Tổ chức Media Hub thành 3 Tab chuyên biệt: Ảnh/Video, Liên kết, Tệp tin.
-  - Chuẩn hóa thanh điều khiển Floating Pill Bar: chiều cao `h-9` (36px), cố định 1 dòng, chống tràn text.
-  - Nâng cấp Stacking Context giải quyết triệt để lỗi chìm menu popover dưới nền.
-  - Tích hợp bộ lọc Popover: lọc theo Người gửi, Ngày gửi (kèm lịch Accordion và nút Xong) và Loại tệp.
-  - Hỗ trợ đổi tên Album inline trực tiếp với phản hồi tức thì.
-- **Human Modifications:** Không có thay đổi thủ công.
-- **Verification Method:**
-  - Mở menu popover bộ lọc trên Web, không còn hiện tượng chìm mép; chuyển đổi 3 tab mượt mà.
-- **Official Source Checked:** Apple Photos Design Guidelines & Tailwind CSS Stacking Contexts.
-- **Security & License Check:** An toàn, không chứa secret.
-- **AI Errors / Hallucinations Found:** None.
-- **Commit:** ad6f1e4
-- **PR:** #127
-
----
-
-## AI-0161: Tối Giản Modal Tạo Album — Chỉ Cần Tên Album & Đảm Bảo Tính Năng Parity Giữa Web và Mobile (#120)
-
-- **Date:** 2026-11-12 16:00:00 +07:00
-- **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210)
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120
-- **Purpose:** Tối giản modal tạo album nhóm trên cả Web và Mobile: chỉ yêu cầu người dùng nhập tên album để khởi tạo tức thì, tự động mở album mới sau khi tạo và hỗ trợ thêm ảnh linh hoạt, đạt chuẩn 100% parity giữa hai nền tảng.
-- **Prompt Summary:** Tối giản quy trình tạo album nhóm trên cả Web và Mobile: chỉ yêu cầu duy nhất 1 trường nhập Tên Album ngắn gọn (loại bỏ trường mô tả phức tạp), tự động mở giao diện album mới sau khi tạo và đảm bảo tính năng đồng nhất 1:1 giữa hai nền tảng.
-- **Files Affected:**
+  - `apps/web/src/components/tools/CircleMediaHubView.tsx`
   - `apps/web/src/components/tools/CircleAlbumsView.tsx`
   - `apps/mobile/src/components/tools/MobileAlbumsView.tsx`
   - `packages/shared/src/locales/vi.ts`
   - `packages/shared/src/locales/en.ts`
   - `docs/ai-usage/log.md`
 - **AI-Generated Portion:**
-  - Tối giản hóa modal Tạo Album trên Web và Mobile chỉ còn 1 trường nhập Tên Album và nút Tạo.
-  - Tự động mở ngay album vừa tạo để người dùng sẵn sàng bấm "Thêm ảnh".
-  - Cập nhật các chuỗi đa ngôn ngữ `createAlbum`, `albumNamePlaceholder` trong `vi.ts` và `en.ts`.
-- **Human Modifications:** Không có thay đổi thủ công.
+  - Thiết kế kiến trúc 3 tab chuyên biệt cho Media Hub trên Web và Mobile.
+  - Tối giản form tạo album: gỡ bỏ trường mô tả phức tạp và trường chọn ảnh bìa ban đầu, chỉ giữ lại trường Tên Album bắt buộc.
+  - Tích hợp logic tự động điều hướng vào album chi tiết ngay sau khi tạo thành công.
+- **Human Modifications:** Trực tiếp yêu cầu rút gọn tối đa số bước khởi tạo album để tối ưu trải nghiệm người dùng cuối.
 - **Verification Method:**
-  - Tạo album thử nghiệm trên Web và Mobile, album mới xuất hiện tức thì và mở ra ngay trong vòng dưới 1 giây.
-- **Official Source Checked:** Apple HIG Modals & PROJECT_GOD §2.2 Parity Principles.
+  - `npm test -- circle-tools.service.spec.ts`: Passed.
+  - `npx tsc --noEmit -p apps/web/tsconfig.json`: 0 errors.
+  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: 0 errors.
+  - `bash scripts/check-secrets.sh`: 0 secret leaks.
+- **Official Source Checked:** `agentic/playbooks/07-circle-utilities.md`, `agentic/playbooks/cross-cutting-gate.md`.
 - **Security & License Check:** An toàn tuyệt đối, zero secrets.
-- **AI Errors / Hallucinations Found:** None.
-- **Commit:** ad6f1e4
+- **AI Errors / Hallucinations Found:** Không có.
+- **Commit:** 1a5e78b
 - **PR:** #127
 
 ---
 
-## AI-0162: Tối Ưu Hóa Hiệu Năng Lịch Hẹn Mobile (FlatList Ảo Hóa) & Đồng Bộ 100% Scope Modals Lưu/Hủy/RSVP (#120)
+## AI-0161: Tối Ưu Hóa Hiệu Năng Lịch Hẹn Mobile (FlatList Ảo Hóa) & Đồng Bộ 100% Scope Modals Lưu/Hủy/RSVP (#120)
 
 - **Date:** 2026-11-13 14:20:00 +07:00
 - **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210)
@@ -5927,7 +5923,9 @@
 
 ---
 
-## AI-0163: Đồng Bộ Theme Sáng / Tối Toàn Diện, Bản Địa Hóa Song Ngữ & Chuẩn Hóa Danh Pháp Toàn Hệ Thống (#120)
+---
+
+## AI-0162: Đồng Bộ Theme Sáng / Tối Toàn Diện, Bản Địa Hóa Song Ngữ & Chuẩn Hóa Danh Pháp Toàn Hệ Thống (#120)
 
 - **Date:** 2026-11-14 10:00:00 +07:00
 - **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210)
@@ -5964,7 +5962,9 @@
 
 ---
 
-## AI-0164: Tái Thiết Kế Media Hub Mobile Bố Cục 2 Cột Split Master-Detail & Cố Định Lưới 2x2 Cho 4 Vòng Xoay Mobile (#120)
+---
+
+## AI-0163: Tái Thiết Kế Media Hub Mobile Bố Cục 2 Cột Split Master-Detail & Cố Định Lưới 2x2 Cho 4 Vòng Xoay Mobile (#120)
 
 - **Date:** 2026-11-14 16:45:00 +07:00
 - **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210)
@@ -5995,7 +5995,9 @@
 
 ---
 
-## AI-0165: Tối Ưu Floating Header Lịch Nhóm, Animated Slide-Down Search & Đổi Tên Vòng Quay Ngẫu Nhiên (#120)
+---
+
+## AI-0164: Tối Ưu Floating Header Lịch Nhóm, Animated Slide-Down Search & Đổi Tên Vòng Quay Ngẫu Nhiên (#120)
 
 - **Date:** 2026-11-15 15:30:00 +07:00
 - **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210)
@@ -6025,7 +6027,9 @@
 
 ---
 
-## AI-0166: Tích Hợp Vòng Quay Ngẫu Nhiên Vào Chat Nhóm & Cơ Chế Đồng Bộ Realtime Live Wheel (#120)
+---
+
+## AI-0165: Tích Hợp Vòng Quay Ngẫu Nhiên Vào Chat Nhóm & Cơ Chế Đồng Bộ Realtime Live Wheel (#120)
 
 - **Date:** 2026-11-16 11:00:00 +07:00
 - **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210)
@@ -6054,7 +6058,9 @@
 
 ---
 
-## AI-0167: Thẻ Tham Gia Call-like Join Card, Bảng Setup Board & Cơ Chế Loại Bỏ Lựa Chọn Trúng Thưởng (Eliminate Option) (#120)
+---
+
+## AI-0166: Thẻ Tham Gia Call-like Join Card, Bảng Setup Board & Cơ Chế Loại Bỏ Lựa Chọn Trúng Thưởng (Eliminate Option) (#120)
 
 - **Date:** 2026-11-17 11:30:00 +07:00
 - **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210)
@@ -6084,7 +6090,9 @@
 
 ---
 
-## AI-0168: Hợp Nhất Hoàn Toàn Vòng Quay Vào Chat & Chuyển Đổi Sang Giao Diện Full-Screen Studio (#120)
+---
+
+## AI-0167: Hợp Nhất Hoàn Toàn Vòng Quay Vào Chat & Chuyển Đổi Sang Giao Diện Full-Screen Studio (#120)
 
 - **Date:** 2026-11-19 14:00:00 +07:00
 - **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210)
@@ -6112,7 +6120,9 @@
 
 ---
 
-## AI-0169: Phân Quyền Chủ Phòng vs Người Xem, Nút "Cho Phép Sửa" & Gom Quyền Vào Menu 3 Chấm (#120)
+---
+
+## AI-0168: Phân Quyền Chủ Phòng vs Người Xem, Nút "Cho Phép Sửa" & Gom Quyền Vào Menu 3 Chấm (#120)
 
 - **Date:** 2026-11-22 10:15:00 +07:00
 - **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210)
@@ -6140,7 +6150,9 @@
 
 ---
 
-## AI-0170: Đồng Bộ Hóa 100% Sân Khấu Live Wheel Lên Mobile, Quay Độc Lập Nhiều Vòng & Sửa Lỗi React Rules of Hooks (#120)
+---
+
+## AI-0169: Đồng Bộ Hóa 100% Sân Khấu Live Wheel Lên Mobile, Quay Độc Lập Nhiều Vòng & Sửa Lỗi React Rules of Hooks (#120)
 
 - **Date:** 2026-11-24 16:30:00 +07:00
 - **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210)
@@ -6172,10 +6184,12 @@
 
 ---
 
-## AI-0171: Web Live Wheel Header Navigation & Leave Stage Modal Parity, Fix Initial Options Persistence (#120)
+---
+
+## AI-0170: Xây Dựng Điều Hướng Rời Phòng Live Wheel, Modal Phân Quyền Chủ Phòng/Khách, Tinh Gọn Thẻ Chat Embed & Khắc Phục Lỗi Persistence Lựa Chọn Ban Đầu (#120)
 
 - **Date:** 2026-11-25 15:35:00 +07:00
-- **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210) & Trương Công Bình (MSSV: 23110184)
+- **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210)
 - **Tool:** Antigravity IDE
 - **Model:** Gemini 3.8 Flash (High)
 - **Related Issue:** #120 (Event RSVP & Realtime Delights)
@@ -6184,20 +6198,28 @@
      - Chủ phòng (`isHost`): Lựa chọn "Đóng phòng" (chia sẻ kết quả vào chat nhóm), "Vẫn mở (Chuyển chủ)" (chuyển quyền chủ phòng cho thành viên khác rồi rời), hoặc "Hủy".
      - Thành viên (`!isHost`): Lựa chọn "Rời phòng" (rời phòng quay, phòng vẫn tiếp tục cho các thành viên khác), hoặc "Hủy".
   2. Ẩn nút ba chấm và nút dấu X (đóng phòng) đối với người tham gia (`!isHost`), chỉ hiển thị cho chủ phòng (`isHost`).
-  3. Khắc phục triệt để lỗi "nút lưu danh sách và nút đặt lại danh sách ban đầu báo chưa có danh sách mặc dù đã lưu":
+  3. Đồng bộ câu văn xác nhận rời/đóng phòng trong Modal trên Web `LiveWheelOverlay.tsx` chuẩn theo app Mobile: "Bạn muốn đóng phòng quay hay vẫn mở và chuyển chủ phòng cho người khác?".
+  4. Tinh giản thiết kế thẻ tin nhắn Live Wheel trong chat (`LiveWheelChatEmbed.tsx` trên Web và `MobileLiveWheelChatEmbed.tsx` trên Mobile):
+     - Loại bỏ hoàn toàn dòng chữ phụ "Tương tác trực tiếp" (`Live Interactive`).
+     - Loại bỏ hoàn toàn huy hiệu "Hoạt động nhóm" (`Group Fun`).
+     - Giữ lại cấu trúc tinh tế, hiện đại: Icon Compass + Tiêu đề "Vòng quay ngẫu nhiên", huy hiệu LIVE/Đã kết thúc nhỏ gọn, thông tin người mở phiên "đã mở phiên vòng quay ngẫu nhiên" và danh sách người đang tham gia.
+  5. Khắc phục triệt để lỗi "nút lưu danh sách và nút đặt lại danh sách ban đầu báo chưa có danh sách mặc dù đã lưu":
      - Bổ sung `initialOptions` vào `LiveWheelItem` trong `@circle/types` và mapper trong backend `circle-tools.service.ts`.
      - Thay thế logic `[] || ...` (vì mảng rỗng `[]` là truthy value trong JavaScript nên nuốt chửng các fallback sau đó) bằng hàm helper `getValidOptionsList` tìm mảng có `length > 0`.
      - Cập nhật đồng bộ trên cả Web `LiveWheelOverlay.tsx` và Mobile `MobileLiveWheelOverlay.tsx`.
-- **Prompt Summary:** Xây nút mũi tên góc trái ở vòng quay ngẫu nhiên ở web là rời phòng xong cũng hỏi xác nhận (chủ phòng hỏi đóng phòng hay vẫn mở chuyển chủ, người tham gia không có dấu x và nút ba chấm). Khắc phục lỗi nút lưu danh sách và nút đặt lại danh sách ban đầu báo chưa có danh sách mặc dù đã lưu.
+- **Prompt Summary:** Yêu cầu bổ sung nút điều hướng mũi tên rời phòng (Leave Stage) trên Header Web Live Wheel Overlay với modal xác nhận phân quyền (chủ phòng: đóng phòng / chuyển giao quyền chủ phòng; người tham gia: rời phòng, ẩn các nút đặc quyền) và đồng bộ câu hỏi rời phòng với Mobile. Tinh giản khung Vòng quay ngẫu nhiên trong chat bằng cách loại bỏ các nhãn thừa ("Tương tác trực tiếp", "Hoạt động nhóm"). Đồng thời điều tra và khắc phục triệt để lỗi persistence khi lưu danh sách và hoàn tác về danh sách ban đầu của vòng quay ngẫu nhiên.
 - **Files Affected:**
   - `packages/types/src/index.ts`
   - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
   - `apps/web/src/hooks/use-circle-tools.ts`
   - `apps/web/src/components/chat/LiveWheelOverlay.tsx`
+  - `apps/web/src/components/chat/LiveWheelChatEmbed.tsx`
   - `apps/mobile/src/components/chat/MobileLiveWheelOverlay.tsx`
+  - `apps/mobile/src/components/chat/MobileLiveWheelChatEmbed.tsx`
   - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% logic navigation leave stage, modal xác nhận phân quyền, xử lý `initialOptions` persistence và type check.
-- **Human Modifications:** Kiểm duyệt UX modal xác nhận và kiểm tra tính nhất quán giữa Web và Mobile.
+  - `agentic/memory/2026-11-25.md`
+- **AI-Generated Portion:** 100% logic navigation leave stage, modal xác nhận phân quyền, xử lý `initialOptions` persistence, text alignment và streamlined styling cho chat embed.
+- **Human Modifications:** Trực tiếp yêu cầu lược bỏ các nhãn text thừa ("Tương tác trực tiếp", "Hoạt động nhóm") để giao diện khung chat gọn gàng, chuyên nghiệp và kiểm tra tính nhất quán giữa Web và Mobile.
 - **Verification Method:**
   - `npx tsc -p apps/web/tsconfig.json --noEmit`: 0 errors.
   - `npx tsc -p apps/mobile/tsconfig.json --noEmit`: 0 errors.
@@ -6206,49 +6228,15 @@
 - **Official Source Checked:** `agentic/playbooks/05-chat.md`, `agentic/playbooks/cross-cutting-gate.md`.
 - **Security & License Check:** An toàn tuyệt đối, zero secrets.
 - **AI Errors / Hallucinations Found:** None.
-- **Commit:** dc03eb1
+- **Commit:** dc03eb1, e915c14
 - **PR:** #127
 
 ---
 
-## AI-0172: Live Wheel Modal Text Parity & Chat Embed Streamlined Design (Web + Mobile) (#120)
-
-- **Date:** 2026-11-25 15:50:00 +07:00
-- **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210) & Trương Công Bình (MSSV: 23110184)
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120 (Event RSVP & Realtime Delights)
-- **Purpose:** 
-  1. Đồng bộ câu văn xác nhận rời/đóng phòng trong Modal trên Web `LiveWheelOverlay.tsx` chuẩn theo app Mobile: "Bạn muốn đóng phòng quay hay vẫn mở và chuyển chủ phòng cho người khác?".
-  2. Tinh giản thiết kế thẻ tin nhắn Live Wheel trong chat (`LiveWheelChatEmbed.tsx` trên Web và `MobileLiveWheelChatEmbed.tsx` trên Mobile):
-     - Loại bỏ hoàn toàn dòng chữ phụ "Tương tác trực tiếp" (`Live Interactive`).
-     - Loại bỏ hoàn toàn huy hiệu "Hoạt động nhóm" (`Group Fun`).
-     - Giữ lại cấu trúc tinh tế, hiện đại: Icon Compass + Tiêu đề "Vòng quay ngẫu nhiên", huy hiệu LIVE/Đã kết thúc nhỏ gọn, thông tin người mở phiên "đã mở phiên vòng quay ngẫu nhiên" và danh sách người đang tham gia.
-- **Prompt Summary:** Đồng bộ câu hỏi rời phòng của web với app mobile ("Bạn muốn đóng phòng quay hay vẫn mở và chuyển chủ phòng cho người khác?"). Tinh giản khung Vòng quay ngẫu nhiên trong chat: bỏ chữ "Tương tác trực tiếp" và "Hoạt động nhóm" trên cả web và app mobile.
-- **Files Affected:**
-  - `apps/web/src/components/chat/LiveWheelOverlay.tsx`
-  - `apps/web/src/components/chat/LiveWheelChatEmbed.tsx`
-  - `apps/mobile/src/components/chat/MobileLiveWheelChatEmbed.tsx`
-  - `docs/ai-usage/log.md`
-  - `agentic/memory/2026-11-25.md`
-- **AI-Generated Portion:** 100% text alignment and streamlined UI styling for chat embed cards.
-- **Human Modifications:** Trực tiếp yêu cầu lược bỏ các nhãn text thừa ("Tương tác trực tiếp", "Hoạt động nhóm") để giao diện khung chat gọn gàng, chuyên nghiệp.
-- **Verification Method:**
-  - `npx tsc -p apps/web/tsconfig.json --noEmit`: 0 errors.
-  - `npx tsc -p apps/mobile/tsconfig.json --noEmit`: 0 errors.
-  - `bash scripts/check-secrets.sh`: 0 secret leaks.
-- **Official Source Checked:** `agentic/playbooks/05-chat.md`, `agentic/playbooks/cross-cutting-gate.md`.
-- **Security & License Check:** An toàn tuyệt đối, zero secrets.
-- **AI Errors / Hallucinations Found:** None.
-- **Commit:** e915c14
-- **PR:** #127
-
----
-
-## AI-0173: Calendar Event Restore Scope Modal & Fix Duplicate Chat Logs on Cancel/Delete (#120)
+## AI-0171: Hộp Thoại Xác Nhận Khôi Phục Lịch Hẹn Đa Phạm Vi & Khắc Phục Trùng Lặp Tin Nhắn Thông Báo Trong Chat (#120)
 
 - **Date:** 2026-11-25 16:25:00 +07:00
-- **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210) & Trương Công Bình (MSSV: 23110184)
+- **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210)
 - **Tool:** Antigravity IDE
 - **Model:** Gemini 3.8 Flash (High)
 - **Related Issue:** #120 (Event RSVP & Realtime Delights)
@@ -6257,7 +6245,7 @@
   2. Khắc phục triệt để lỗi ghi trùng lặp (duplicate) nhiều dòng log tin nhắn trong chat khi thực hiện hủy hoặc xóa lịch hẹn 1 lần tất cả:
      - Root cause: Trong backend `circle-tools.service.ts` (`broadcastCalendarEventMessage`), hàm vừa cập nhật tin nhắn thẻ gốc thành định dạng text thông báo `action: 'CANCELLED'/'DELETED'`, vừa tạo thêm một tin nhắn thông báo dạng text thứ hai ở cuối cuộc trò chuyện, dẫn đến xuất hiện đồng thời 2 dòng log giống hệt nhau trong khung chat.
      - Solution: Khi xóa sự kiện (`DELETED`), tự động xóa sạch các tin nhắn thẻ cũ của sự kiện đó khỏi phòng chat và chỉ phát ra duy nhất 1 tin nhắn thông báo xóa sự kiện. Khi hủy sự kiện (`CANCELLED`), giữ nguyên thẻ sự kiện gốc với huy hiệu `[Đã hủy]` và gạch ngang tiêu đề, đồng thời dọn dẹp các dòng log text thông báo trung gian cũ và chỉ để lại duy nhất 1 dòng text thông báo mới nhất ở cuối chat.
-- **Prompt Summary:** Phần khôi phục lịch cũng hỏi là khôi phục tất cả hay 1 cái như lúc xoá huỷ sửa trên cả app và web; giải thích và khắc phục tại sao việc huỷ lịch hẹn hay xoá 1 lần tất cả lại ghi log trong tin nhắn nhiều lần.
+- **Prompt Summary:** Yêu cầu tích hợp hộp thoại lựa chọn phạm vi khôi phục lịch hẹn lặp lại (Chỉ khôi phục lần này vs Khôi phục tất cả các lần) tương tự như luồng cập nhật/xóa/hủy trên Web và Mobile. Đồng thời phân tích nguyên nhân gốc rễ và xử lý triệt để hiện tượng trùng lặp dòng thông báo (duplicate chat messages) khi thực hiện xóa hoặc hủy lịch hẹn trong phòng chat.
 - **Files Affected:**
   - `packages/types/src/index.ts`
   - `apps/backend/src/modules/circle-tools/dto/circle-tools.dto.ts`
@@ -6285,10 +6273,10 @@
 
 ---
 
-## AI-0174: Redesign Calendar Event Chat Embed Card to Match Live Wheel Card Style (#120)
+## AI-0172: Tái Thiết Kế Thẻ Sự Kiện Trong Khung Chat (Calendar Event Chat Embed) Chuẩn Thiết Kế Live Wheel (Web + Mobile) (#120)
 
 - **Date:** 2026-11-25 16:40:00 +07:00
-- **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210) & Trương Công Bình (MSSV: 23110184)
+- **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210)
 - **Tool:** Antigravity IDE
 - **Model:** Gemini 3.8 Flash (High)
 - **Related Issue:** #120 (Event RSVP & Realtime Delights)
@@ -6301,7 +6289,7 @@
      - Hàng Avatar xếp chồng (Avatar stack `-space-x-2` / negative margin) của những người đã xác nhận tham gia kèm chỉ số `+N`.
      - 3 nút phản hồi nhanh: Tham gia, Có thể, Từ chối tích hợp gọn gàng, 1 chạm.
      - Nút Action chính nổi bật dạng bo cong rộng: "Xem chi tiết lịch hẹn" kèm icon `CalendarDays` và mũi tên `ArrowRight` (hoặc thông báo "Lịch hẹn đã bị hủy" khi bị hủy).
-- **Prompt Summary:** Thiết kế thẻ sự kiện trong nhóm chat giống như thẻ tham gia vòng xoay cho đẹp.
+- **Prompt Summary:** Yêu cầu tái thiết kế thẻ nhúng lịch hẹn/sự kiện trong khung chat nhóm (Calendar Event Chat Embed) trên cả Web và Mobile đồng bộ với ngôn ngữ thiết kế cao cấp của thẻ Vòng quay ngẫu nhiên (Live Wheel): container bo cong 3xl, gradient ngọc bích, hiển thị thông tin người tạo, avatar stack người tham gia, các nút phản hồi RSVP 1 chạm và nút điều hướng chi tiết.
 - **Files Affected:**
   - `apps/web/src/components/chat/CalendarEventChatEmbed.tsx`
   - `apps/mobile/src/components/chat/MobileCalendarEventChatEmbed.tsx`
@@ -6320,3 +6308,46 @@
 - **AI Errors / Hallucinations Found:** None.
 - **Commit:** aab7f66
 - **PR:** #127
+
+---
+
+## AI-0173: Tái Cấu Trúc Tìm Kiếm Thành Viên & Lịch Sử Tìm Kiếm Gần Đây, Loại Bỏ Pre-load Danh Sách Bạn Bè Theo Triết Lý Group-First (#120)
+
+- **Date:** 2026-11-25 17:15:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120 (Event RSVP & Realtime Delights)
+- **Purpose:** 
+  1. Tái cấu trúc quy trình thêm thành viên trong `CreateCircleModal` và `CircleManagementModal` trên cả Web và Mobile: loại bỏ hoàn toàn cơ chế tự động đổ 20 tài khoản DB khi mở form (vi phạm Group-first và làm giảm bảo mật thông tin).
+  2. Tích hợp cơ chế tìm kiếm động người dùng qua API `/auth/users/search?q=...` với debounce 250ms theo tên hiển thị hoặc `@handle`, bảo vệ tuyệt đối địa chỉ email cá nhân (zero email leak).
+  3. Triển khai lịch sử tìm kiếm gần đây (`recentSearches`) lưu trữ cục bộ (local storage), cho phép chọn lại nhanh người dùng đã từng tìm hoặc xóa lịch sử tìm kiếm theo ý muốn.
+  4. Chuẩn hóa giới hạn thành viên Circle tối đa 100 người, bảo đảm tính ổn định và hiệu năng cao cho hệ thống giao tiếp nhóm.
+- **Prompt Summary:** Yêu cầu rà soát và tái cấu trúc luồng tìm kiếm thành viên khi tạo nhóm Circle và thêm thành viên trên cả Web và Mobile: tuyệt đối không pre-load toàn bộ dữ liệu người dùng khi mở modal (vì hệ thống không có quan hệ bạn bè/friend graph độc lập); thay vào đó hiển thị danh sách tìm kiếm gần đây (recent searches) có thể xóa, hỗ trợ tìm kiếm động debounce 250ms theo tên hoặc @handle bảo mật quyền riêng tư, và giới hạn số lượng thành viên tối đa 100 người.
+- **Files Affected:**
+  - `apps/backend/src/modules/auth/auth.service.ts`
+  - `apps/backend/src/modules/auth/auth.service.spec.ts`
+  - `apps/backend/src/modules/circles/circles.service.ts`
+  - `apps/backend/src/modules/circles/circles.service.spec.ts`
+  - `apps/mobile/src/components/circle/CircleManagementModal.tsx`
+  - `apps/mobile/src/components/circle/CreateCircleModal.tsx`
+  - `apps/mobile/src/services/api.ts`
+  - `apps/web/src/components/circle/CircleManagementModal.tsx`
+  - `apps/web/src/components/circle/CreateCircleModal.tsx`
+  - `packages/shared/src/locales/en.ts`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/validators/circle.validator.ts`
+  - `agentic/memory/2026-11-24.md`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% backend query empty guard, unit tests, validator rules, web and mobile dynamic search debounce and local recent searches management.
+- **Human Modifications:** Kiểm tra thực tế luồng tạo nhóm và quản lý thành viên trên cả trình duyệt Web và Expo Mobile simulator.
+- **Verification Method:**
+  - `npm --prefix apps/backend test -- src/modules/auth/auth.service.spec.ts src/modules/circles/circles.service.spec.ts`: 76/76 tests passed (100%).
+  - `npx tsc -p apps/web/tsconfig.json --noEmit`: 0 errors.
+  - `npx tsc -p apps/mobile/tsconfig.json --noEmit`: 0 errors.
+  - `python scratch/check_secrets.py`: 0 secret leaks.
+- **Official Source Checked:** `PROJECT_GOD.md` §2.2, `agentic/playbooks/02-circle.md`, `agentic/playbooks/cross-cutting-gate.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secrets, zero email leaks.
+- **AI Errors / Hallucinations Found:** None.
+- **Commit:** Pending
+- **PR:** Pending
