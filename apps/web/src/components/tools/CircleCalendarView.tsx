@@ -195,6 +195,12 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
     occDate: Date | null;
   }>({ isOpen: false, event: null, occDate: null });
 
+  const [restoreModalState, setRestoreModalState] = useState<{
+    isOpen: boolean;
+    event: CalendarEventEntity | null;
+    occDate: Date | null;
+  }>({ isOpen: false, event: null, occDate: null });
+
   // Event Detail Modal & Custom Recurrence Popup Modal
   const [detailModalState, setDetailModalState] = useState<{
     isOpen: boolean;
@@ -1291,42 +1297,76 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
     }
   };
 
-  // Execution handler for Restoring cancelled events / occurrences
-  const executeRestore = async (ev: CalendarEventEntity, occD: Date) => {
+  // Execution handler for Restoring cancelled events / occurrences with Scope
+  const executeRestore = async (scope: 'this' | 'all') => {
+    const ev = restoreModalState.event;
+    const occD = restoreModalState.occDate || selectedDate || (ev ? new Date(ev.startTime) : new Date());
+    if (!ev) return;
+
     try {
       const { recurrenceConfig: parentConfig, cleanDesc: parentCleanDesc } = parseEventRecurrence(ev.description);
       const isRecurring = Boolean(parentConfig && parentConfig.frequency !== 'none');
-      const occKey = formatDateKey(occD);
 
       if (isRecurring && parentConfig) {
-        const updatedConfig: RecurrenceConfig = {
-          ...parentConfig,
-          cancelledDates: (parentConfig.cancelledDates || []).filter((d) => d !== occKey),
-        };
-        const newDesc = serializeRecurrence(updatedConfig, parentCleanDesc);
-        const updated = await updateMutation.mutateAsync({
-          eventId: ev.id,
-          input: {
-            description: newDesc,
-          },
-        });
-        if (detailModalState.event?.id === ev.id) {
-          setDetailModalState((prev) => (prev.event ? { ...prev, event: updated } : prev));
+        const occKey = formatDateKey(occD);
+
+        if (scope === 'this') {
+          const currentCancelled = parentConfig.cancelledDates || [];
+          const nextCancelled = currentCancelled.filter((d) => d !== occKey);
+          const updatedParentRecurrence: RecurrenceConfig = {
+            ...parentConfig,
+            cancelledDates: nextCancelled,
+          };
+          const updatedParentDesc = serializeRecurrence(updatedParentRecurrence, parentCleanDesc);
+
+          const updated = await updateMutation.mutateAsync({
+            eventId: ev.id,
+            input: {
+              description: updatedParentDesc,
+              isCancelled: false,
+            },
+          });
+
+          if (detailModalState.event?.id === ev.id) {
+            setDetailModalState((prev) => (prev.event ? { ...prev, event: updated } : prev));
+          }
+        } else {
+          // scope === 'all'
+          const updatedParentRecurrence: RecurrenceConfig = {
+            ...parentConfig,
+            cancelledDates: [],
+          };
+          const updatedParentDesc = serializeRecurrence(updatedParentRecurrence, parentCleanDesc);
+
+          const updated = await updateMutation.mutateAsync({
+            eventId: ev.id,
+            input: {
+              description: updatedParentDesc,
+              isCancelled: false,
+            },
+          });
+
+          if (detailModalState.event?.id === ev.id) {
+            setDetailModalState((prev) => (prev.event ? { ...prev, event: updated } : prev));
+          }
         }
       } else {
-        // If single event was marked isCancelled
         const updated = await updateMutation.mutateAsync({
           eventId: ev.id,
           input: {
             description: parentCleanDesc,
+            isCancelled: false,
           },
         });
+
         if (detailModalState.event?.id === ev.id) {
           setDetailModalState((prev) =>
             prev.event ? { ...prev, event: { ...prev.event, isCancelled: false } } : prev
           );
         }
       }
+
+      setRestoreModalState({ isOpen: false, event: null, occDate: null });
     } catch (err: any) {
       alert(err?.message || 'Không thể khôi phục lịch hẹn');
     }
@@ -1795,7 +1835,11 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
             });
           }}
           onRestore={(ev, occDate) => {
-            executeRestore(ev, occDate);
+            setRestoreModalState({
+              isOpen: true,
+              event: ev,
+              occDate,
+            });
           }}
           onShareToChat={handleShareToChat}
         />
@@ -2813,6 +2857,92 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                     type="button"
                     onClick={() => setCancelModalState({ isOpen: false, event: null, occDate: null })}
                     className="px-4 py-1.5 rounded-xl text-xs font-semibold text-circle-slate hover:bg-circle-wash transition-colors"
+                  >
+                    Đóng
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ============================================================== */}
+      {/* SCOPE CONFIRMATION MODAL CHO KHÔI PHỤC (2 OPTIONS HOẶC CONFIRM ĐƠN) */}
+      {/* ============================================================== */}
+      {restoreModalState.isOpen && restoreModalState.event && (() => {
+        const ev = restoreModalState.event;
+        const occD = restoreModalState.occDate || selectedDate || new Date(ev.startTime);
+        const { recurrenceConfig: parsedRec } = parseEventRecurrence(ev.description);
+        const isRecurring = Boolean(parsedRec && parsedRec.frequency !== 'none');
+
+        return (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+            <div className="w-full max-w-sm rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-5 shadow-2xl space-y-4">
+              <div>
+                <h4 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
+                  {isRecurring ? 'Khôi phục sự kiện lặp lại' : 'Khôi phục lịch hẹn'}
+                </h4>
+                <p className="text-xs text-circle-slate dark:text-circle-dark-muted mt-1">
+                  {isRecurring
+                    ? 'Bạn muốn khôi phục sự kiện này cho lần diễn ra này hay khôi phục tất cả các lần?'
+                    : 'Bạn có chắc chắn muốn khôi phục lịch hẹn này? Lịch hẹn sẽ hoạt động bình thường trở lại.'}
+                </p>
+              </div>
+
+              {isRecurring ? (
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    onClick={() => executeRestore('this')}
+                    className="w-full text-left p-3 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas hover:border-emerald-500 hover:bg-emerald-50/40 dark:hover:bg-emerald-950/20 transition-all cursor-pointer"
+                  >
+                    <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400">
+                      Chỉ khôi phục lần này
+                    </p>
+                    <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted mt-0.5">
+                      Khôi phục lịch hẹn cho ngày {formatDateOnly(occD)}. Lịch hẹn sẽ hoạt động bình thường trở lại.
+                    </p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => executeRestore('all')}
+                    className="w-full text-left p-3 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas hover:border-emerald-500 hover:bg-emerald-50/40 dark:hover:bg-emerald-950/20 transition-all cursor-pointer"
+                  >
+                    <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400">
+                      Khôi phục tất cả các lần
+                    </p>
+                    <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted mt-0.5">
+                      Khôi phục trạng thái hoạt động cho toàn bộ chuỗi sự kiện.
+                    </p>
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-circle-hairline">
+                  <button
+                    type="button"
+                    onClick={() => setRestoreModalState({ isOpen: false, event: null, occDate: null })}
+                    className="px-4 py-1.5 rounded-xl text-xs font-semibold text-circle-slate hover:bg-circle-wash transition-colors cursor-pointer"
+                  >
+                    Quay lại
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => executeRestore('all')}
+                    className="px-4 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors cursor-pointer"
+                  >
+                    Xác nhận khôi phục
+                  </button>
+                </div>
+              )}
+
+              {isRecurring && (
+                <div className="pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setRestoreModalState({ isOpen: false, event: null, occDate: null })}
+                    className="px-4 py-1.5 rounded-xl text-xs font-semibold text-circle-slate hover:bg-circle-wash transition-colors cursor-pointer"
                   >
                     Đóng
                   </button>

@@ -4,6 +4,8 @@ import {
   AddPhotosInput,
   CreateWheelInput,
   UpdateWheelInput,
+  LiveSpinWheelInput,
+  UpdateLiveWheelSettingsInput,
   CreateWheelFolderInput,
   UpdateWheelFolderInput,
   WheelFolderSnapshotItem,
@@ -79,6 +81,19 @@ export class ShareWheelResultsDto {
   results: { wheelTitle: string; winner: string }[];
 }
 
+export class LiveSpinWheelDto implements LiveSpinWheelInput {
+  wheelId?: string;
+  title?: string;
+  options?: string[];
+  channelId?: string;
+  isAll?: boolean;
+}
+
+export class UpdateLiveWheelSettingsDto implements UpdateLiveWheelSettingsInput {
+  allowMembersToEdit?: boolean;
+  newHostUserId?: string;
+}
+
 export class CreateAnonymousPostDto implements CreateAnonymousPostInput {
   content: string;
   cardTheme?: string;
@@ -104,6 +119,7 @@ export class UpdateCalendarEventDto implements UpdateCalendarEventInput {
   startTime?: string;
   endTime?: string;
   reminderTime?: string;
+  isCancelled?: boolean;
 }
 
 export class RespondEventRsvpDto implements RespondEventRsvpInput {

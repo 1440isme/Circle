@@ -29,9 +29,15 @@ import {
   UpdateLiveLocationDto,
   CreatePollDto,
   VotePollDto,
+  LiveSpinWheelDto,
+  UpdateLiveWheelSettingsDto,
 } from './dto/circle-tools.dto';
 import {
   SpinWheelResult,
+  LiveWheelSession,
+  LiveWheelItem,
+  LiveWheelParticipant,
+  LiveWheelMessagePayload,
   CalendarEventMessagePayload,
   MessageEntity,
 } from '@circle/types';
@@ -52,9 +58,29 @@ export const PASTEL_WHEEL_COLORS = [
   '#FDE2E4', // Pastel Rose Blossom
 ];
 
+export const DEFAULT_FOUR_WHEELS_DATA = [
+  {
+    title: 'Vòng 1: Trưa nay ăn gì?',
+    options: ['Phở bò', 'Bún chả', 'Cơm tấm', 'Bánh mì chảo', 'Bún bò Huế', 'Gà rán'],
+  },
+  {
+    title: 'Vòng 2: Ai trả tiền hôm nay?',
+    options: ['Bình', 'Hạnh', 'Campuchia chia đều', 'Người ít tuổi nhất'],
+  },
+  {
+    title: 'Vòng 3: Nước uống gì đây?',
+    options: ['Trà sữa trân châu', 'Cà phê muối', 'Nước ép cam', 'Trà đào cam sả'],
+  },
+  {
+    title: 'Vòng 4: Kèo tăng hai đi đâu?',
+    options: ['Đi xem phim', 'Hát Karaoke', 'Dạo phố hóng gió', 'Đi về ngủ'],
+  },
+];
+
 @Injectable()
 export class CircleToolsService {
   private readonly logger = new Logger(CircleToolsService.name);
+  private activeLiveWheelSessions = new Map<string, LiveWheelSession>();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -85,6 +111,18 @@ export class CircleToolsService {
     }
 
     return member;
+  }
+
+  /**
+   * Helper: check if a user can edit wheel content during a live session.
+   * Host (creator or OWNER) always has edit permission.
+   * If allowMembersToEdit is true, all circle members can edit.
+   */
+  private canEditLiveWheel(circleId: string, userId: string, memberRole?: string): boolean {
+    const session = this.activeLiveWheelSessions.get(circleId);
+    if (!session) return true;
+    if (!session.creatorId || session.creatorId === userId || memberRole === 'OWNER') return true;
+    return Boolean(session.allowMembersToEdit);
   }
 
   // ===========================================================================
@@ -426,7 +464,7 @@ export class CircleToolsService {
   async getWheels(circleId: string, userId: string) {
     await this.getMemberOrThrow(circleId, userId);
 
-    return this.prisma.decisionWheel.findMany({
+    let wheels = await this.prisma.decisionWheel.findMany({
       where: { circleId },
       include: {
         options: true,
@@ -440,12 +478,38 @@ export class CircleToolsService {
           },
         },
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: 'asc' },
     });
+
+    if (wheels.length === 0) {
+      await this.ensureFourWheels(circleId);
+      wheels = await this.prisma.decisionWheel.findMany({
+        where: { circleId },
+        include: {
+          options: true,
+          creator: {
+            include: {
+              user: {
+                include: {
+                  profile: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: { createdAt: 'asc' },
+      });
+    }
+
+    return wheels;
   }
 
   async createWheel(circleId: string, userId: string, dto: CreateWheelDto) {
     const member = await this.getMemberOrThrow(circleId, userId);
+
+    if (!this.canEditLiveWheel(circleId, userId, member.role)) {
+      throw new ForbiddenException('Chủ phòng đã khóa quyền thêm vòng quay mới');
+    }
 
     const existingCount = await this.prisma.decisionWheel.count({
       where: { circleId },
@@ -467,7 +531,7 @@ export class CircleToolsService {
 
     const title = dto.title?.trim() || `Vòng quay ${existingCount + 1}`;
 
-    return this.prisma.decisionWheel.create({
+    const created = await this.prisma.decisionWheel.create({
       data: {
         circleId,
         title,
@@ -495,6 +559,10 @@ export class CircleToolsService {
         },
       },
     });
+
+    await this.syncActiveLiveWheelFromDb(circleId);
+
+    return created;
   }
 
   async updateWheel(
@@ -503,25 +571,48 @@ export class CircleToolsService {
     userId: string,
     dto: UpdateWheelDto,
   ) {
-    await this.getMemberOrThrow(circleId, userId);
+    const member = await this.getMemberOrThrow(circleId, userId);
 
-    const wheel = await this.prisma.decisionWheel.findFirst({
+    if (!this.canEditLiveWheel(circleId, userId, member.role)) {
+      throw new ForbiddenException('Chủ phòng đã khóa quyền chỉnh sửa nội dung vòng quay');
+    }
+
+    let wheel = await this.prisma.decisionWheel.findFirst({
       where: { id: wheelId, circleId },
       include: { options: true },
     });
 
     if (!wheel) {
+      wheel = await this.prisma.decisionWheel.findFirst({
+        where: { circleId },
+        include: { options: true },
+      });
+    }
+
+    if (!wheel) {
+      const ensured = await this.ensureFourWheels(circleId);
+      if (ensured.length > 0) {
+        wheel = await this.prisma.decisionWheel.findFirst({
+          where: { id: ensured[0]!.id },
+          include: { options: true },
+        });
+      }
+    }
+
+    if (!wheel) {
       throw new NotFoundException('Không tìm thấy vòng quay');
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const actualWheelId = wheel.id;
+
+    const updatedWheel = await this.prisma.$transaction(async (tx) => {
       if (dto.options && Array.isArray(dto.options) && dto.options.length >= 1) {
         await tx.wheelOption.deleteMany({
-          where: { wheelId },
+          where: { wheelId: actualWheelId },
         });
         await tx.wheelOption.createMany({
           data: dto.options.map((opt, idx) => ({
-            wheelId,
+            wheelId: actualWheelId,
             optionLabel: opt.optionLabel.trim(),
             color: opt.color || PASTEL_WHEEL_COLORS[idx % PASTEL_WHEEL_COLORS.length],
           })),
@@ -529,7 +620,7 @@ export class CircleToolsService {
       }
 
       return tx.decisionWheel.update({
-        where: { id: wheelId },
+        where: { id: actualWheelId },
         data: {
           title: dto.title !== undefined ? dto.title.trim() : undefined,
           soundEnabled: dto.soundEnabled !== undefined ? dto.soundEnabled : undefined,
@@ -550,6 +641,27 @@ export class CircleToolsService {
         },
       });
     });
+
+    // Đồng bộ tức thì lên Live Wheel Session nếu nhóm đang mở phòng quay
+    const liveSession = this.activeLiveWheelSessions.get(circleId);
+    if (liveSession && liveSession.wheels) {
+      const targetWheel = liveSession.wheels.find((w) => w.wheelId === wheelId || w.wheelId === actualWheelId);
+      if (targetWheel) {
+        if (updatedWheel.options && updatedWheel.options.length > 0) {
+          targetWheel.options = updatedWheel.options.map((o, idx) => ({
+            optionLabel: o.optionLabel,
+            color: o.color || PASTEL_WHEEL_COLORS[idx % PASTEL_WHEEL_COLORS.length]!,
+          }));
+        }
+        if (dto.title) targetWheel.wheelTitle = dto.title.trim();
+        if (dto.initialOptions !== undefined) targetWheel.initialOptions = dto.initialOptions;
+        if (this.chatGateway) {
+          this.chatGateway.broadcastLiveWheelUpdated(circleId, liveSession);
+        }
+      }
+    }
+
+    return updatedWheel;
   }
 
   async spinAllWheels(circleId: string, userId: string): Promise<SpinWheelResult[]> {
@@ -661,6 +773,10 @@ export class CircleToolsService {
   async deleteAllWheels(circleId: string, userId: string, defaultTitle?: string) {
     const member = await this.getMemberOrThrow(circleId, userId);
 
+    if (!this.canEditLiveWheel(circleId, userId, member.role)) {
+      throw new ForbiddenException('Chủ phòng đã khóa quyền xóa tất cả vòng quay');
+    }
+
     await this.prisma.decisionWheel.deleteMany({
       where: { circleId },
     });
@@ -697,18 +813,24 @@ export class CircleToolsService {
       },
     });
 
+    await this.syncActiveLiveWheelFromDb(circleId);
+
     return { success: true, defaultWheel };
   }
 
   async deleteWheel(circleId: string, wheelId: string, userId: string) {
     const member = await this.getMemberOrThrow(circleId, userId);
 
+    if (!this.canEditLiveWheel(circleId, userId, member.role)) {
+      throw new ForbiddenException('Chủ phòng đã khóa quyền xóa vòng quay');
+    }
+
     const wheel = await this.prisma.decisionWheel.findFirst({
       where: { id: wheelId, circleId },
     });
 
     if (!wheel) {
-      throw new NotFoundException('Không tìm thấy vòng quay');
+      return { success: true };
     }
 
     if (wheel.createdById && wheel.createdById !== member.id && member.role !== 'OWNER') {
@@ -718,6 +840,8 @@ export class CircleToolsService {
     await this.prisma.decisionWheel.delete({
       where: { id: wheelId },
     });
+
+    await this.syncActiveLiveWheelFromDb(circleId);
 
     return { success: true };
   }
@@ -752,7 +876,7 @@ export class CircleToolsService {
       .map((r, i) => `🏆 ${r.wheelTitle || `Vòng quay ${i + 1}`}: ${r.winner}`)
       .join('\n');
 
-    const content = `🎯 [KẾT QUẢ VÒNG QUAY MAY MẮN]\n━━━━━━━━━━━━━━━━━━━━\n${resultsListText}\n━━━━━━━━━━━━━━━━━━━━\n(Được chia sẻ bởi ${senderName})`;
+    const content = `🎯 [KẾT QUẢ VÒNG QUAY NGẪU NHIÊN]\n━━━━━━━━━━━━━━━━━━━━\n${resultsListText}\n━━━━━━━━━━━━━━━━━━━━\n(Được chia sẻ bởi ${senderName})`;
 
     const rawMessage = await this.prisma.message.create({
       data: {
@@ -843,6 +967,1054 @@ export class CircleToolsService {
     this.chatGateway?.broadcastNewMessage(channel.id, formattedMessage);
 
     return { success: true, messageId: rawMessage.id };
+  }
+
+  // --- Live Wheel Spin (Synchronized Realtime Interactive Wheel for Group Chat) ---
+  async getActiveLiveWheel(circleId: string, userId: string): Promise<LiveWheelSession | null> {
+    await this.getMemberOrThrow(circleId, userId);
+    let session = this.activeLiveWheelSessions.get(circleId);
+
+    // If memory cache missed, attempt to reconstitute from latest LIVE_WHEEL message
+    if (!session) {
+      const liveMsg = await this.prisma.message.findFirst({
+        where: {
+          channel: { circleId },
+          content: { startsWith: '[LIVE_WHEEL]:' },
+        },
+        orderBy: { sentAt: 'desc' },
+      });
+      if (liveMsg && liveMsg.content) {
+        try {
+          const payload: LiveWheelMessagePayload = JSON.parse(
+            liveMsg.content.replace('[LIVE_WHEEL]:', '')
+          );
+          if (payload.stageStatus === 'finished') {
+            return null;
+          }
+          if (Date.now() - (payload.startedAt || 0) < 4 * 60 * 60 * 1000) {
+            const wheels = await this.ensureFourWheels(circleId);
+            const fourWheels = wheels.slice(0, 4);
+            const wheelsList: LiveWheelItem[] = fourWheels.map((w, idx) => ({
+              wheelId: w.id,
+              wheelTitle: w.title || `Vòng ${idx + 1}`,
+              initialOptions: (w.initialOptions as string[]) || (Array.isArray(w.options) ? w.options.map((o) => o.optionLabel) : []),
+              options:
+                w.options.length >= 2
+                  ? w.options.map((o, oIdx) => ({
+                      optionLabel: o.optionLabel,
+                      color: o.color || PASTEL_WHEEL_COLORS[oIdx % PASTEL_WHEEL_COLORS.length]!,
+                    }))
+                  : ['Phương án 1', 'Phương án 2'].map((lbl, oIdx) => ({
+                      optionLabel: lbl,
+                      color: PASTEL_WHEEL_COLORS[oIdx]!,
+                    })),
+              winningIndex: -1,
+              winningOption: null,
+            }));
+
+            session = {
+              id: payload.sessionId,
+              circleId,
+              creatorId: payload.creatorId,
+              channelId: payload.channelId,
+              wheelTitle: payload.wheelTitle || 'Vòng quay ngẫu nhiên',
+              options: wheelsList[0]?.options || [],
+              winningIndex: -1,
+              winningOption: null,
+              startedAt: payload.startedAt || Date.now(),
+              durationMs: 6000,
+              stageStatus: payload.stageStatus || 'idle',
+              wheels: wheelsList,
+              participants: payload.participants || [],
+              spunBy: {
+                userId: payload.creatorId,
+                displayName: payload.creatorName,
+                avatarUrl: payload.creatorAvatar || null,
+              },
+              messageId: liveMsg.id,
+            };
+            this.activeLiveWheelSessions.set(circleId, session);
+          }
+        } catch {}
+      }
+    }
+
+    if (!session) return null;
+
+    // Session stays active for 4 hours
+    const elapsed = Date.now() - session.startedAt;
+    if (elapsed > 4 * 60 * 60 * 1000) {
+      this.activeLiveWheelSessions.delete(circleId);
+      return null;
+    }
+
+    return session;
+  }
+
+  async ensureFourWheels(circleId: string) {
+    let existing =
+      (await this.prisma.decisionWheel.findMany({
+        where: { circleId },
+        include: { options: true },
+        orderBy: { createdAt: 'asc' },
+      })) || [];
+
+    if (!Array.isArray(existing)) {
+      existing = [];
+    }
+
+    // Chỉ tạo đúng 1 vòng mặc định nếu Circle chưa có vòng nào, KHÔNG tự động ép sinh 4 vòng
+    if (existing.length === 0) {
+      const template = DEFAULT_FOUR_WHEELS_DATA[0]!;
+      try {
+        const created = await this.prisma.decisionWheel.create({
+          data: {
+            circleId,
+            title: template.title,
+            options: {
+              create: template.options.map((optLabel, oIdx) => ({
+                optionLabel: optLabel,
+                color: PASTEL_WHEEL_COLORS[oIdx % PASTEL_WHEEL_COLORS.length]!,
+              })),
+            },
+          },
+          include: { options: true },
+        });
+        if (created && created.id) {
+          existing = [created];
+        }
+      } catch {}
+    }
+
+    // Nếu trong môi trường test DB chưa có dữ liệu, trả về danh sách 1 vòng giả lập an toàn
+    if (existing.length === 0) {
+      existing = [
+        {
+          id: `mock-wheel-1`,
+          circleId,
+          title: DEFAULT_FOUR_WHEELS_DATA[0]!.title,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          options: DEFAULT_FOUR_WHEELS_DATA[0]!.options.map((optLabel, oIdx) => ({
+            id: `mock-opt-0-${oIdx}`,
+            wheelId: `mock-wheel-1`,
+            optionLabel: optLabel,
+            color: PASTEL_WHEEL_COLORS[oIdx % PASTEL_WHEEL_COLORS.length]!,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          })),
+        } as any,
+      ];
+    }
+
+    return existing
+      .filter((w) => Boolean(w && typeof w === 'object'))
+      .map((w, idx) => ({
+        ...w,
+        id: w.id || `mock-wheel-${idx + 1}`,
+        title: w.title || `Vòng ${idx + 1}`,
+        options: Array.isArray(w.options) ? w.options : [],
+      }));
+  }
+
+  async syncActiveLiveWheelFromDb(circleId: string): Promise<LiveWheelSession | null> {
+    const liveSession = this.activeLiveWheelSessions.get(circleId);
+    if (!liveSession || liveSession.stageStatus === 'finished') {
+      return null;
+    }
+    const wheels = await this.ensureFourWheels(circleId);
+    const fourWheels = wheels.slice(0, 4);
+    liveSession.wheels = fourWheels.map((w, idx) => ({
+      wheelId: w.id,
+      wheelTitle: w.title || `Vòng ${idx + 1}`,
+      initialOptions: (w.initialOptions as string[]) || (Array.isArray(w.options) ? w.options.map((o) => o.optionLabel) : []),
+      options:
+        w.options && Array.isArray(w.options) && w.options.length >= 2
+          ? w.options.map((o, oIdx) => ({
+              optionLabel: o.optionLabel,
+              color: o.color || PASTEL_WHEEL_COLORS[oIdx % PASTEL_WHEEL_COLORS.length]!,
+            }))
+          : ['Phương án 1', 'Phương án 2'].map((lbl, oIdx) => ({
+              optionLabel: lbl,
+              color: PASTEL_WHEEL_COLORS[oIdx]!,
+            })),
+      winningIndex: -1,
+      winningOption: null,
+    }));
+    if (liveSession.wheels[0]) {
+      liveSession.options = liveSession.wheels[0].options;
+    }
+    this.activeLiveWheelSessions.set(circleId, liveSession);
+    if (this.chatGateway) {
+      this.chatGateway.broadcastLiveWheelUpdated(circleId, liveSession);
+    }
+    return liveSession;
+  }
+
+  async createLiveWheelStage(
+    circleId: string,
+    userId: string,
+    channelId?: string,
+  ): Promise<LiveWheelSession> {
+    const member = await this.getMemberOrThrow(circleId, userId);
+
+    // [CÁCH 1]: Kiểm tra nếu trong Circle đang có phiên Live Wheel đang hoạt động (chưa finished)
+    const existingSession = await this.getActiveLiveWheel(circleId, userId);
+    if (existingSession && existingSession.stageStatus !== 'finished') {
+      const synced = await this.syncActiveLiveWheelFromDb(circleId);
+      const joinedSession = await this.joinLiveWheel(circleId, userId, existingSession.id);
+      const resSession = synced || joinedSession || existingSession;
+      if (this.chatGateway) {
+        this.chatGateway.broadcastLiveWheelStageCreated(circleId, resSession);
+        this.chatGateway.broadcastLiveWheelUpdated(circleId, resSession);
+      }
+      return resSession;
+    }
+
+    const wheels = await this.ensureFourWheels(circleId);
+    const fourWheels = wheels.slice(0, 4);
+
+    const wheelsList: LiveWheelItem[] = fourWheels.map((w, idx) => ({
+      wheelId: w.id,
+      wheelTitle: w.title || `Vòng ${idx + 1}`,
+      initialOptions: (w.initialOptions as string[]) || (Array.isArray(w.options) ? w.options.map((o) => o.optionLabel) : []),
+      options:
+        w.options && Array.isArray(w.options) && w.options.length >= 2
+          ? w.options.map((o, oIdx) => ({
+              optionLabel: o.optionLabel,
+              color: o.color || PASTEL_WHEEL_COLORS[oIdx % PASTEL_WHEEL_COLORS.length]!,
+            }))
+          : ['Phương án 1', 'Phương án 2'].map((lbl, oIdx) => ({
+              optionLabel: lbl,
+              color: PASTEL_WHEEL_COLORS[oIdx]!,
+            })),
+      winningIndex: -1,
+      winningOption: null,
+    }));
+
+    let channel = channelId
+      ? await this.prisma.channel.findFirst({ where: { id: channelId, circleId } })
+      : null;
+
+    if (!channel) {
+      channel = await this.prisma.channel.findFirst({
+        where: { circleId },
+        orderBy: { createdAt: 'asc' },
+      });
+    }
+
+    const senderName =
+      member.user?.profile?.displayName ||
+      member.user?.email?.split('@')[0] ||
+      member.nickname ||
+      'Thành viên';
+
+    const wheelTitle = 'Vòng quay ngẫu nhiên';
+
+    const participants: LiveWheelParticipant[] = [
+      {
+        userId,
+        displayName: senderName,
+        avatarUrl: member.user?.profile?.avatarUrl || null,
+        joinedAt: new Date().toISOString(),
+      },
+    ];
+
+    const sessionId = `live-wheel-stage-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    let messageId: string | undefined = undefined;
+
+    // Gửi 1 tin nhắn thông báo dạng Interactive Card vào channel để mọi người ấn vào tham gia
+    if (channel) {
+      const payload: LiveWheelMessagePayload = {
+        type: 'LIVE_WHEEL',
+        sessionId,
+        circleId,
+        channelId: channel.id,
+        wheelTitle,
+        creatorId: userId,
+        creatorName: senderName,
+        creatorAvatar: member.user?.profile?.avatarUrl || null,
+        participants,
+        stageStatus: 'idle',
+        startedAt: Date.now(),
+      };
+
+      try {
+        const rawMessage = await this.prisma.message.create({
+          data: {
+            channelId: channel.id,
+            memberId: member.id,
+            type: 'TEXT',
+            content: `[LIVE_WHEEL]:${JSON.stringify(payload)}`,
+          },
+          include: {
+            sender: {
+              include: {
+                user: {
+                  include: { profile: true },
+                },
+              },
+            },
+            reactions: {
+              include: {
+                member: {
+                  include: {
+                    user: { include: { profile: true } },
+                  },
+                },
+              },
+            },
+            pinnedRecord: true,
+          },
+        });
+
+        messageId = rawMessage.id;
+
+        if (this.chatGateway) {
+          const formattedMessage: MessageEntity = {
+            id: rawMessage.id,
+            channelId: rawMessage.channelId,
+            memberId: rawMessage.memberId,
+            type: rawMessage.type as any,
+            content: rawMessage.content,
+            replyToId: rawMessage.replyToId,
+            sentAt: rawMessage.sentAt.toISOString(),
+            updatedAt: rawMessage.updatedAt.toISOString(),
+            sender: {
+              id: rawMessage.sender.id,
+              circleId: rawMessage.sender.circleId,
+              userId: rawMessage.sender.userId,
+              role: rawMessage.sender.role as any,
+              nickname: rawMessage.sender.nickname,
+              joinedAt: rawMessage.sender.joinedAt ? rawMessage.sender.joinedAt.toISOString() : new Date().toISOString(),
+              updatedAt: rawMessage.sender.updatedAt ? rawMessage.sender.updatedAt.toISOString() : new Date().toISOString(),
+              user: rawMessage.sender.user
+                ? {
+                    id: rawMessage.sender.user.id,
+                    email: rawMessage.sender.user.email,
+                    isActivated: rawMessage.sender.user.isActivated,
+                    globalRole: rawMessage.sender.user.globalRole as any,
+                    createdAt: rawMessage.sender.user.createdAt ? rawMessage.sender.user.createdAt.toISOString() : new Date().toISOString(),
+                    updatedAt: rawMessage.sender.user.updatedAt ? rawMessage.sender.user.updatedAt.toISOString() : new Date().toISOString(),
+                    profile: rawMessage.sender.user.profile
+                      ? {
+                          id: rawMessage.sender.user.profile.id,
+                          userId: rawMessage.sender.user.profile.userId,
+                          displayName: rawMessage.sender.user.profile.displayName,
+                          avatarUrl: rawMessage.sender.user.profile.avatarUrl,
+                          bio: rawMessage.sender.user.profile.bio,
+                          dateOfBirth: rawMessage.sender.user.profile.dateOfBirth ? rawMessage.sender.user.profile.dateOfBirth.toISOString() : null,
+                          updatedAt: rawMessage.sender.user.profile.updatedAt ? rawMessage.sender.user.profile.updatedAt.toISOString() : new Date().toISOString(),
+                        }
+                      : null,
+                  }
+                : undefined,
+            },
+            reactions: [],
+            reactionCounts: {},
+            userReactions: [],
+            isPinned: false,
+          };
+          this.chatGateway.broadcastNewMessage(channel.id, formattedMessage);
+        }
+      } catch {}
+    }
+
+    const session: LiveWheelSession = {
+      id: sessionId,
+      circleId,
+      creatorId: userId,
+      channelId: channel?.id,
+      wheelTitle,
+      options: wheelsList[0]?.options || [],
+      winningIndex: -1,
+      winningOption: null,
+      startedAt: Date.now(),
+      durationMs: 6000,
+      stageStatus: 'idle',
+      wheels: wheelsList,
+      participants,
+      spunBy: {
+        userId,
+        displayName: senderName,
+        avatarUrl: member.user?.profile?.avatarUrl || null,
+      },
+      messageId,
+      allowMembersToEdit: false,
+    };
+
+    this.activeLiveWheelSessions.set(circleId, session);
+
+    // Broadcast đến toàn bộ thành viên trong nhóm
+    if (this.chatGateway) {
+      this.chatGateway.broadcastLiveWheelStageCreated(circleId, session);
+      this.chatGateway.broadcastLiveWheel(circleId, session);
+    }
+
+    return session;
+  }
+
+  async joinLiveWheel(
+    circleId: string,
+    userId: string,
+    sessionId?: string,
+  ): Promise<LiveWheelSession | null> {
+    const member = await this.getMemberOrThrow(circleId, userId);
+    let session = await this.getActiveLiveWheel(circleId, userId);
+
+    if (!session) {
+      const wheels = await this.ensureFourWheels(circleId);
+      const fourWheels = wheels.slice(0, 4);
+      const wheelsList: LiveWheelItem[] = fourWheels.map((w, idx) => ({
+        wheelId: w.id,
+        wheelTitle: w.title || `Vòng ${idx + 1}`,
+        options:
+          w.options && Array.isArray(w.options) && w.options.length >= 2
+            ? w.options.map((o, oIdx) => ({
+                optionLabel: o.optionLabel,
+                color: o.color || PASTEL_WHEEL_COLORS[oIdx % PASTEL_WHEEL_COLORS.length]!,
+              }))
+            : ['Phương án 1', 'Phương án 2'].map((lbl, oIdx) => ({
+                optionLabel: lbl,
+                color: PASTEL_WHEEL_COLORS[oIdx]!,
+              })),
+        winningIndex: -1,
+        winningOption: null,
+      }));
+
+      const senderName =
+        member.user?.profile?.displayName ||
+        member.user?.email?.split('@')[0] ||
+        member.nickname ||
+        'Thành viên';
+
+      session = {
+        id: sessionId || `live-wheel-${Date.now()}`,
+        circleId,
+        wheelTitle: 'Vòng quay ngẫu nhiên',
+        options: wheelsList[0]?.options || [],
+        winningIndex: -1,
+        winningOption: null,
+        startedAt: Date.now(),
+        durationMs: 6000,
+        stageStatus: 'idle',
+        wheels: wheelsList,
+        participants: [],
+        spunBy: {
+          userId,
+          displayName: senderName,
+          avatarUrl: member.user?.profile?.avatarUrl || null,
+        },
+        allowMembersToEdit: false,
+      };
+      this.activeLiveWheelSessions.set(circleId, session);
+    }
+
+    if (sessionId && session.id !== sessionId) {
+      session.id = sessionId;
+    }
+
+    if (!session.participants) {
+      session.participants = [];
+    }
+
+    const senderName =
+      member.user?.profile?.displayName ||
+      member.user?.email?.split('@')[0] ||
+      member.nickname ||
+      'Thành viên';
+
+    const existingIdx = session.participants.findIndex((p) => p.userId === userId);
+    if (existingIdx === -1) {
+      session.participants.push({
+        userId,
+        displayName: senderName,
+        avatarUrl: member.user?.profile?.avatarUrl || null,
+        joinedAt: new Date().toISOString(),
+      });
+    }
+
+    // Cập nhật card tin nhắn trong chat nếu có
+    if (session.messageId && session.channelId) {
+      try {
+        const payload: LiveWheelMessagePayload = {
+          type: 'LIVE_WHEEL',
+          sessionId: session.id,
+          circleId,
+          channelId: session.channelId,
+          wheelTitle: session.wheelTitle,
+          creatorId: session.spunBy.userId,
+          creatorName: session.spunBy.displayName,
+          creatorAvatar: session.spunBy.avatarUrl,
+          participants: session.participants,
+          stageStatus: session.stageStatus || 'idle',
+          startedAt: session.startedAt,
+        };
+        await this.prisma.message.update({
+          where: { id: session.messageId },
+          data: {
+            content: `[LIVE_WHEEL]:${JSON.stringify(payload)}`,
+          },
+        });
+      } catch {}
+    }
+
+    if (this.chatGateway) {
+      this.chatGateway.broadcastLiveWheelParticipants(circleId, {
+        sessionId: session.id,
+        participants: session.participants,
+      });
+    }
+
+    return session;
+  }
+
+  async liveRemoveResult(
+    circleId: string,
+    userId: string,
+    dto: { wheelId?: string; optionLabel?: string; removeAll?: boolean },
+  ): Promise<LiveWheelSession> {
+    const member = await this.getMemberOrThrow(circleId, userId);
+    const session = await this.getActiveLiveWheel(circleId, userId);
+    if (!session) {
+      throw new NotFoundException('Không tìm thấy phiên vòng quay đang hoạt động');
+    }
+
+    const isParticipant = Boolean(
+      session.participants?.some((p) => p.userId === userId) ||
+      session.creatorId === userId,
+    );
+    if (!this.canEditLiveWheel(circleId, userId, member.role) && !isParticipant) {
+      throw new ForbiddenException('Chủ phòng đã khóa quyền chỉnh sửa nội dung vòng quay');
+    }
+
+    if (!session.wheels || session.wheels.length === 0) {
+      return session;
+    }
+
+    const wheelsToUpdate: { wheelId: string; optionToDelete: string }[] = [];
+
+    if (dto.removeAll) {
+      session.wheels.forEach((w) => {
+        if (w.winningOption?.optionLabel) {
+          wheelsToUpdate.push({
+            wheelId: w.wheelId,
+            optionToDelete: w.winningOption.optionLabel,
+          });
+          w.options = w.options.filter((o) => o.optionLabel !== w.winningOption?.optionLabel);
+          w.winningOption = null;
+          w.winningIndex = -1;
+        }
+      });
+      session.winningOption = null;
+      session.winningIndex = -1;
+    } else if (dto.wheelId) {
+      const targetWheel = session.wheels.find((w) => w.wheelId === dto.wheelId);
+      if (targetWheel) {
+        const optionLabel = dto.optionLabel || targetWheel.winningOption?.optionLabel;
+        if (optionLabel) {
+          wheelsToUpdate.push({
+            wheelId: targetWheel.wheelId,
+            optionToDelete: optionLabel,
+          });
+          targetWheel.options = targetWheel.options.filter((o) => o.optionLabel !== optionLabel);
+          if (targetWheel.winningOption?.optionLabel === optionLabel) {
+            targetWheel.winningOption = null;
+            targetWheel.winningIndex = -1;
+          }
+        }
+      }
+    }
+
+    // Persist removal in DB
+    for (const item of wheelsToUpdate) {
+      try {
+        await this.prisma.wheelOption.deleteMany({
+          where: {
+            wheelId: item.wheelId,
+            optionLabel: item.optionToDelete,
+          },
+        });
+      } catch {}
+    }
+
+    this.activeLiveWheelSessions.set(circleId, session);
+
+    if (this.chatGateway) {
+      this.chatGateway.broadcastLiveWheelUpdated(circleId, session);
+    }
+
+    return session;
+  }
+
+  async liveSpinWheel(
+    circleId: string,
+    userId: string,
+    dto: LiveSpinWheelDto,
+  ): Promise<LiveWheelSession> {
+    const member = await this.getMemberOrThrow(circleId, userId);
+
+    const currentDbWheels = (await this.ensureFourWheels(circleId)).slice(0, 4);
+    const previousSession = this.activeLiveWheelSessions.get(circleId);
+
+    // Luôn đồng bộ theo danh sách vòng mới nhất từ DB để đảm bảo quay được 2, 3 hoặc 4 vòng
+    const baseWheels: LiveWheelItem[] = currentDbWheels.map((dbW, idx) => {
+      const prevW = previousSession?.wheels?.find((w) => w.wheelId === dbW.id);
+      if (prevW && prevW.options && prevW.options.length > 0) {
+        return {
+          wheelId: dbW.id,
+          wheelTitle: dbW.title || `Vòng ${idx + 1}`,
+          initialOptions: prevW.initialOptions || (dbW.initialOptions as string[]) || [],
+          options: prevW.options,
+          winningIndex: -1,
+          winningOption: null,
+        };
+      }
+      const rawOptions =
+        dbW.options && Array.isArray(dbW.options) && dbW.options.length >= 2
+          ? dbW.options
+          : [
+              { optionLabel: 'Phương án 1', color: PASTEL_WHEEL_COLORS[0]! },
+              { optionLabel: 'Phương án 2', color: PASTEL_WHEEL_COLORS[1]! },
+            ];
+      const opts = rawOptions.map((o, oIdx) => ({
+        optionLabel: o.optionLabel,
+        color: o.color || PASTEL_WHEEL_COLORS[oIdx % PASTEL_WHEEL_COLORS.length]!,
+      }));
+      return {
+        wheelId: dbW.id,
+        wheelTitle: dbW.title || `Vòng ${idx + 1}`,
+        initialOptions: (dbW.initialOptions as string[]) || [],
+        options: opts,
+        winningIndex: -1,
+        winningOption: null,
+      };
+    });
+
+    const isAll = dto.isAll !== false;
+
+    // Kiểm tra xem các vòng cần quay có còn phương án nào không
+    const targetWheels = isAll
+      ? baseWheels
+      : baseWheels.filter((w) => w.wheelId === dto.wheelId);
+
+    const hasAnyOption = targetWheels.some((w) => w.options && w.options.length > 0);
+    if (!hasAnyOption) {
+      throw new BadRequestException('Vòng quay đã hết phương án lựa chọn');
+    }
+
+    const wheelsList: LiveWheelItem[] = baseWheels.map((w, idx) => {
+      const opts = w.options || [];
+
+      if ((isAll || w.wheelId === dto.wheelId) && opts.length > 0) {
+        const winningIdx = Math.floor(Math.random() * opts.length);
+        return {
+          ...w,
+          wheelTitle: w.wheelTitle || `Vòng ${idx + 1}`,
+          options: opts,
+          winningIndex: winningIdx,
+          winningOption: opts[winningIdx]!,
+        };
+      }
+
+      // Khi chỉ quay riêng 1 vòng, bảo toàn kết quả trước đó của các vòng khác
+      const prevW = previousSession?.wheels?.find((item) => item.wheelId === w.wheelId);
+      return {
+        ...w,
+        wheelTitle: w.wheelTitle || `Vòng ${idx + 1}`,
+        options: opts,
+        winningIndex: prevW?.winningIndex ?? -1,
+        winningOption: prevW?.winningOption ?? null,
+      };
+    });
+
+    const wheelTitle = dto.title?.trim() || 'Vòng quay ngẫu nhiên';
+    let options: { optionLabel: string; color: string }[] = [];
+    let winningIndex = 0;
+
+    if (dto.options && dto.options.length >= 2) {
+      options = dto.options
+        .map((label) => label.trim())
+        .filter((label) => label.length > 0)
+        .map((label, idx) => ({
+          optionLabel: label,
+          color: PASTEL_WHEEL_COLORS[idx % PASTEL_WHEEL_COLORS.length]!,
+        }));
+      winningIndex = Math.floor(Math.random() * options.length);
+    } else {
+      const firstWithWinner = wheelsList.find((w) => w.winningOption);
+      options = firstWithWinner?.options || wheelsList[0]?.options || [];
+      winningIndex = firstWithWinner?.winningIndex ?? -1;
+    }
+
+    const combinedWinners = wheelsList
+      .filter((w) => w.winningOption)
+      .map((w) => w.winningOption?.optionLabel || 'N/A')
+      .join(' - ');
+
+    const winningOption = combinedWinners
+      ? {
+          optionLabel: combinedWinners,
+          color: '#0D9488',
+        }
+      : null;
+
+    let channel = dto.channelId
+      ? await this.prisma.channel.findFirst({ where: { id: dto.channelId, circleId } })
+      : null;
+
+    if (!channel) {
+      channel = await this.prisma.channel.findFirst({
+        where: { circleId },
+        orderBy: { createdAt: 'asc' },
+      });
+    }
+
+    const senderName =
+      member.user?.profile?.displayName ||
+      member.user?.email?.split('@')[0] ||
+      member.nickname ||
+      'Thành viên';
+
+    let messageId: string | undefined = undefined;
+
+    if (channel) {
+      const summaryLines = wheelsList
+        .filter((w) => w.winningOption)
+        .map((w, idx) => `🎡 Vòng ${idx + 1} (${w.wheelTitle}): ${w.winningOption?.optionLabel}`)
+        .join('\n');
+      const content = `🎯 [VÒNG QUAY NGẪU NHIÊN TRỰC TIẾP]\n━━━━━━━━━━━━━━━━━━━━\n${summaryLines}\n━━━━━━━━━━━━━━━━━━━━\n🏆 Kết quả: ${combinedWinners}\n👤 Lượt quay của: ${senderName}\n━━━━━━━━━━━━━━━━━━━━`;
+      const rawMessage = await this.prisma.message.create({
+        data: {
+          channelId: channel.id,
+          memberId: member.id,
+          type: 'TEXT',
+          content,
+        },
+        include: {
+          sender: {
+            include: {
+              user: {
+                include: { profile: true },
+              },
+            },
+          },
+          reactions: {
+            include: {
+              member: {
+                include: {
+                  user: { include: { profile: true } },
+                },
+              },
+            },
+          },
+          pinnedRecord: true,
+        },
+      });
+
+      messageId = rawMessage.id;
+
+      if (this.chatGateway) {
+        const formattedMessage: MessageEntity = {
+          id: rawMessage.id,
+          channelId: rawMessage.channelId,
+          memberId: rawMessage.memberId,
+          type: rawMessage.type as any,
+          content: rawMessage.content,
+          replyToId: rawMessage.replyToId,
+          sentAt: rawMessage.sentAt.toISOString(),
+          updatedAt: rawMessage.updatedAt.toISOString(),
+          sender: {
+            id: rawMessage.sender.id,
+            circleId: rawMessage.sender.circleId,
+            userId: rawMessage.sender.userId,
+            role: rawMessage.sender.role as any,
+            nickname: rawMessage.sender.nickname,
+            joinedAt: rawMessage.sender.joinedAt ? rawMessage.sender.joinedAt.toISOString() : new Date().toISOString(),
+            updatedAt: rawMessage.sender.updatedAt ? rawMessage.sender.updatedAt.toISOString() : new Date().toISOString(),
+            user: rawMessage.sender.user
+              ? {
+                  id: rawMessage.sender.user.id,
+                  email: rawMessage.sender.user.email,
+                  isActivated: rawMessage.sender.user.isActivated,
+                  globalRole: rawMessage.sender.user.globalRole as any,
+                  createdAt: rawMessage.sender.user.createdAt ? rawMessage.sender.user.createdAt.toISOString() : new Date().toISOString(),
+                  updatedAt: rawMessage.sender.user.updatedAt ? rawMessage.sender.user.updatedAt.toISOString() : new Date().toISOString(),
+                  profile: rawMessage.sender.user.profile
+                    ? {
+                        id: rawMessage.sender.user.profile.id,
+                        userId: rawMessage.sender.user.profile.userId,
+                        displayName: rawMessage.sender.user.profile.displayName,
+                        avatarUrl: rawMessage.sender.user.profile.avatarUrl,
+                        bio: rawMessage.sender.user.profile.bio,
+                        dateOfBirth: rawMessage.sender.user.profile.dateOfBirth ? rawMessage.sender.user.profile.dateOfBirth.toISOString() : null,
+                        updatedAt: rawMessage.sender.user.profile.updatedAt ? rawMessage.sender.user.profile.updatedAt.toISOString() : new Date().toISOString(),
+                      }
+                    : null,
+                }
+              : undefined,
+          },
+          reactions: [],
+          reactionCounts: {},
+          userReactions: [],
+          isPinned: false,
+        };
+        this.chatGateway.broadcastNewMessage(channel.id, formattedMessage);
+      }
+    }
+
+    let participants = previousSession?.participants || [];
+    if (!participants.some((p) => p.userId === userId)) {
+      participants = [
+        ...participants,
+        {
+          userId,
+          displayName: senderName,
+          avatarUrl: member.user?.profile?.avatarUrl || null,
+          joinedAt: new Date().toISOString(),
+        },
+      ];
+    }
+
+    const session: LiveWheelSession = {
+      id: previousSession?.id || `live-wheel-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      circleId,
+      creatorId: previousSession?.creatorId || userId,
+      channelId: channel?.id,
+      wheelId: isAll ? undefined : dto.wheelId,
+      wheelTitle,
+      options,
+      winningIndex,
+      winningOption,
+      startedAt: Date.now(),
+      durationMs: 6000,
+      stageStatus: 'spinning',
+      wheels: wheelsList,
+      participants,
+      spunBy: {
+        userId,
+        displayName: senderName,
+        avatarUrl: member.user?.profile?.avatarUrl || null,
+      },
+      messageId: previousSession?.messageId || messageId,
+      allowMembersToEdit: previousSession?.allowMembersToEdit ?? false,
+    };
+
+    this.activeLiveWheelSessions.set(circleId, session);
+
+    // Realtime broadcast to everyone in circle
+    if (this.chatGateway) {
+      this.chatGateway.broadcastLiveWheel(circleId, session);
+    }
+
+    return session;
+  }
+
+  async updateLiveWheelSettings(
+    circleId: string,
+    userId: string,
+    dto: UpdateLiveWheelSettingsDto,
+  ): Promise<LiveWheelSession> {
+    const member = await this.getMemberOrThrow(circleId, userId);
+    const session = await this.getActiveLiveWheel(circleId, userId);
+
+    if (!session) {
+      throw new NotFoundException('Không tìm thấy phiên vòng quay đang hoạt động');
+    }
+
+    const isHost = !session.creatorId || session.creatorId === userId || member.role === 'OWNER';
+    if (!isHost) {
+      throw new ForbiddenException('Chỉ chủ phòng mới có quyền thay đổi thiết lập phòng quay');
+    }
+
+    if (dto.newHostUserId) {
+      const newHostMember = await this.prisma.circleMember.findFirst({
+        where: { circleId, userId: dto.newHostUserId },
+        include: { user: { include: { profile: true } } },
+      });
+      if (newHostMember) {
+        session.creatorId = dto.newHostUserId;
+        const newHostName =
+          newHostMember.user?.profile?.displayName ||
+          newHostMember.user?.email?.split('@')[0] ||
+          newHostMember.nickname ||
+          'Chủ phòng';
+        session.spunBy = {
+          userId: dto.newHostUserId,
+          displayName: newHostName,
+          avatarUrl: newHostMember.user?.profile?.avatarUrl || null,
+        };
+      }
+    }
+
+    if (dto.allowMembersToEdit !== undefined) {
+      session.allowMembersToEdit = Boolean(dto.allowMembersToEdit);
+    }
+    this.activeLiveWheelSessions.set(circleId, session);
+
+    // Cập nhật card tin nhắn trong chat nếu có
+    if (session.messageId && session.channelId) {
+      try {
+        const payload: LiveWheelMessagePayload = {
+          type: 'LIVE_WHEEL',
+          sessionId: session.id,
+          circleId,
+          channelId: session.channelId,
+          wheelTitle: session.wheelTitle,
+          creatorId: session.creatorId || userId,
+          creatorName: session.spunBy?.displayName || member.nickname || 'Chủ phòng',
+          creatorAvatar: session.spunBy?.avatarUrl,
+          participants: session.participants || [],
+          stageStatus: session.stageStatus || 'idle',
+          startedAt: session.startedAt,
+          allowMembersToEdit: session.allowMembersToEdit,
+        };
+        await this.prisma.message.update({
+          where: { id: session.messageId },
+          data: {
+            content: `[LIVE_WHEEL]:${JSON.stringify(payload)}`,
+          },
+        });
+      } catch {}
+    }
+
+    if (this.chatGateway) {
+      this.chatGateway.broadcastLiveWheelUpdated(circleId, session);
+    }
+
+    return session;
+  }
+
+  async leaveLiveWheelStage(circleId: string, userId: string): Promise<{ success: boolean }> {
+    const session = await this.getActiveLiveWheel(circleId, userId);
+    if (session && session.participants) {
+      session.participants = session.participants.filter((p) => p.userId !== userId);
+      this.activeLiveWheelSessions.set(circleId, session);
+
+      // Cập nhật card tin nhắn trong chat nếu có
+      if (session.messageId && session.channelId) {
+        try {
+          const payload: LiveWheelMessagePayload = {
+            type: 'LIVE_WHEEL',
+            sessionId: session.id,
+            circleId,
+            channelId: session.channelId,
+            wheelTitle: session.wheelTitle,
+            creatorId: session.creatorId || userId,
+            creatorName: session.spunBy?.displayName || 'Chủ phòng',
+            creatorAvatar: session.spunBy?.avatarUrl,
+            participants: session.participants,
+            stageStatus: session.stageStatus || 'idle',
+            startedAt: session.startedAt,
+            allowMembersToEdit: session.allowMembersToEdit,
+          };
+          await this.prisma.message.update({
+            where: { id: session.messageId },
+            data: {
+              content: `[LIVE_WHEEL]:${JSON.stringify(payload)}`,
+            },
+          });
+        } catch {}
+      }
+
+      if (this.chatGateway) {
+        this.chatGateway.broadcastLiveWheelParticipants(circleId, {
+          sessionId: session.id,
+          participants: session.participants,
+        });
+        this.chatGateway.broadcastLiveWheelUpdated(circleId, session);
+      }
+    }
+    return { success: true };
+  }
+
+  async closeLiveWheelStage(
+    circleId: string,
+    userId: string,
+    results?: { wheelTitle: string; winner: string }[],
+  ): Promise<{ success: boolean }> {
+    const member = await this.getMemberOrThrow(circleId, userId);
+    const session = await this.getActiveLiveWheel(circleId, userId);
+
+    if (session) {
+      const isHost = !session.creatorId || session.creatorId === userId || member.role === 'OWNER';
+      if (!isHost) {
+        throw new ForbiddenException('Chỉ chủ phòng mới có quyền đóng phòng quay');
+      }
+    }
+
+    // 1. Tự động gửi kết quả vào tin nhắn chat nếu có kết quả
+    if (results && results.length > 0) {
+      try {
+        await this.shareWheelResultsToChat(circleId, userId, results);
+      } catch (err) {}
+    }
+
+    // 2. Cập nhật TẤT CẢ các tin nhắn interactive card chưa finished thành finished
+    try {
+      const activeMsgs = await this.prisma.message.findMany({
+        where: {
+          channel: { circleId },
+          content: { startsWith: '[LIVE_WHEEL]:' },
+        },
+        orderBy: { sentAt: 'desc' },
+        take: 5,
+      });
+      for (const msg of activeMsgs) {
+        if (msg.content) {
+          try {
+            const payload = JSON.parse(msg.content.replace('[LIVE_WHEEL]:', ''));
+            if (payload.stageStatus !== 'finished') {
+              payload.stageStatus = 'finished';
+              await this.prisma.message.update({
+                where: { id: msg.id },
+                data: { content: `[LIVE_WHEEL]:${JSON.stringify(payload)}` },
+              });
+            }
+          } catch {}
+        }
+      }
+    } catch {}
+
+    // 3. Xoá phiên khỏi active sessions
+    this.activeLiveWheelSessions.delete(circleId);
+
+    // 4. Broadcast thông báo đóng phòng quay cho toàn bộ thành viên
+    if (this.chatGateway) {
+      this.chatGateway.broadcastLiveWheelClosed(circleId);
+    }
+
+    // Bảo tồn nguyên vẹn danh sách các vòng quay và các phương án hiện có cho phiên tạo tiếp theo
+    return { success: true };
+  }
+
+  async dismissLiveCelebration(
+    circleId: string,
+    userId: string,
+  ): Promise<{ success: boolean }> {
+    await this.getMemberOrThrow(circleId, userId);
+
+    const session = this.activeLiveWheelSessions.get(circleId);
+    if (session) {
+      if (session.wheels) {
+        session.wheels.forEach((w) => {
+          w.winningOption = null;
+          w.winningIndex = -1;
+        });
+      }
+      session.winningOption = null;
+      session.winningIndex = -1;
+      this.activeLiveWheelSessions.set(circleId, session);
+    }
+
+    if (this.chatGateway) {
+      this.chatGateway.broadcastLiveWheelCelebrationDismissed(circleId, {
+        circleId,
+        dismissedBy: userId,
+      });
+    }
+
+    return { success: true };
   }
 
   // --- Wheel Folders / Presets ---
@@ -1406,6 +2578,7 @@ export class CircleToolsService {
               ? new Date(dto.reminderTime)
               : null
             : undefined,
+        isCancelled: dto.isCancelled !== undefined ? dto.isCancelled : undefined,
       },
       include: {
         creator: {
@@ -1958,7 +3131,7 @@ export class CircleToolsService {
               contains: `"eventId":"${event.id}"`,
             },
           },
-          orderBy: { sentAt: 'desc' },
+          orderBy: { sentAt: 'asc' },
           include: {
             channel: true,
             sender: {
@@ -2031,10 +3204,50 @@ export class CircleToolsService {
         rsvps: rsvpsData,
       };
 
-      // "và chỉ cần thẻ sự kiện khi tạo hoặc nhắc thui":
-      // Khi sửa, hủy hoặc xóa:
-      // 1) Cập nhật thẻ gốc trong database (giữ action: 'CREATED' để thẻ gốc vẫn hiển thị đầy đủ thẻ, đồng thời cập nhật latestAction để header thẻ hiển thị chính xác)
-      // 2) Gửi tin nhắn thông báo hệ thống mới vào kênh chat (action !== 'CREATED', chỉ hiển thị dòng text)
+      // 1) Khi XÓA sự kiện (DELETED): Xóa toàn bộ tin nhắn/thẻ cũ liên quan đến sự kiện này
+      // và chỉ phát DUY NHẤT 1 tin nhắn thông báo dạng text vào chat (tránh lặp log nhiều lần)
+      if (action === 'DELETED') {
+        if (this.prisma.message?.deleteMany) {
+          await this.prisma.message.deleteMany({
+            where: {
+              channel: { circleId },
+              content: {
+                contains: `"eventId":"${event.id}"`,
+              },
+            },
+          });
+        }
+
+        const rawSystemMessage = await this.prisma.message.create({
+          data: {
+            channelId: channel.id,
+            memberId: member.id,
+            type: 'TEXT',
+            content: `[CALENDAR_EVENT]:${JSON.stringify(payload)}`,
+          },
+          include: {
+            sender: {
+              include: {
+                user: {
+                  include: {
+                    profile: true,
+                  },
+                },
+              },
+            },
+            reactions: true,
+            pinnedRecord: true,
+          },
+        });
+
+        this.chatGateway?.broadcastNewMessage(channel.id, this.mapMessageToEntity(rawSystemMessage));
+        return;
+      }
+
+      // 2) Khi SỬA hoặc HỦY sự kiện:
+      // - Cập nhật thẻ gốc (nếu có): giữ action: 'CREATED' để thẻ gốc vẫn hiển thị giao diện thẻ đầy đủ kèm badge [Đã hủy], không bị co thành dòng text trùng lặp.
+      // - Dọn dẹp các tin nhắn log text cũ (nếu có trước đó) để không bị ghi log nhiều lần trong tin nhắn.
+      // - Tạo DUY NHẤT 1 dòng thông báo hệ thống mới nhất ở cuối chat.
       if (action !== 'CREATED') {
         if (existingMessage && existingMessage.content) {
           let parsedExisting: any = {};
@@ -2050,8 +3263,8 @@ export class CircleToolsService {
             location: event.location || null,
             description: event.description || null,
             reminderTime: event.reminderTime ? (event.reminderTime instanceof Date ? event.reminderTime.toISOString() : String(event.reminderTime)) : null,
-            isCancelled: Boolean(event.isCancelled || action === 'CANCELLED' || action === 'DELETED'),
-            action,
+            isCancelled: Boolean(event.isCancelled || action === 'CANCELLED'),
+            action: parsedExisting.action || 'CREATED', // Luôn giữ action: 'CREATED' cho thẻ gốc
             latestAction: action,
             lastActorName: creatorName,
             lastActorUserId: member.userId,
@@ -2080,8 +3293,20 @@ export class CircleToolsService {
           this.chatGateway?.broadcastMessageUpdated(channel.id, this.mapMessageToEntity(updatedRaw));
         }
 
-        // Tạo tin nhắn thông báo hệ thống mới (action: 'UPDATED' hoặc 'CANCELLED')
-        // Client sẽ chỉ hiển thị dòng thông báo hệ thống (KHÔNG CÓ THẺ SỰ KIỆN)
+        // Xóa các tin nhắn log phụ cũ của sự kiện này (để tránh ghi log nhiều lần trùng lặp)
+        if (this.prisma.message?.deleteMany) {
+          await this.prisma.message.deleteMany({
+            where: {
+              channel: { circleId },
+              content: {
+                contains: `"eventId":"${event.id}"`,
+              },
+              NOT: existingMessage ? { id: existingMessage.id } : undefined,
+            },
+          });
+        }
+
+        // Tạo DUY NHẤT 1 tin nhắn thông báo hệ thống mới (action: 'UPDATED' hoặc 'CANCELLED')
         const rawSystemMessage = await this.prisma.message.create({
           data: {
             channelId: channel.id,

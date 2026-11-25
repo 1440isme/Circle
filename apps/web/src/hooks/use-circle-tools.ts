@@ -9,6 +9,9 @@ import {
   DecisionWheelEntity,
   CreateWheelInput,
   UpdateWheelInput,
+  LiveWheelSession,
+  LiveSpinWheelInput,
+  UpdateLiveWheelSettingsInput,
   WheelFolderEntity,
   CreateWheelFolderInput,
   UpdateWheelFolderInput,
@@ -423,6 +426,152 @@ export function useUpdateWheelFolderMutation(circleId: string) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: TOOLS_KEYS.wheelFolders(circleId) });
+    },
+  });
+}
+
+export function useActiveLiveWheelQuery(circleId: string | null) {
+  return useQuery({
+    queryKey: ['tools', 'wheels', 'live-active', circleId],
+    queryFn: async () => {
+      if (!circleId) return null;
+      const res = await apiRequest<LiveWheelSession | null>(`/circles/${circleId}/wheels/live-active`);
+      return res.data;
+    },
+    enabled: !!circleId,
+    refetchOnWindowFocus: false,
+  });
+}
+
+export function useCreateLiveWheelStageMutation(circleId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input?: { channelId?: string }) => {
+      const res = await apiRequest<LiveWheelSession>(`/circles/${circleId}/wheels/live-stage`, {
+        method: 'POST',
+        body: JSON.stringify(input || {}),
+      });
+      return res.data;
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(['tools', 'wheels', 'live-active', circleId], data);
+      queryClient.invalidateQueries({ queryKey: ['tools', 'wheels', circleId] });
+    },
+  });
+}
+
+export function useJoinLiveWheelMutation(circleId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input?: { sessionId?: string }) => {
+      const res = await apiRequest<LiveWheelSession>(`/circles/${circleId}/wheels/live-join`, {
+        method: 'POST',
+        body: JSON.stringify(input || {}),
+      });
+      return res.data;
+    },
+    onSuccess: (data) => {
+      if (data) {
+        queryClient.setQueryData(['tools', 'wheels', 'live-active', circleId], data);
+      }
+    },
+  });
+}
+
+export function useLiveSpinWheelMutation(circleId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: LiveSpinWheelInput) => {
+      const res = await apiRequest<LiveWheelSession>(`/circles/${circleId}/wheels/live-spin`, {
+        method: 'POST',
+        body: JSON.stringify(input),
+      });
+      return res.data;
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(['tools', 'wheels', 'live-active', circleId], data);
+    },
+  });
+}
+
+export function useLiveRemoveResultMutation(circleId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { wheelId?: string; optionLabel?: string; removeAll?: boolean }) => {
+      const res = await apiRequest<LiveWheelSession>(`/circles/${circleId}/wheels/live-remove-result`, {
+        method: 'POST',
+        body: JSON.stringify(input || {}),
+      });
+      return res.data;
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(['tools', 'wheels', 'live-active', circleId], data);
+      queryClient.invalidateQueries({ queryKey: ['tools', 'wheels', circleId] });
+    },
+  });
+}
+
+export function useUpdateLiveWheelSettingsMutation(circleId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: UpdateLiveWheelSettingsInput) => {
+      const res = await apiRequest<LiveWheelSession>(`/circles/${circleId}/wheels/live-settings`, {
+        method: 'PATCH',
+        body: JSON.stringify(input),
+      });
+      return res.data;
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(['tools', 'wheels', 'live-active', circleId], data);
+    },
+  });
+}
+
+export function useCloseLiveWheelMutation(circleId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input?: { results?: { wheelTitle: string; winner: string }[] }) => {
+      const res = await apiRequest<{ success: boolean }>(`/circles/${circleId}/wheels/live-close`, {
+        method: 'POST',
+        body: JSON.stringify(input || {}),
+      });
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.setQueryData(['tools', 'wheels', 'live-active', circleId], null);
+      queryClient.invalidateQueries({ queryKey: ['tools', 'wheels', circleId] });
+    },
+  });
+}
+
+export function useDismissLiveCelebrationMutation(circleId: string) {
+  return useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest<{ success: boolean }>(
+        `/circles/${circleId}/wheels/live-dismiss-celebration`,
+        {
+          method: 'POST',
+        },
+      );
+      return res.data;
+    },
+  });
+}
+
+export function useLeaveLiveWheelMutation(circleId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest<{ success: boolean }>(
+        `/circles/${circleId}/wheels/live-leave`,
+        {
+          method: 'POST',
+        },
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tools', 'wheels', 'live-active', circleId] });
     },
   });
 }

@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
-import { ApiResponse, AuthResponseData, AuthTokens, SessionEntity } from '@circle/types';
+import { ApiResponse, AuthResponseData, AuthTokens, SessionEntity, PublicUserEntity } from '@circle/types';
 import { getAuthTokens, saveAuthTokens, clearAuthTokens } from './storage';
 import { useLanguageStore } from '../stores/language.store';
 
@@ -280,6 +280,17 @@ export async function changePasswordApi(
     headers,
   });
 
+  return res.data;
+}
+
+/**
+ * Searches users by handle/displayName (privacy-preserving, no email).
+ */
+export async function searchPublicUsersApi(query?: string): Promise<PublicUserEntity[]> {
+  const params = query ? `?q=${encodeURIComponent(query)}` : '';
+  const res = await mobileApiRequest<PublicUserEntity[]>(`/auth/users/search${params}`, {
+    method: 'GET',
+  });
   return res.data;
 }
 

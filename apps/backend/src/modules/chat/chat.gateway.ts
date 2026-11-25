@@ -354,6 +354,42 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
+  broadcastLiveWheel(circleId: string, payload: any) {
+    if (this.server) {
+      this.server.to('circle:' + circleId).emit('circle:live-wheel:started', payload);
+    }
+  }
+
+  broadcastLiveWheelStageCreated(circleId: string, payload: any) {
+    if (this.server) {
+      this.server.to('circle:' + circleId).emit('circle:live-wheel:stage-created', payload);
+    }
+  }
+
+  broadcastLiveWheelParticipants(circleId: string, payload: any) {
+    if (this.server) {
+      this.server.to('circle:' + circleId).emit('circle:live-wheel:participants-updated', payload);
+    }
+  }
+
+  broadcastLiveWheelUpdated(circleId: string, payload: any) {
+    if (this.server) {
+      this.server.to('circle:' + circleId).emit('circle:live-wheel:updated', payload);
+    }
+  }
+
+  broadcastLiveWheelCelebrationDismissed(circleId: string, payload?: any) {
+    if (this.server) {
+      this.server.to('circle:' + circleId).emit('circle:live-wheel:celebration-dismissed', payload || { circleId });
+    }
+  }
+
+  broadcastLiveWheelClosed(circleId: string) {
+    if (this.server) {
+      this.server.to('circle:' + circleId).emit('circle:live-wheel:closed', { circleId });
+      this.server.to('circle:' + circleId).emit('circle:live-wheel:stage-closed', { circleId });
+    }
+  }
   broadcastAnonymousPostReaction(circleId: string, payload: any) {
     if (this.server) {
       this.server.to('circle:' + circleId).emit('circle:anonymous-post-reaction-updated', payload);

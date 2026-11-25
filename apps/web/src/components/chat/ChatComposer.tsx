@@ -17,6 +17,7 @@ import {
   MapPin,
   Navigation,
   AlertTriangle,
+  Compass,
 } from 'lucide-react';
 import { MessageEntity, MessageType } from '@circle/types';
 import { useLanguageStore } from '../../stores/language.store';
@@ -26,6 +27,7 @@ import { createPreviewUrl, revokePreviewUrl } from '../../lib/image-optimizer';
 import { Emoji } from '../ui/Emoji';
 import { FullEmojiPickerModal } from '../ui/FullEmojiPickerModal';
 import { CreatePollChatModal } from './CreatePollChatModal';
+import { LiveWheelPickerModal } from './LiveWheelPickerModal';
 
 interface ChatComposerProps {
   circleId?: string;
@@ -79,6 +81,8 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
   reportTyping,
 }) => {
   const t = useLanguageStore((s) => s.t);
+  const locale = useLanguageStore((s) => s.locale);
+  const [isLiveWheelSetupOpen, setIsLiveWheelSetupOpen] = useState(false);
   const uiStyle = useThemeStore((s) => s.uiStyle);
   const isGlass = uiStyle === 'glass';
   const [content, setContent] = useState('');
@@ -695,17 +699,33 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
                 </button>
 
                 {circleId && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsPlusMenuOpen(false);
-                      setIsCreatePollOpen(true);
-                    }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors text-left"
-                  >
-                    <Vote className="w-4 h-4 text-circle-sage dark:text-circle-primary shrink-0" />
-                    <span>{t.collab.createPoll}</span>
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsPlusMenuOpen(false);
+                        setIsCreatePollOpen(true);
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors text-left"
+                    >
+                      <Vote className="w-4 h-4 text-circle-sage dark:text-circle-primary shrink-0" />
+                      <span>{t.collab.createPoll}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsPlusMenuOpen(false);
+                        setIsLiveWheelSetupOpen(true);
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors text-left cursor-pointer"
+                    >
+                      <Compass className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+                      <span>
+                        {t.luckyWheel.createRandomWheel || (locale === 'vi' ? 'Tạo vòng quay ngẫu nhiên' : 'Create Random Wheel')}
+                      </span>
+                    </button>
+                  </>
                 )}
 
                 <button
@@ -800,12 +820,20 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
       </div>
 
       {circleId && (
-        <CreatePollChatModal
-          isOpen={isCreatePollOpen}
-          onClose={() => setIsCreatePollOpen(false)}
-          circleId={circleId}
-          onPollCreated={handlePollCreated}
-        />
+        <>
+          <CreatePollChatModal
+            isOpen={isCreatePollOpen}
+            onClose={() => setIsCreatePollOpen(false)}
+            circleId={circleId}
+            onPollCreated={handlePollCreated}
+          />
+          <LiveWheelPickerModal
+            isOpen={isLiveWheelSetupOpen}
+            onClose={() => setIsLiveWheelSetupOpen(false)}
+            circleId={circleId}
+            channelId={channelId}
+          />
+        </>
       )}
       </div>
     </div>

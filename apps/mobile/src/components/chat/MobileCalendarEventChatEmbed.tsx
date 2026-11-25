@@ -21,7 +21,9 @@ import {
   Lock,
   CalendarDays,
   FileText,
+  ArrowRight,
 } from 'lucide-react-native';
+import { useThemeStore } from '../../stores/theme.store';
 import { getSocket } from '../../services/socket';
 import { useAuthStore } from '../../stores/auth.store';
 import {
@@ -125,6 +127,9 @@ export const MobileCalendarEventChatEmbed: React.FC<MobileCalendarEventChatEmbed
   onOpenCalendar,
   onViewOnCalendar,
 }) => {
+  const { resolvedTheme, colors: themeColors } = useThemeStore();
+  const isDark = resolvedTheme === 'dark';
+  const effectiveColors = { ...themeColors, ...colors };
   const authUserId = useAuthStore((s) => s.user?.id);
   const effectiveUserId = currentUserId || authUserId;
 
@@ -402,7 +407,12 @@ export const MobileCalendarEventChatEmbed: React.FC<MobileCalendarEventChatEmbed
     data.isCancelled || data.action === 'CANCELLED' || data.action === 'DELETED'
   );
   const isStarted = startDate.getTime() <= Date.now();
+  const isEnded = Boolean(endDate && endDate.getTime() < Date.now());
+  const isHappeningNow = !isCancelled && !isEnded && isStarted;
   const isLocked = isStarted || isCancelled;
+
+  const creatorName = senderDisplayName || data?.creatorName || 'Người tạo';
+  const creatorAvatar = senderAvatarUrl || (data as any)?.creatorAvatar || null;
 
   const myRsvp = useMemo(() => {
     const found = rsvps?.userRsvps?.find(
@@ -640,17 +650,11 @@ export const MobileCalendarEventChatEmbed: React.FC<MobileCalendarEventChatEmbed
     data?.eventTitle,
   ]);
 
-  // "và chỉ cần thẻ sự kiện khi tạo hoặc nhắc thui" (chỉ có tạo với nhắc lại mới hiện thẻ banner mà)
-  // Chỉ có Tạo mới (CREATED) và Nhắc hẹn (REMINDER) mới hiển thị thẻ banner đầy đủ.
-  // Khi Sửa (UPDATED), Hủy (CANCELLED), hoặc xóa: KHÔNG BAO GIỜ hiện thẻ banner, chỉ hiện dòng thông báo hệ thống dạng text.
-  const effectiveAction = data.latestAction || data.action;
+  // Chỉ có thẻ gốc (CREATED / REMINDER) mới hiển thị thẻ sự kiện.
+  // Các thông báo hệ thống phụ (UPDATED, CANCELLED, DELETED) sẽ chỉ hiển thị dòng text thông báo duy nhất.
   const showCard =
-    (effectiveAction === 'CREATED' || effectiveAction === 'REMINDER') &&
-    data.action !== 'UPDATED' &&
-    data.latestAction !== 'UPDATED' &&
-    data.action !== 'CANCELLED' &&
-    data.latestAction !== 'CANCELLED' &&
-    !data.isCancelled;
+    (data.action === 'CREATED' || data.action === 'REMINDER') &&
+    (data as any)?.latestAction !== 'DELETED';
 
   if (!showCard) {
     return (
@@ -674,290 +678,265 @@ export const MobileCalendarEventChatEmbed: React.FC<MobileCalendarEventChatEmbed
 
   return (
     <View style={styles.outerContainer}>
-      {/* 1. Dòng thông báo hệ thống nằm phía trên thẻ (System Message) */}
+      {/* 1. Dòng thông báo hệ thống nằm phía trên thẻ */}
       <View style={styles.systemMessageRow}>
-        <Text style={[styles.systemMessageText, { color: colors.subtle || '#64748B' }]}>
+        <Text style={[styles.systemMessageText, { color: effectiveColors.subtle || '#64748B' }]}>
           {systemMessageText}
         </Text>
-        <Text style={[styles.systemMessageDots, { color: colors.subtle || '#64748B' }]}>…</Text>
+        <Text style={[styles.systemMessageDots, { color: effectiveColors.subtle || '#64748B' }]}>…</Text>
         <TouchableOpacity
           activeOpacity={0.7}
           onPress={handleOpenCalendar}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Text style={[styles.systemMessageAction, { color: colors.primary || '#10B981' }]}>
+          <Text style={[styles.systemMessageAction, { color: effectiveColors.primary || '#10B981' }]}>
             Xem
           </Text>
         </TouchableOpacity>
       </View>
 
-      {/* Thẻ sự kiện */}
+      {/* Thẻ sự kiện - Cấu trúc chuẩn theo Live Wheel Embed */}
       <View
         style={[
           styles.cardContainer,
           {
-            backgroundColor: colors.surface || '#FFFFFF',
-            borderColor: colors.hairline || '#E2E8F0',
+            backgroundColor: isDark ? (effectiveColors.elevated || '#1E293B') : '#FFFFFF',
+            borderColor: isCancelled
+              ? (isDark ? '#451A1A' : '#FECACA')
+              : (isDark ? `${effectiveColors.primary || '#10B981'}50` : '#A7F3D0'),
           },
         ]}
       >
-        {/* 2. Ảnh bìa (Màu chủ đạo Emerald Brand) & Tên sự kiện */}
-        <View style={styles.bannerContainer}>
-          <View style={styles.bannerHeaderRow}>
-            {(onOpenCalendar || onViewOnCalendar) && (
-              <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={handleOpenCalendar}
-                style={styles.bannerViewCalendarBtn}
-              >
-                <CalendarDays size={13} color="#FFFFFF" />
-                <Text style={styles.bannerViewCalendarBtnText}>Xem lịch</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-
-          <View style={styles.bannerTitleCol}>
-            <Text
-              numberOfLines={2}
+        {/* Header Row */}
+        <View style={[styles.headerRow, { borderBottomColor: effectiveColors.hairline || '#E2E8F0' }]}>
+          <View style={styles.headerLeft}>
+            <View
               style={[
-                styles.bannerEventTitle,
+                styles.iconBox,
+                {
+                  backgroundColor: isCancelled
+                    ? (isDark ? '#451A1A' : '#FEE2E2')
+                    : `${effectiveColors.primary || '#10B981'}20`,
+                },
+              ]}
+            >
+              <CalendarDays
+                size={17}
+                color={isCancelled ? '#EF4444' : (effectiveColors.primary || '#10B981')}
+              />
+            </View>
+            <Text
+              numberOfLines={1}
+              style={[
+                styles.headerTitle,
+                { color: effectiveColors.text || '#0F172A' },
                 isCancelled && styles.titleCancelled,
               ]}
             >
               {eventTitle}
             </Text>
-            {isCancelled && (
-              <View style={styles.cancelledBadge}>
-                <Text style={styles.cancelledBadgeText}>Sự kiện đã bị hủy</Text>
-              </View>
-            )}
+          </View>
+
+          {isCancelled ? (
+            <View style={[styles.tagBadge, { backgroundColor: '#FEE2E2' }]}>
+              <Text style={[styles.tagBadgeText, { color: '#DC2626' }]}>Đã hủy</Text>
+            </View>
+          ) : isEnded ? (
+            <View style={[styles.tagBadge, { backgroundColor: isDark ? '#334155' : '#F1F5F9' }]}>
+              <Text style={[styles.tagBadgeText, { color: isDark ? '#94A3B8' : '#64748B' }]}>Đã kết thúc</Text>
+            </View>
+          ) : isHappeningNow ? (
+            <View style={[styles.tagBadge, { backgroundColor: `${effectiveColors.primary || '#10B981'}20` }]}>
+              <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#10B981', marginRight: 4 }} />
+              <Text style={[styles.tagBadgeText, { color: effectiveColors.primary || '#10B981' }]}>Đang diễn ra</Text>
+            </View>
+          ) : (
+            <View style={[styles.tagBadge, { backgroundColor: `${effectiveColors.primary || '#10B981'}15` }]}>
+              <Text style={[styles.tagBadgeText, { color: effectiveColors.primary || '#10B981' }]}>Sắp tới</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Creator Info */}
+        <View style={styles.creatorRow}>
+          {creatorAvatar ? (
+            <Image source={{ uri: creatorAvatar }} style={styles.avatar} />
+          ) : (
+            <View style={[styles.avatarFallback, { backgroundColor: `${effectiveColors.primary || '#10B981'}25` }]}>
+              <Text style={[styles.avatarFallbackText, { color: effectiveColors.primary || '#10B981' }]}>
+                {creatorName.charAt(0).toUpperCase()}
+              </Text>
+            </View>
+          )}
+          <View style={styles.creatorTextCol}>
+            <Text numberOfLines={1} style={[styles.creatorText, { color: effectiveColors.text || '#0F172A' }]}>
+              <Text style={styles.creatorNameBold}>{creatorName}</Text> đã tạo lịch hẹn cho nhóm
+            </Text>
+            <View style={styles.participantsRow}>
+              <Users size={12} color={effectiveColors.primary || '#10B981'} />
+              <Text style={[styles.participantsCountText, { color: effectiveColors.subtle || '#64748B' }]}>
+                {yesUsers.length > 0 ? `${yesUsers.length} người tham gia` : 'Chưa có người tham gia'}
+              </Text>
+            </View>
           </View>
         </View>
 
-        {/* 3. Event Details: Thời gian, Địa điểm, Lặp lại, Nhắc hẹn, Ghi chú (Chỉ giữ lại icon) */}
-        <View style={styles.detailsContainer}>
-          {/* Thời gian bắt đầu – kết thúc (icon Clock + text) */}
-          <View style={styles.detailRow}>
-            <Clock size={15} color="#10B981" />
-            {isSameDay ? (
-              <Text style={[styles.detailTimeText, { color: colors.text || '#0F172A' }]}>
-                {startTimeStr}{endTimeStr ? ` – ${endTimeStr}` : ''} • {weekdayStr}, {startDateStr}
-              </Text>
-            ) : (
-              <View style={styles.multiDayRow}>
-                <Text style={[styles.detailTimeText, { color: colors.text || '#0F172A' }]}>
-                  {startTimeStr}, {startDateStr}
-                </Text>
-                <Text style={styles.multiDayArrow}>➔</Text>
-                <Text style={[styles.detailTimeText, { color: colors.text || '#0F172A' }]}>
-                  {endTimeStr || ''}, {endDateStr}
-                </Text>
-                <View style={styles.durationPill}>
-                  <Text style={styles.durationPillText}>{durationDays} ngày</Text>
-                </View>
-              </View>
-            )}
+        {/* Details Area: Time, Location, Recurrence, Notes */}
+        <View style={styles.detailsArea}>
+          {/* Time */}
+          <View style={[styles.detailItemBox, { backgroundColor: effectiveColors.wash || '#F8FAFC', borderColor: effectiveColors.hairline || '#E2E8F0' }]}>
+            <Clock size={13} color={effectiveColors.primary || '#10B981'} />
+            <Text numberOfLines={1} style={[styles.detailItemText, { color: effectiveColors.text || '#0F172A' }]}>
+              {isSameDay
+                ? `${startTimeStr}${endTimeStr ? ` – ${endTimeStr}` : ''} • ${weekdayStr}, ${startDateStr}`
+                : `${startTimeStr}, ${startDateStr} ➔ ${endTimeStr || ''}, ${endDateStr}`}
+            </Text>
           </View>
 
-          {/* Địa điểm (icon MapPin) */}
-          {Boolean(data.location) && (
-            <View style={styles.detailRow}>
-              <MapPin size={15} color="#F43F5E" />
-              <Text
-                numberOfLines={2}
-                style={[styles.detailText, { color: colors.text || '#0F172A' }]}
-              >
-                {data.location}
+          {/* Location if exists */}
+          {Boolean(data?.location) && (
+            <View style={[styles.detailItemBox, { backgroundColor: effectiveColors.wash || '#F8FAFC', borderColor: effectiveColors.hairline || '#E2E8F0' }]}>
+              <MapPin size={13} color="#EF4444" />
+              <Text numberOfLines={1} style={[styles.detailItemText, { color: effectiveColors.text || '#0F172A' }]}>
+                {data?.location}
               </Text>
             </View>
           )}
 
-          {/* Lặp lại (icon Repeat) */}
-          {isRecurring && recurrenceSummaryText && (
-            <View style={styles.detailRow}>
-              <Repeat size={15} color="#10B981" />
-              <Text
-                numberOfLines={1}
-                style={[styles.recurrenceText, { color: colors.text || '#0F172A' }]}
-              >
+          {/* Recurrence if exists */}
+          {isRecurring && recurrenceSummaryText ? (
+            <View style={[styles.detailItemBox, { backgroundColor: effectiveColors.wash || '#F8FAFC', borderColor: effectiveColors.hairline || '#E2E8F0' }]}>
+              <Repeat size={13} color={effectiveColors.primary || '#10B981'} />
+              <Text numberOfLines={1} style={[styles.detailItemText, { color: effectiveColors.text || '#0F172A' }]}>
                 {recurrenceSummaryText}
               </Text>
             </View>
-          )}
+          ) : null}
 
-          {/* Nhắc hẹn nếu có (icon Bell) */}
-          {reminderStr && (
-            <View style={styles.detailRow}>
-              <Bell size={15} color="#D97706" />
-              <Text style={styles.reminderBadgeText}>{reminderStr}</Text>
-            </View>
-          )}
-
-          {/* Ghi chú được tách thành vùng riêng (icon FileText) */}
+          {/* Notes if exists */}
           {cleanDesc ? (
-            <View
-              style={[
-                styles.quoteBox,
-                {
-                  backgroundColor: colors.wash || '#F8FAFC',
-                  borderColor: colors.hairline || '#E2E8F0',
-                },
-              ]}
-            >
-              <FileText size={14} color="#64748B" style={{ marginTop: 2 }} />
-              <Text
-                style={[styles.quoteText, { color: colors.text || '#0F172A' }]}
-                numberOfLines={4}
-              >
+            <View style={[styles.detailItemBox, { backgroundColor: effectiveColors.wash || '#F8FAFC', borderColor: effectiveColors.hairline || '#E2E8F0', alignItems: 'flex-start' }]}>
+              <FileText size={13} color="#64748B" style={{ marginTop: 1 }} />
+              <Text numberOfLines={2} style={[styles.detailItemText, { color: effectiveColors.subtle || '#64748B', fontStyle: 'italic', flex: 1 }]}>
                 {cleanDesc}
               </Text>
             </View>
           ) : null}
         </View>
 
-        {/* 4. RSVP Section: Số thành viên xác nhận & 3 nút phản hồi */}
-        <View
-          style={[
-            styles.pollSection,
-            {
-              backgroundColor: colors.wash || '#F8FAFC',
-              borderTopColor: colors.hairline || '#E2E8F0',
-            },
-          ]}
-        >
-          {/* Header: Số thành viên xác nhận & Avatars */}
-          <View style={styles.pollHeaderRow}>
-            <View style={styles.pollHeaderLeft}>
-              <Users size={14} color="#10B981" />
-              <Text style={[styles.pollStatusText, { color: colors.text || '#0F172A' }]}>
-                {yesUsers.length} thành viên xác nhận
-              </Text>
-            </View>
-            {yesUsers.length > 0 && (
-              <View style={styles.respondentsWrap}>
-                {yesUsers.slice(0, 4).map((u, idx) => (
-                  <View
-                    key={u.userId || idx}
-                    style={[
-                      styles.respAvatarWrap,
-                      { marginLeft: idx === 0 ? 0 : -8 },
-                    ]}
-                  >
-                    {u.avatarUrl ? (
-                      <Image source={{ uri: u.avatarUrl }} style={styles.respAvatarImg} />
-                    ) : (
-                      <View style={[styles.respAvatarFallback, { backgroundColor: '#10B981' }]}>
-                        <Text style={styles.respAvatarInitial}>
-                          {(u.displayName || 'U').charAt(0).toUpperCase()}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                ))}
-                {yesUsers.length > 4 && (
-                  <View style={[styles.respAvatarWrap, styles.respAvatarMore]}>
-                    <Text style={styles.respAvatarMoreText}>
-                      +{yesUsers.length - 4}
-                    </Text>
-                  </View>
+        {/* Participants Avatars Stack */}
+        {yesUsers.length > 0 && (
+          <View style={styles.avatarStackRow}>
+            {yesUsers.slice(0, 5).map((p, idx) => (
+              <View
+                key={p.userId || idx}
+                style={[
+                  styles.stackedAvatar,
+                  {
+                    borderColor: isDark ? (effectiveColors.elevated || '#1E293B') : '#FFFFFF',
+                    backgroundColor: `${effectiveColors.primary || '#10B981'}30`,
+                  },
+                ]}
+              >
+                {p.avatarUrl ? (
+                  <Image source={{ uri: p.avatarUrl }} style={styles.stackedImg} />
+                ) : (
+                  <Text style={[styles.stackedFallbackText, { color: effectiveColors.primary || '#10B981' }]}>
+                    {(p.displayName || 'U').charAt(0).toUpperCase()}
+                  </Text>
                 )}
               </View>
+            ))}
+            {yesUsers.length > 5 && (
+              <Text style={[styles.moreCountText, { color: effectiveColors.subtle || '#64748B' }]}>
+                +{yesUsers.length - 5}
+              </Text>
             )}
           </View>
+        )}
 
-          {/* 3 nút/thanh phản hồi: Tham gia, Có thể, Từ chối */}
-          <View style={styles.pollOptionsCol}>
-            {pollOptions.map((opt) => {
-              const isSelected = myRsvp === opt.status;
-              return (
-                <TouchableOpacity
-                  key={opt.status}
-                  activeOpacity={0.8}
-                  disabled={isLocked || isSubmitting}
-                  onPress={() => handleVoteOptionClick(opt.status)}
-                  style={[
-                    styles.pollBarContainer,
-                    {
-                      borderColor: isSelected
-                        ? opt.activeBorder
-                        : colors.hairline || '#E2E8F0',
-                      backgroundColor: colors.surface || '#FFFFFF',
-                    },
-                    isSelected && styles.pollBarActive,
-                  ]}
-                >
-                  {/* Progress Fill Layer */}
-                  <View
-                    style={[
-                      styles.pollProgressFill,
-                      {
-                        width: `${Math.max(0, Math.min(100, opt.percent))}%`,
-                        backgroundColor: isSelected ? opt.activeBarColor : opt.barColor,
-                      },
-                    ]}
-                  />
+        {/* Quick 3 RSVP Options Buttons */}
+        {!isCancelled && !isStarted && (
+          <View style={styles.quickRsvpRow}>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              disabled={isLocked || isSubmitting}
+              onPress={() => handleVoteOptionClick(EventRsvpStatus.YES)}
+              style={[
+                styles.quickRsvpBtn,
+                {
+                  backgroundColor: myRsvp === EventRsvpStatus.YES ? '#059669' : (effectiveColors.wash || '#F8FAFC'),
+                  borderColor: myRsvp === EventRsvpStatus.YES ? '#059669' : (effectiveColors.hairline || '#E2E8F0'),
+                },
+              ]}
+            >
+              <Check size={11} color={myRsvp === EventRsvpStatus.YES ? '#FFFFFF' : '#059669'} />
+              <Text style={[styles.quickRsvpBtnText, { color: myRsvp === EventRsvpStatus.YES ? '#FFFFFF' : (effectiveColors.text || '#0F172A') }]}>
+                Tham gia ({rsvps?.yesCount || 0})
+              </Text>
+            </TouchableOpacity>
 
-                  {/* Content Row: Check radio + Icon + Label + Respondent Avatars */}
-                  <View style={styles.pollBarContent}>
-                    <View style={styles.pollBarLeft}>
-                      <View
-                        style={[
-                          styles.radioCircle,
-                          isSelected && {
-                            backgroundColor: opt.activeBorder,
-                            borderColor: opt.activeBorder,
-                          },
-                        ]}
-                      >
-                        {isSelected && <Check size={10} color="#FFFFFF" strokeWidth={3} />}
-                      </View>
-                      <opt.icon size={14} color={opt.iconColor} />
-                      <Text
-                        style={[
-                          styles.pollOptionLabel,
-                          { color: colors.text || '#0F172A' },
-                          isSelected && { fontWeight: '700' },
-                        ]}
-                      >
-                        {opt.label}
-                      </Text>
-                    </View>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              disabled={isLocked || isSubmitting}
+              onPress={() => handleVoteOptionClick(EventRsvpStatus.MAYBE)}
+              style={[
+                styles.quickRsvpBtn,
+                {
+                  backgroundColor: myRsvp === EventRsvpStatus.MAYBE ? '#D97706' : (effectiveColors.wash || '#F8FAFC'),
+                  borderColor: myRsvp === EventRsvpStatus.MAYBE ? '#D97706' : (effectiveColors.hairline || '#E2E8F0'),
+                },
+              ]}
+            >
+              <HelpCircle size={11} color={myRsvp === EventRsvpStatus.MAYBE ? '#FFFFFF' : '#D97706'} />
+              <Text style={[styles.quickRsvpBtnText, { color: myRsvp === EventRsvpStatus.MAYBE ? '#FFFFFF' : (effectiveColors.text || '#0F172A') }]}>
+                Có thể ({rsvps?.maybeCount || 0})
+              </Text>
+            </TouchableOpacity>
 
-                    {/* Circular Avatar Stack of Respondents */}
-                    <View style={styles.respondentsWrap}>
-                      {opt.users.slice(0, 4).map((u, idx) => (
-                        <View
-                          key={u.userId || idx}
-                          style={[
-                            styles.respAvatarWrap,
-                            { marginLeft: idx === 0 ? 0 : -8 },
-                          ]}
-                        >
-                          {u.avatarUrl ? (
-                            <Image source={{ uri: u.avatarUrl }} style={styles.respAvatarImg} />
-                          ) : (
-                            <View style={styles.respAvatarFallback}>
-                              <Text style={styles.respAvatarInitial}>
-                                {(u.displayName || 'U').charAt(0).toUpperCase()}
-                              </Text>
-                            </View>
-                          )}
-                        </View>
-                      ))}
-                      {opt.users.length > 4 && (
-                        <View style={[styles.respAvatarWrap, styles.respAvatarMore]}>
-                          <Text style={styles.respAvatarMoreText}>
-                            +{opt.users.length - 4}
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
+            <TouchableOpacity
+              activeOpacity={0.7}
+              disabled={isLocked || isSubmitting}
+              onPress={() => handleVoteOptionClick(EventRsvpStatus.NO)}
+              style={[
+                styles.quickRsvpBtn,
+                {
+                  backgroundColor: myRsvp === EventRsvpStatus.NO ? '#E11D48' : (effectiveColors.wash || '#F8FAFC'),
+                  borderColor: myRsvp === EventRsvpStatus.NO ? '#E11D48' : (effectiveColors.hairline || '#E2E8F0'),
+                },
+              ]}
+            >
+              <X size={11} color={myRsvp === EventRsvpStatus.NO ? '#FFFFFF' : '#E11D48'} />
+              <Text style={[styles.quickRsvpBtnText, { color: myRsvp === EventRsvpStatus.NO ? '#FFFFFF' : (effectiveColors.text || '#0F172A') }]}>
+                Từ chối ({rsvps?.noCount || 0})
+              </Text>
+            </TouchableOpacity>
           </View>
-        </View>
+        )}
+
+        {/* Action Button: Xem chi tiết lịch hẹn */}
+        {isCancelled ? (
+          <View
+            style={[
+              styles.joinBtn,
+              { backgroundColor: isDark ? '#334155' : '#F1F5F9', borderWidth: 1, borderColor: effectiveColors.hairline || '#E2E8F0' },
+            ]}
+          >
+            <Text style={[styles.joinBtnText, { color: isDark ? '#94A3B8' : '#64748B' }]}>
+              Lịch hẹn đã bị hủy
+            </Text>
+          </View>
+        ) : (
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={handleOpenCalendar}
+            style={[styles.joinBtn, { backgroundColor: effectiveColors.primary || '#10B981' }]}
+          >
+            <CalendarDays size={15} color="#FFFFFF" />
+            <Text style={styles.joinBtnText}>Xem chi tiết lịch hẹn</Text>
+            <ArrowRight size={14} color="#FFFFFF" />
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* 5. Scope Confirmation Modal for Recurring Events ("KHI BÌNH CHỌN THÌ CÓ XÁC NHẬN CHỌN CHO LẦN NÀO") */}
@@ -1103,266 +1082,186 @@ const styles = StyleSheet.create({
   },
   cardContainer: {
     width: '100%',
-    maxWidth: 340,
-    borderRadius: 18,
-    borderWidth: 1,
-    overflow: 'hidden',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
+    maxWidth: 320,
+    borderRadius: 22,
+    borderWidth: 1.5,
+    padding: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 3,
+    marginVertical: 4,
   },
-  bannerContainer: {
-    backgroundColor: '#10B981',
-    paddingHorizontal: 14,
-    paddingTop: 14,
-    paddingBottom: 14,
-  },
-  bannerHeaderRow: {
+  headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-end',
-    marginBottom: 8,
+    justifyContent: 'space-between',
+    paddingBottom: 10,
+    borderBottomWidth: 1,
   },
-  bannerViewCalendarBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 9,
-    paddingVertical: 3.5,
-    borderRadius: 9999,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
-  },
-  bannerViewCalendarBtnText: {
-    fontSize: 11.5,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  bannerTitleCol: {
-    marginTop: 2,
-    gap: 4,
-  },
-  bannerEventTitle: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    lineHeight: 22,
-  },
-  titleCancelled: {
-    textDecorationLine: 'line-through',
-    color: '#FECACA',
-    opacity: 0.8,
-  },
-  cancelledBadge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-    backgroundColor: 'rgba(220, 38, 38, 0.8)',
-    borderWidth: 1,
-    borderColor: '#F87171',
-    marginTop: 2,
-  },
-  cancelledBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  detailsContainer: {
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    gap: 10,
-  },
-  detailRow: {
+  headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    flex: 1,
+    marginRight: 6,
   },
-  detailTimeText: {
-    fontSize: 12.5,
+  iconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    flex: 1,
+  },
+  tagBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 7,
+    paddingVertical: 2.5,
+    borderRadius: 10,
+  },
+  tagBadgeText: {
+    fontSize: 9.5,
+    fontWeight: 'bold',
+  },
+  creatorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 10,
+  },
+  avatar: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+  },
+  avatarFallback: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarFallbackText: {
+    fontSize: 13,
+    fontWeight: 'bold',
+  },
+  creatorTextCol: {
+    flex: 1,
+  },
+  creatorText: {
+    fontSize: 11.5,
+    lineHeight: 16,
+  },
+  creatorNameBold: {
+    fontWeight: '800',
+  },
+  participantsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 2,
+  },
+  participantsCountText: {
+    fontSize: 10.5,
+    fontWeight: '600',
+  },
+  detailsArea: {
+    gap: 6,
+    paddingBottom: 10,
+  },
+  detailItemBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  detailItemText: {
+    fontSize: 11.5,
     fontWeight: '600',
     flexShrink: 1,
   },
-  multiDayRow: {
+  avatarStackRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 5,
+    paddingBottom: 10,
+  },
+  stackedAvatar: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    marginRight: -6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  stackedImg: {
+    width: '100%',
+    height: '100%',
+  },
+  stackedFallbackText: {
+    fontSize: 9,
+    fontWeight: 'bold',
+  },
+  moreCountText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    marginLeft: 10,
+  },
+  quickRsvpRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingBottom: 10,
+  },
+  quickRsvpBtn: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+    borderRadius: 10,
+    borderWidth: 1,
   },
-  multiDayArrow: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#64748B',
-  },
-  durationPill: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 5,
-    backgroundColor: '#D1FAE5',
-  },
-  durationPillText: {
+  quickRsvpBtnText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#059669',
   },
-  detailText: {
-    fontSize: 12.5,
-    fontWeight: '600',
-    flex: 1,
-  },
-  recurrenceText: {
-    fontSize: 12,
-    fontWeight: '600',
-    flex: 1,
-  },
-  reminderRow: {
+  joinBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  reminderBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-    backgroundColor: '#FEF3C7',
-    borderWidth: 1,
-    borderColor: '#FDE68A',
-  },
-  reminderBadgeText: {
-    fontSize: 11.5,
-    fontWeight: '600',
-    color: '#D97706',
-  },
-  quoteBox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderRadius: 10,
-    borderWidth: 1,
-  },
-  quoteText: {
-    fontSize: 12,
-    fontStyle: 'italic',
-    lineHeight: 17,
-    flex: 1,
-  },
-  pollSection: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    gap: 8,
-  },
-  pollHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  pollHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  pollStatusText: {
-    fontSize: 11.5,
-    fontWeight: '700',
-  },
-  pollCountText: {
-    fontSize: 10.5,
-    fontWeight: '500',
-  },
-  pollOptionsCol: {
+    justifyContent: 'center',
     gap: 6,
+    paddingVertical: 9,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
   },
-  pollBarContainer: {
-    position: 'relative',
-    height: 38,
-    borderRadius: 11,
-    borderWidth: 1,
-    overflow: 'hidden',
-    justifyContent: 'center',
-  },
-  pollBarActive: {
-    borderWidth: 1.5,
-  },
-  pollProgressFill: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    left: 0,
-    borderRadius: 10,
-  },
-  pollBarContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 10,
-    zIndex: 1,
-  },
-  pollBarLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    flex: 1,
-  },
-  radioCircle: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    borderWidth: 1.5,
-    borderColor: '#CBD5E1',
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pollOptionLabel: {
+  joinBtnText: {
+    color: '#FFFFFF',
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: 'bold',
   },
-  respondentsWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingLeft: 6,
-  },
-  respAvatarWrap: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 1.5,
-    borderColor: '#FFFFFF',
-    overflow: 'hidden',
-  },
-  respAvatarImg: {
-    width: '100%',
-    height: '100%',
-  },
-  respAvatarFallback: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#10B981',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  respAvatarInitial: {
-    color: '#FFFFFF',
-    fontSize: 9,
-    fontWeight: '700',
-  },
-  respAvatarMore: {
-    backgroundColor: '#475569',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: -8,
-  },
-  respAvatarMoreText: {
-    color: '#FFFFFF',
-    fontSize: 8,
-    fontWeight: '700',
+  titleCancelled: {
+    textDecorationLine: 'line-through',
+    color: '#EF4444',
+    opacity: 0.8,
   },
   modalBackdrop: {
     flex: 1,

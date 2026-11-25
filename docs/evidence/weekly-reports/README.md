@@ -6,7 +6,7 @@ Weekly engineering reports (W01 to W19) demonstrating continuous progress for Ru
 
 ---
 
-## Danh sách Báo cáo theo Tuần (W01 – W08)
+## Danh sách Báo cáo theo Tuần (W01 – W10)
 
 | Tập tin | Giai đoạn | Nội dung trọng tâm | Trạng thái |
 | :--- | :--- | :--- | :---: |
@@ -18,3 +18,5 @@ Weekly engineering reports (W01 to W19) demonstrating continuous progress for Ru
 | [`W06.md`](./W06.md) | Tuần 06 (21/09 – 27/09/2026) | Chat Realtime Socket.IO, lưu trữ Cloudflare R2, Reply, Reaction | ✅ Đã lưu kho sẵn sàng |
 | [`W07.md`](./W07.md) | Tuần 07 (28/09 – 04/10/2026) | Khoảnh khắc nội bộ (Moments & Feed), Circle Privacy, Mobile Camera 0.5x | ✅ Đã lưu kho sẵn sàng |
 | [`W08.md`](./W08.md) | Tuần 08 (05/10 – 11/10/2026) | WebRTC Calling, Signaling Gateway, Coturn STUN/TURN, E2E Playwright | ✅ Đã lưu kho sẵn sàng |
+| [`W09.md`](./W09.md) | Tuần 09 (12/10 – 18/10/2026) | Module 7.1: Shared Album, Lịch & RSVP, Vòng xoay, "Điều muốn nói" | ✅ Đã lưu kho sẵn sàng |
+| [`W10.md`](./W10.md) | Tuần 10 (19/10 – 25/10/2026) | Module 7.2: Planning Sheet, Live Location, Group Poll, E2E Tests | ✅ Đã lưu kho sẵn sàng |

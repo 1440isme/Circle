@@ -21,6 +21,12 @@ describe('CircleToolsService', () => {
       broadcastPollVoted: jest.fn(),
       broadcastPollClosed: jest.fn(),
       broadcastWheelSpun: jest.fn(),
+      broadcastLiveWheel: jest.fn(),
+      broadcastLiveWheelStageCreated: jest.fn(),
+      broadcastLiveWheelParticipants: jest.fn(),
+      broadcastLiveWheelUpdated: jest.fn(),
+      broadcastLiveWheelCelebrationDismissed: jest.fn(),
+      broadcastLiveWheelClosed: jest.fn(),
       broadcastAnonymousPostReaction: jest.fn(),
     };
 
@@ -35,6 +41,8 @@ describe('CircleToolsService', () => {
         create: jest.fn(),
         findFirst: jest.fn(),
         update: jest.fn(),
+        delete: jest.fn(),
+        deleteMany: jest.fn(),
       },
       sharedAlbum: {
         findMany: jest.fn(),
@@ -501,6 +509,178 @@ describe('CircleToolsService', () => {
       expect(mockPrisma.message.create).toHaveBeenCalled();
     });
 
+    it('should start live spin wheel and broadcast session to members', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValue(member);
+      mockPrisma.channel.findFirst.mockResolvedValue({ id: 'chan-1', circleId: 'circle-1' });
+      mockPrisma.message.create.mockResolvedValue({
+        id: 'msg-live-1',
+        channelId: 'chan-1',
+        memberId: member.id,
+        type: 'TEXT',
+        content: '🎯 [VÒNG QUAY MAY MẮN TRỰC TIẾP] ...',
+        sentAt: new Date(),
+        updatedAt: new Date(),
+        sender: {
+          id: member.id,
+          circleId: 'circle-1',
+          userId: 'user-1',
+          role: 'MEMBER',
+          nickname: 'Bình',
+          joinedAt: new Date(),
+          updatedAt: new Date(),
+          user: {
+            id: 'user-1',
+            email: 'binh@circle.local',
+            isActivated: true,
+            globalRole: 'USER',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            profile: {
+              id: 'prof-1',
+              userId: 'user-1',
+              displayName: 'Bình',
+              avatarUrl: null,
+              bio: null,
+              dateOfBirth: null,
+              updatedAt: new Date(),
+            },
+          },
+        },
+      });
+
+      const session = await service.liveSpinWheel('circle-1', 'user-1', {
+        title: 'Trưa nay ăn gì?',
+        options: ['Phở', 'Bún chả', 'Cơm tấm'],
+      });
+
+      expect(session.circleId).toBe('circle-1');
+      expect(session.wheelTitle).toBe('Trưa nay ăn gì?');
+      expect(session.options.length).toBe(3);
+      expect(session.winningIndex).toBeGreaterThanOrEqual(0);
+      expect(session.winningIndex).toBeLessThan(3);
+      expect(session.durationMs).toBe(6000);
+      expect(mockChatGateway.broadcastLiveWheel).toHaveBeenCalledWith(
+        'circle-1',
+        expect.objectContaining({ circleId: 'circle-1', wheelTitle: 'Trưa nay ăn gì?' }),
+      );
+
+      // getActiveLiveWheel should return this session
+      const active = await service.getActiveLiveWheel('circle-1', 'user-1');
+      expect(active).not.toBeNull();
+      expect(active?.id).toBe(session.id);
+    });
+
+    it('should allow a member to join live wheel session and broadcast participants', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValue({
+        id: 'mem-2',
+        circleId: 'circle-1',
+        userId: 'user-2',
+        role: 'MEMBER',
+        user: { profile: { displayName: 'Hạnh', avatarUrl: null } },
+      });
+
+      const joined = await service.joinLiveWheel('circle-1', 'user-2');
+      expect(joined).not.toBeNull();
+      expect(joined?.participants?.some((p) => p.userId === 'user-2')).toBe(true);
+      expect(mockChatGateway.broadcastLiveWheelParticipants).toHaveBeenCalledWith(
+        'circle-1',
+        expect.objectContaining({
+          sessionId: joined?.id,
+          participants: expect.arrayContaining([
+            expect.objectContaining({ userId: 'user-2', displayName: 'Hạnh' }),
+          ]),
+        }),
+      );
+    });
+
+    it('should eliminate winning result from live wheel session and broadcast update', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValue({
+        id: 'mem-1',
+        circleId: 'circle-1',
+        userId: 'user-1',
+        role: 'MEMBER',
+        user: { profile: { displayName: 'Bình', avatarUrl: null } },
+      });
+      mockPrisma.wheelOption.deleteMany = jest.fn().mockResolvedValue({ count: 1 });
+
+      await service.createLiveWheelStage('circle-1', 'user-1');
+      const updated = await service.liveRemoveResult('circle-1', 'user-1', { removeAll: true });
+      expect(updated).not.toBeNull();
+      expect(updated.winningOption).toBeNull();
+      expect(mockChatGateway.broadcastLiveWheelUpdated).toHaveBeenCalledWith('circle-1', updated);
+    });
+
+    it('should allow host to update live wheel settings and broadcast update', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValue({
+        id: 'mem-1',
+        circleId: 'circle-1',
+        userId: 'user-1',
+        role: 'MEMBER',
+        user: { profile: { displayName: 'Bình' } },
+      });
+
+      await service.createLiveWheelStage('circle-1', 'user-1');
+      const updated = await service.updateLiveWheelSettings('circle-1', 'user-1', {
+        allowMembersToEdit: true,
+      });
+
+      expect(updated.allowMembersToEdit).toBe(true);
+      expect(mockChatGateway.broadcastLiveWheelUpdated).toHaveBeenCalledWith('circle-1', updated);
+    });
+
+    it('should forbid non-host member from updating live wheel settings', async () => {
+      mockPrisma.circleMember.findUnique.mockImplementation(({ where }: any) => {
+        if (where.circleId_userId?.userId === 'user-1') {
+          return Promise.resolve({ id: 'mem-1', circleId: 'circle-1', userId: 'user-1', role: 'MEMBER' });
+        }
+        return Promise.resolve({ id: 'mem-2', circleId: 'circle-1', userId: 'user-2', role: 'MEMBER' });
+      });
+
+      await service.createLiveWheelStage('circle-1', 'user-1');
+
+      await expect(
+        service.updateLiveWheelSettings('circle-1', 'user-2', { allowMembersToEdit: true }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should forbid non-host from modifying wheel when allowMembersToEdit is false', async () => {
+      // Session created by user-1 with default allowMembersToEdit = false
+      mockPrisma.circleMember.findUnique.mockImplementation(({ where }: any) => {
+        if (where.circleId_userId?.userId === 'user-1') {
+          return Promise.resolve({ id: 'mem-1', circleId: 'circle-1', userId: 'user-1', role: 'MEMBER' });
+        }
+        return Promise.resolve({ id: 'mem-2', circleId: 'circle-1', userId: 'user-2', role: 'MEMBER' });
+      });
+
+      await service.createLiveWheelStage('circle-1', 'user-1');
+
+      await expect(
+        service.updateWheel('circle-1', 'wheel-1', 'user-2', { title: 'Tên mới' }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should dismiss celebration modal and broadcast to members', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValue({
+        id: 'mem-1',
+        circleId: 'circle-1',
+        userId: 'user-1',
+        role: 'MEMBER',
+        user: { profile: { displayName: 'Bình' } },
+      });
+
+      await service.createLiveWheelStage('circle-1', 'user-1');
+      const res = await service.dismissLiveCelebration('circle-1', 'user-1');
+
+      expect(res.success).toBe(true);
+      expect(mockChatGateway.broadcastLiveWheelCelebrationDismissed).toHaveBeenCalledWith(
+        'circle-1',
+        expect.objectContaining({ circleId: 'circle-1', dismissedBy: 'user-1' }),
+      );
+
+      const active = await service.getActiveLiveWheel('circle-1', 'user-1');
+      expect(active?.winningOption).toBeNull();
+      expect(active?.winningIndex).toBe(-1);
+    });
   });
 
   // ===========================================================================

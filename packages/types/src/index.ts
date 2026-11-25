@@ -826,6 +826,88 @@ export interface UpdateWheelFolderInput {
   data?: WheelFolderSnapshotItem[];
 }
 
+export interface LiveWheelParticipant {
+  userId: string;
+  displayName: string;
+  avatarUrl?: string | null;
+  joinedAt?: string;
+}
+
+export interface LiveWheelItem {
+  wheelId: string;
+  wheelTitle: string;
+  options: { optionLabel: string; color: string }[];
+  winningIndex: number;
+  winningOption?: { optionLabel: string; color: string } | null;
+  initialOptions?: string[];
+}
+
+export interface LiveWheelSession {
+  id: string;
+  circleId: string;
+  creatorId?: string;
+  channelId?: string;
+  wheelId?: string;
+  wheelTitle: string;
+  options: { optionLabel: string; color: string }[];
+  winningIndex: number;
+  winningOption?: { optionLabel: string; color: string } | null;
+  startedAt: number; // timestamp in ms
+  durationMs: number;
+  stageStatus?: 'idle' | 'spinning' | 'finished';
+  wheels?: LiveWheelItem[];
+  participants?: LiveWheelParticipant[];
+  spunBy: {
+    userId: string;
+    displayName: string;
+    avatarUrl?: string | null;
+  };
+  messageId?: string;
+  allowMembersToEdit?: boolean;
+}
+
+export interface UpdateLiveWheelSettingsInput {
+  allowMembersToEdit?: boolean;
+  newHostUserId?: string;
+}
+
+export interface LiveWheelMessagePayload {
+  type: 'LIVE_WHEEL';
+  sessionId: string;
+  circleId: string;
+  channelId?: string;
+  wheelTitle: string;
+  creatorId: string;
+  creatorName: string;
+  creatorAvatar?: string | null;
+  participants: LiveWheelParticipant[];
+  stageStatus: 'idle' | 'spinning' | 'finished';
+  startedAt: number;
+  allowMembersToEdit?: boolean;
+}
+
+export interface CreateLiveStageInput {
+  channelId?: string;
+}
+
+export interface LiveSpinWheelInput {
+  wheelId?: string;
+  title?: string;
+  options?: string[];
+  channelId?: string;
+  isAll?: boolean;
+}
+
+export interface LiveRemoveResultInput {
+  wheelId?: string;
+  optionLabel?: string;
+  removeAll?: boolean;
+}
+
+export interface CloseLiveStageInput {
+  results?: { wheelTitle: string; winner: string }[];
+}
+
 export interface SpinWheelResult {
   wheelId: string;
   selectedOption: WheelOptionEntity;
@@ -919,6 +1001,7 @@ export interface UpdateCalendarEventInput {
   startTime?: string;
   endTime?: string;
   reminderTime?: string | null;
+  isCancelled?: boolean;
 }
 export interface CalendarEventMessagePayload {
   type: 'CALENDAR_EVENT';

@@ -1,5 +1,6 @@
 import { useAuthStore } from '../../stores/auth.store';
 import { useThemeStore } from '../../stores/theme.store';
+import { useLanguageStore } from '../../stores/language.store';
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   View,
@@ -7,6 +8,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
+  FlatList,
   TextInput,
   ActivityIndicator,
   Modal,
@@ -16,7 +18,9 @@ import {
   Platform,
   Keyboard,
   Image,
+  Animated,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import {
   Calendar as CalendarIcon,
@@ -44,6 +48,7 @@ import {
   Users,
   Repeat,
   MessageSquareShare,
+  ArrowLeft,
 } from 'lucide-react-native';
 import {
   getCalendarEventsApi,
@@ -54,6 +59,7 @@ import {
   respondCalendarEventRsvpApi,
   shareCalendarEventToChatApi,
 } from '../../services/circle-tools.service';
+import { getSocket } from '../../services/socket';
 import { MobileUpcomingEventsFeed } from './MobileUpcomingEventsFeed';
 import { CalendarEventEntity, CalendarEventRsvpEntity, EventRsvpStatus } from '@circle/types';
 
@@ -685,13 +691,186 @@ export function formatEventTimeForDate(ev: CalendarEventEntity, targetDate: Date
   return ev.endTime ? `${startHourStr} – ${endHourStr}` : startHourStr;
 }
 
-interface MobileCalendarViewProps {
-  circleId: string;
+// =============================================================================
+// SUB-COMPONENTS TỐI ƯU HIỆU NĂNG CHO LƯỚI THÁNG (HIGH-PERFORMANCE MEMOIZED CELLS)
+// =============================================================================
+
+interface DayCellProps {
+  dayNum: number;
+  isSelected: boolean;
+  isToday: boolean;
+  dotsCount: number;
+  onPress: () => void;
 }
 
-export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId }) => {
+const DayCell = React.memo<DayCellProps>(
+  ({ dayNum, isSelected, isToday, dotsCount, onPress }) => {
+    return (
+      <TouchableOpacity
+        style={styles.appleMonthDayCell}
+        activeOpacity={0.7}
+        onPress={onPress}
+      >
+        <View
+          style={[
+            styles.appleMonthDayCircle,
+            isSelected &&
+              (isToday
+                ? styles.appleMonthDayCircleTodaySelected
+                : styles.appleMonthDayCircleSelected),
+          ]}
+        >
+          <Text
+            style={[
+              styles.appleMonthDayText,
+              isToday && !isSelected && styles.appleMonthDayTextToday,
+              isSelected && styles.appleMonthDayTextSelected,
+            ]}
+          >
+            {dayNum}
+          </Text>
+        </View>
+
+        {/* Chấm sự kiện (1 sự kiện = 1 chấm, tối đa 5 chấm) */}
+        <View style={styles.appleMonthEventDotsContainer}>
+          {Array.from({ length: dotsCount }).map((_, dotIdx) => (
+            <View
+              key={`dot-${dotIdx}`}
+              style={[
+                styles.appleMonthEventDot,
+                isSelected && !isToday && styles.appleMonthEventDotSelected,
+              ]}
+            />
+          ))}
+        </View>
+      </TouchableOpacity>
+    );
+  },
+  (prev, next) => {
+    return (
+      prev.dayNum === next.dayNum &&
+      prev.isSelected === next.isSelected &&
+      prev.isToday === next.isToday &&
+      prev.dotsCount === next.dotsCount
+    );
+  },
+);
+
+interface MonthPageBlockProps {
+  item: { year: number; month: number; key: string };
+  selectedDate: Date;
+  activeMonthEventsCountMap: Record<number, number>;
+  activeViewMonth: number;
+  activeViewYear: number;
+  onSelectDay: (year: number, month: number, dayNum: number) => void;
+}
+
+const MonthPageBlock = React.memo<MonthPageBlockProps>(
+  ({
+    item,
+    selectedDate,
+    activeMonthEventsCountMap,
+    activeViewMonth,
+    activeViewYear,
+    onSelectDay,
+  }) => {
+    const itemYear = item.year;
+    const itemMonth = item.month;
+    const itemDaysInMonth = new Date(itemYear, itemMonth, 0).getDate();
+    const itemFirstDay = new Date(itemYear, itemMonth - 1, 1).getDay();
+    const totalSlots = 42;
+    const trailingEmpty = totalSlots - (itemFirstDay + itemDaysInMonth);
+    const now = new Date();
+    const isCurrentViewMonth = itemMonth === activeViewMonth && itemYear === activeViewYear;
+
+    return (
+      <View style={styles.monthPageBlock}>
+        {/* Lưới ngày 7 cột x 6 hàng cố định không hiển thị chữ tháng năm ở góc */}
+        <View style={styles.appleMainMonthGrid}>
+          {Array.from({ length: itemFirstDay }).map((_, i) => (
+            <View key={`empty-lead-${item.key}-${i}`} style={styles.appleMonthEmptyDayCell} />
+          ))}
+
+          {Array.from({ length: itemDaysInMonth }).map((_, i) => {
+            const dayNum = i + 1;
+            const isSelected =
+              selectedDate.getDate() === dayNum &&
+              selectedDate.getMonth() + 1 === itemMonth &&
+              selectedDate.getFullYear() === itemYear;
+
+            const isToday =
+              now.getDate() === dayNum &&
+              now.getMonth() + 1 === itemMonth &&
+              now.getFullYear() === itemYear;
+
+            const dayEventsCount = isCurrentViewMonth
+              ? activeMonthEventsCountMap[dayNum] || 0
+              : 0;
+            const dotsCount = Math.min(dayEventsCount, 5);
+
+            return (
+              <DayCell
+                key={`day-${item.key}-${dayNum}`}
+                dayNum={dayNum}
+                isSelected={isSelected}
+                isToday={isToday}
+                dotsCount={dotsCount}
+                onPress={() => onSelectDay(itemYear, itemMonth, dayNum)}
+              />
+            );
+          })}
+
+          {/* Bù các ô trống cuối tháng để mọi tháng đều đúng 6 hàng */}
+          {Array.from({ length: Math.max(0, trailingEmpty) }).map((_, i) => (
+            <View key={`empty-trail-${item.key}-${i}`} style={styles.appleMonthEmptyDayCell} />
+          ))}
+        </View>
+      </View>
+    );
+  },
+  (prev, next) => {
+    const prevYear = prev.selectedDate.getFullYear();
+    const prevMonth = prev.selectedDate.getMonth() + 1;
+    const nextYear = next.selectedDate.getFullYear();
+    const nextMonth = next.selectedDate.getMonth() + 1;
+
+    const affectsPrev = prevYear === prev.item.year && prevMonth === prev.item.month;
+    const affectsNext = nextYear === next.item.year && nextMonth === next.item.month;
+
+    if (affectsPrev || affectsNext) {
+      return false;
+    }
+
+    if (prev.activeViewMonth !== next.activeViewMonth || prev.activeViewYear !== next.activeViewYear) {
+      if (prev.item.month === next.activeViewMonth && prev.item.year === next.activeViewYear) {
+        return false;
+      }
+      if (prev.item.month === prev.activeViewMonth && prev.item.year === prev.activeViewYear) {
+        return false;
+      }
+    }
+
+    if (prev.activeMonthEventsCountMap !== next.activeMonthEventsCountMap) {
+      if (prev.item.month === next.activeViewMonth && prev.item.year === next.activeViewYear) {
+        return false;
+      }
+    }
+
+    return true;
+  },
+);
+
+interface MobileCalendarViewProps {
+  circleId: string;
+  onBack?: () => void;
+}
+
+export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId, onBack }) => {
+  const insets = useSafeAreaInsets();
   const user = useAuthStore((s) => s.user);
-  const { colors } = useThemeStore();
+  const { colors, resolvedTheme } = useThemeStore();
+  const isDark = resolvedTheme === 'dark';
+  const { t } = useLanguageStore();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [events, setEvents] = useState<CalendarEventEntity[]>([]);
@@ -705,7 +884,33 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
   const [editingOccurrenceDate, setEditingOccurrenceDate] = useState<Date | null>(null);
   const [isYearView, setIsYearView] = useState(false);
   const [calendarTab, setCalendarTab] = useState<'month' | 'upcoming'>('month');
+  const [isViewModeModalOpen, setIsViewModeModalOpen] = useState(false);
   const [isSharingToChat, setIsSharingToChat] = useState<string | null>(null);
+
+  // Search State & All Events for Search
+  const [isSearchActive, setIsSearchActive] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [allSearchEvents, setAllSearchEvents] = useState<CalendarEventEntity[]>([]);
+  const [isSearchLoading, setIsSearchLoading] = useState(false);
+  const searchSlideAnim = useRef(new Animated.Value(-300)).current;
+
+  // Scope confirmation modals (đồng bộ 100% UX với Web cho Lưu/Sửa, Xóa, Hủy)
+  const [showScopeModal, setShowScopeModal] = useState(false);
+  const [deleteModalState, setDeleteModalState] = useState<{
+    isOpen: boolean;
+    event: CalendarEventEntity | null;
+    occDate: Date | null;
+  }>({ isOpen: false, event: null, occDate: null });
+  const [cancelModalState, setCancelModalState] = useState<{
+    isOpen: boolean;
+    event: CalendarEventEntity | null;
+    occDate: Date | null;
+  }>({ isOpen: false, event: null, occDate: null });
+  const [restoreModalState, setRestoreModalState] = useState<{
+    isOpen: boolean;
+    event: CalendarEventEntity | null;
+    occDate: Date | null;
+  }>({ isOpen: false, event: null, occDate: null });
 
   const handleShareToChat = useCallback(
     async (eventId: string) => {
@@ -745,10 +950,18 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
     return list;
   }, []);
 
-  const monthScrollRef = useRef<React.ElementRef<typeof ScrollView>>(null);
+  const monthScrollRef = useRef<FlatList<any>>(null);
   const yearLayoutsRef = useRef<Record<number, number>>({});
   const yearScrollRef = useRef<React.ElementRef<typeof ScrollView>>(null);
   const isInitialScrollDoneRef = useRef(false);
+
+  const initialMonthIndex = useMemo(() => {
+    const now = new Date();
+    const idx = MONTHS_RANGE.findIndex(
+      (it) => it.year === now.getFullYear() && it.month === now.getMonth() + 1,
+    );
+    return idx !== -1 ? idx : 0;
+  }, [MONTHS_RANGE]);
 
   const scrollToMonth = useCallback(
     (targetYear: number, targetMonth: number, animated = true) => {
@@ -759,7 +972,7 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
         if (animated) {
           isInitialScrollDoneRef.current = false;
         }
-        monthScrollRef.current.scrollTo({ y: idx * MONTH_PAGE_HEIGHT, animated });
+        monthScrollRef.current.scrollToOffset({ offset: idx * MONTH_PAGE_HEIGHT, animated });
         if (animated) {
           setTimeout(() => {
             isInitialScrollDoneRef.current = true;
@@ -797,6 +1010,18 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
     },
     [MONTHS_RANGE, currentDate],
   );
+
+  const handleSelectDay = useCallback(
+    (itemYear: number, itemMonth: number, dayNum: number) => {
+      const newSel = new Date(itemYear, itemMonth - 1, dayNum);
+      setSelectedDate(newSel);
+      if (itemMonth !== (currentDate.getMonth() + 1) || itemYear !== currentDate.getFullYear()) {
+        setCurrentDate(new Date(itemYear, itemMonth - 1, 1));
+      }
+      Haptics.selectionAsync();
+    },
+    [currentDate],
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [title, setTitle] = useState('');
   const [location, setLocation] = useState('');
@@ -820,6 +1045,13 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
   const [selectedAttendeeTab, setSelectedAttendeeTab] = useState<'yes' | 'maybe' | 'no'>('yes');
 
   const [isUpdatingReminder, setIsUpdatingReminder] = useState(false);
+
+  // Poll & Reminder Scope / Confirmation Modals (đồng bộ 100% với Web)
+  const [showPollScopeModal, setShowPollScopeModal] = useState(false);
+  const [pendingPollStatus, setPendingPollStatus] = useState<EventRsvpStatus | null>(null);
+  const [showReminderScopeModal, setShowReminderScopeModal] = useState(false);
+  const [showReminderConfirmModal, setShowReminderConfirmModal] = useState(false);
+  const [pendingReminderValue, setPendingReminderValue] = useState<string | null>(null);
 
   // End repeat date picker states (độc lập với ngày kết thúc sự kiện)
   const [isEndRepeatPickerOpen, setIsEndRepeatPickerOpen] = useState(false);
@@ -880,6 +1112,120 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
   useEffect(() => {
     loadEvents();
   }, [circleId, month, year]);
+
+  const loadAllSearchEvents = useCallback(async () => {
+    try {
+      setIsSearchLoading(true);
+      const data = await getCalendarEventsApi(circleId);
+      setAllSearchEvents(Array.isArray(data) ? data : []);
+    } catch {
+      if (events && events.length > 0) {
+        setAllSearchEvents(events);
+      }
+    } finally {
+      setIsSearchLoading(false);
+    }
+  }, [circleId, events]);
+
+  const topHeaderTop = Math.max(insets.top + 8, 16);
+
+  const handleOpenSearch = useCallback(() => {
+    setIsYearView(false);
+    searchSlideAnim.setValue(-300);
+    setIsSearchActive(true);
+    loadAllSearchEvents();
+    Haptics.selectionAsync();
+    Animated.spring(searchSlideAnim, {
+      toValue: 0,
+      tension: 50,
+      friction: 8,
+      useNativeDriver: true,
+    }).start();
+  }, [loadAllSearchEvents, searchSlideAnim]);
+
+  const handleCloseSearch = useCallback(() => {
+    Keyboard.dismiss();
+    Haptics.selectionAsync();
+    Animated.timing(searchSlideAnim, {
+      toValue: -350,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      setIsSearchActive(false);
+      setSearchQuery('');
+    });
+  }, [searchSlideAnim]);
+
+  // Realtime Socket listener cho toàn bộ sự kiện trong Calendar
+  useEffect(() => {
+    let activeSocket: any = null;
+    getSocket().then((s) => {
+      if (!s) return;
+      activeSocket = s;
+      s.on('circle:calendar-event-rsvp-updated', (payload: any) => {
+        if (payload.circleId === circleId) {
+          const updateList = (prev: CalendarEventEntity[]) =>
+            prev.map((ev) => {
+              if (ev.id !== payload.eventId) return ev;
+              const curRsvps = ev.rsvps || [];
+              const idx = curRsvps.findIndex((r) => r.userId === payload.userId);
+              let nextRsvps = [...curRsvps];
+              if (idx >= 0) {
+                nextRsvps[idx] = {
+                  ...nextRsvps[idx],
+                  status: payload.status,
+                  user: payload.user || nextRsvps[idx]?.user,
+                };
+              } else {
+                nextRsvps.push({
+                  id: payload.rsvpId || `rsvp-${Date.now()}`,
+                  eventId: payload.eventId,
+                  userId: payload.userId,
+                  status: payload.status,
+                  user: payload.user,
+                  createdAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString(),
+                });
+              }
+              return { ...ev, rsvps: nextRsvps };
+            });
+
+          setEvents(updateList);
+          setAllSearchEvents(updateList);
+          setDetailEvent((prev) => {
+            if (!prev || prev.id !== payload.eventId) return prev;
+            const curRsvps = prev.rsvps || [];
+            const idx = curRsvps.findIndex((r) => r.userId === payload.userId);
+            let nextRsvps = [...curRsvps];
+            if (idx >= 0) {
+              nextRsvps[idx] = {
+                ...nextRsvps[idx],
+                status: payload.status,
+                user: payload.user || nextRsvps[idx]?.user,
+              };
+            } else {
+              nextRsvps.push({
+                id: payload.rsvpId || `rsvp-${Date.now()}`,
+                eventId: payload.eventId,
+                userId: payload.userId,
+                status: payload.status,
+                user: payload.user,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              });
+            }
+            return { ...prev, rsvps: nextRsvps };
+          });
+        }
+      });
+    });
+
+    return () => {
+      if (activeSocket) {
+        activeSocket.off('circle:calendar-event-rsvp-updated');
+      }
+    };
+  }, [circleId]);
 
   // Tự động cuộn đến tháng hiện tại sau khi layout khởi tạo
   useEffect(() => {
@@ -1076,7 +1422,7 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
     return null;
   };
 
-const handleOpenEditModal = (ev: CalendarEventEntity) => {
+const handleOpenEditModal = (ev: CalendarEventEntity, occDate?: Date) => {
     setEditingEvent(ev);
     setTitle(ev.eventTitle);
     setLocation(ev.location || '');
@@ -1085,7 +1431,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
     const validDesc = cleanDesc.trim().toLowerCase() === 'body' ? '' : cleanDesc;
     setDescription(validDesc);
 
-    const occD = detailOccurrenceDate || selectedDate || new Date(ev.startTime);
+    const occD = occDate || detailOccurrenceDate || selectedDate || new Date(ev.startTime);
     setEditingOccurrenceDate(occD);
 
     const evStart = new Date(ev.startTime);
@@ -1284,6 +1630,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
       setEditingOccurrenceDate(null);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       loadEvents();
+      loadAllSearchEvents();
     } catch (err: any) {
       Alert.alert('Lỗi', err.message || (editingEvent ? 'Không thể cập nhật sự kiện' : 'Không thể tạo sự kiện'));
     } finally {
@@ -1291,249 +1638,561 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
     }
   };
 
-  const promptEditScope = (onProceed: (scope: 'this' | 'future' | 'all') => void) => {
-    if (!editingEvent) return;
-    const { recurrenceConfig: savedConfig } = parseEventRecurrence(editingEvent.description);
-    if (!savedConfig || savedConfig.frequency === 'none') {
-      onProceed('all');
-      return;
-    }
-
-    Alert.alert(
-      'Cập nhật sự kiện lặp lại',
-      'Bạn muốn áp dụng các thay đổi này cho lần diễn ra này, các lần tiếp theo hay tất cả các lần?',
-      [
-        { text: 'Hủy bỏ', style: 'cancel' },
-        {
-          text: 'Chỉ lần này',
-          onPress: () => onProceed('this'),
-        },
-        {
-          text: 'Lần này và các lần tiếp theo',
-          onPress: () => onProceed('future'),
-        },
-        {
-          text: 'Tất cả các lần',
-          onPress: () => onProceed('all'),
-        },
-      ],
-    );
-  };
-
-  const handleCancelEventInDetail = (eventId: string) => {
-    if (!detailEvent) return;
-    const { recurrenceConfig: savedConfig, cleanDesc } = parseEventRecurrence(detailEvent.description);
-    const isRecurring = Boolean(savedConfig && savedConfig.frequency !== 'none');
-    const currentOccD = detailOccurrenceDate || selectedDate || new Date(detailEvent.startTime);
-
-    if (isRecurring && savedConfig) {
-      Alert.alert(
-        'Hủy sự kiện lặp lại',
-        'Bạn muốn hủy sự kiện này cho lần diễn ra này hay tất cả các lần?',
-        [
-          { text: 'Đóng', style: 'cancel' },
-          {
-            text: 'Chỉ hủy lần này',
-            style: 'destructive',
-            onPress: async () => {
-              try {
-                const occKey = formatDateKey(currentOccD);
-                const updatedConfig: RecurrenceConfig = {
-                  ...savedConfig,
-                  cancelledDates: Array.from(new Set([...(savedConfig.cancelledDates || []), occKey])),
-                };
-                const newDesc = serializeRecurrence(updatedConfig, cleanDesc);
-                const updatedEv = await updateCalendarEventApi(circleId, eventId, {
-                  description: newDesc,
-                });
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                setDetailEvent(updatedEv);
-                setIsDetailMenuOpen(false);
-                loadEvents();
-              } catch (err: any) {
-                Alert.alert('Lỗi', err.message || 'Không thể hủy lịch hẹn');
-              }
-            },
-          },
-          {
-            text: 'Hủy tất cả các lần',
-            style: 'destructive',
-            onPress: async () => {
-              try {
-                await cancelCalendarEventApi(circleId, eventId);
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                setDetailEvent((prev) => (prev && prev.id === eventId ? { ...prev, isCancelled: true } : prev));
-                setIsDetailMenuOpen(false);
-                loadEvents();
-              } catch (err: any) {
-                Alert.alert('Lỗi', err.message || 'Không thể hủy lịch hẹn');
-              }
-            },
-          },
-        ],
-      );
-    } else {
-      Alert.alert(
-        'Hủy lịch hẹn',
-        'Bạn có chắc chắn muốn hủy lịch hẹn này? Sự kiện sẽ được đánh dấu là Đã hủy và hiển thị trên lịch nhóm.',
-        [
-          { text: 'Quay lại', style: 'cancel' },
-          {
-            text: 'Xác nhận hủy',
-            style: 'destructive',
-            onPress: async () => {
-              try {
-                await cancelCalendarEventApi(circleId, eventId);
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                setDetailEvent((prev) => (prev && prev.id === eventId ? { ...prev, isCancelled: true } : prev));
-                setIsDetailMenuOpen(false);
-                loadEvents();
-              } catch (err: any) {
-                Alert.alert('Lỗi', err.message || 'Không thể hủy lịch hẹn');
-              }
-            },
-          },
-        ],
-      );
-    }
-  };
-
-  const handleRestoreEventInDetail = async (eventId: string) => {
-    if (!detailEvent) return;
-    const { recurrenceConfig: savedConfig, cleanDesc } = parseEventRecurrence(detailEvent.description);
-    const isRecurring = Boolean(savedConfig && savedConfig.frequency !== 'none');
-    const currentOccD = detailOccurrenceDate || selectedDate || new Date(detailEvent.startTime);
-    const occKey = formatDateKey(currentOccD);
+  // Xử lý Xóa sự kiện với phạm vi (đồng bộ 100% với Web)
+  const executeDelete = async (scope: 'this' | 'future' | 'all') => {
+    const ev = deleteModalState.event;
+    const occD = deleteModalState.occDate || selectedDate || (ev ? new Date(ev.startTime) : new Date());
+    if (!ev) return;
 
     try {
-      if (isRecurring && savedConfig) {
-        const updatedConfig: RecurrenceConfig = {
-          ...savedConfig,
-          cancelledDates: (savedConfig.cancelledDates || []).filter((d) => d !== occKey),
-        };
-        const newDesc = serializeRecurrence(updatedConfig, cleanDesc);
-        const updatedEv = await updateCalendarEventApi(circleId, eventId, {
-          description: newDesc,
-        });
-        setDetailEvent(updatedEv);
+      const { recurrenceConfig: parentConfig, cleanDesc: parentCleanDesc } = parseEventRecurrence(ev.description);
+      const isRecurring = Boolean(parentConfig && parentConfig.frequency !== 'none');
+
+      if (isRecurring && parentConfig) {
+        const occKey = formatDateKey(occD);
+
+        if (scope === 'this') {
+          const currentExcluded = parentConfig.excludedDates || [];
+          const nextExcluded = Array.from(new Set([...currentExcluded, occKey]));
+          const updatedParentRecurrence: RecurrenceConfig = {
+            ...parentConfig,
+            excludedDates: nextExcluded,
+          };
+          const updatedParentDesc = serializeRecurrence(updatedParentRecurrence, parentCleanDesc);
+          await updateCalendarEventApi(circleId, ev.id, {
+            description: updatedParentDesc,
+          });
+        } else if (scope === 'future') {
+          const startOfOld = new Date(ev.startTime);
+          if (formatDateKey(occD) <= formatDateKey(startOfOld)) {
+            await deleteCalendarEventApi(circleId, ev.id);
+          } else {
+            const dayBefore = new Date(occD);
+            dayBefore.setDate(dayBefore.getDate() - 1);
+            const updatedConfig: RecurrenceConfig = {
+              ...parentConfig,
+              endType: 'on_date',
+              endDate: dayBefore,
+            };
+            const newDesc = serializeRecurrence(updatedConfig, parentCleanDesc);
+            await updateCalendarEventApi(circleId, ev.id, {
+              description: newDesc,
+            });
+          }
+        } else {
+          await deleteCalendarEventApi(circleId, ev.id);
+        }
+      } else {
+        await deleteCalendarEventApi(circleId, ev.id);
+      }
+
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setDeleteModalState({ isOpen: false, event: null, occDate: null });
+      if (detailEvent?.id === ev.id) {
+        setDetailEvent(null);
+        setDetailOccurrenceDate(null);
       }
       setIsDetailMenuOpen(false);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       loadEvents();
+      loadAllSearchEvents();
+    } catch (err: any) {
+      Alert.alert('Lỗi', err.message || 'Không thể xóa sự kiện');
+    }
+  };
+
+  // Xử lý Hủy lịch hẹn với phạm vi (đồng bộ 100% với Web)
+  const executeCancel = async (scope: 'this' | 'future' | 'all') => {
+    const ev = cancelModalState.event;
+    const occD = cancelModalState.occDate || selectedDate || (ev ? new Date(ev.startTime) : new Date());
+    if (!ev) return;
+
+    try {
+      const { recurrenceConfig: parentConfig, cleanDesc: parentCleanDesc } = parseEventRecurrence(ev.description);
+      const isRecurring = Boolean(parentConfig && parentConfig.frequency !== 'none');
+
+      if (isRecurring && parentConfig) {
+        const occKey = formatDateKey(occD);
+
+        if (scope === 'this') {
+          const currentCancelled = parentConfig.cancelledDates || [];
+          const nextCancelled = Array.from(new Set([...currentCancelled, occKey]));
+          const updatedParentRecurrence: RecurrenceConfig = {
+            ...parentConfig,
+            cancelledDates: nextCancelled,
+          };
+          const updatedParentDesc = serializeRecurrence(updatedParentRecurrence, parentCleanDesc);
+          const updatedEv = await updateCalendarEventApi(circleId, ev.id, {
+            description: updatedParentDesc,
+          });
+          if (detailEvent?.id === ev.id) {
+            setDetailEvent(updatedEv);
+          }
+        } else if (scope === 'future') {
+          const dayBefore = new Date(occD);
+          dayBefore.setDate(dayBefore.getDate() - 1);
+          const updatedConfig: RecurrenceConfig = {
+            ...parentConfig,
+            endType: 'on_date',
+            endDate: dayBefore,
+          };
+          const newDesc = serializeRecurrence(updatedConfig, parentCleanDesc);
+          const updatedEv = await updateCalendarEventApi(circleId, ev.id, {
+            description: newDesc,
+          });
+          if (detailEvent?.id === ev.id) {
+            setDetailEvent(updatedEv);
+          }
+        } else {
+          await cancelCalendarEventApi(circleId, ev.id);
+          if (detailEvent?.id === ev.id) {
+            setDetailEvent((prev) => (prev && prev.id === ev.id ? { ...prev, isCancelled: true } : prev));
+          }
+        }
+      } else {
+        await cancelCalendarEventApi(circleId, ev.id);
+        if (detailEvent?.id === ev.id) {
+          setDetailEvent((prev) => (prev && prev.id === ev.id ? { ...prev, isCancelled: true } : prev));
+        }
+      }
+
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setCancelModalState({ isOpen: false, event: null, occDate: null });
+      setIsDetailMenuOpen(false);
+      loadEvents();
+      loadAllSearchEvents();
+    } catch (err: any) {
+      Alert.alert('Lỗi', err.message || 'Không thể hủy lịch hẹn');
+    }
+  };
+
+  // Xử lý Khôi phục lịch hẹn với phạm vi (đồng bộ 100% với Web)
+  const executeRestore = async (scope: 'this' | 'all') => {
+    const ev = restoreModalState.event || detailEvent;
+    const occD = restoreModalState.occDate || detailOccurrenceDate || selectedDate || (ev ? new Date(ev.startTime) : new Date());
+    if (!ev) return;
+
+    try {
+      const { recurrenceConfig: parentConfig, cleanDesc: parentCleanDesc } = parseEventRecurrence(ev.description);
+      const isRecurring = Boolean(parentConfig && parentConfig.frequency !== 'none');
+
+      if (isRecurring && parentConfig) {
+        const occKey = formatDateKey(occD);
+
+        if (scope === 'this') {
+          const currentCancelled = parentConfig.cancelledDates || [];
+          const nextCancelled = currentCancelled.filter((d) => d !== occKey);
+          const updatedParentRecurrence: RecurrenceConfig = {
+            ...parentConfig,
+            cancelledDates: nextCancelled,
+          };
+          const updatedParentDesc = serializeRecurrence(updatedParentRecurrence, parentCleanDesc);
+          const updatedEv = await updateCalendarEventApi(circleId, ev.id, {
+            description: updatedParentDesc,
+            isCancelled: false,
+          });
+          if (detailEvent?.id === ev.id) {
+            setDetailEvent(updatedEv);
+          }
+        } else {
+          // scope === 'all'
+          const updatedParentRecurrence: RecurrenceConfig = {
+            ...parentConfig,
+            cancelledDates: [],
+          };
+          const updatedParentDesc = serializeRecurrence(updatedParentRecurrence, parentCleanDesc);
+          const updatedEv = await updateCalendarEventApi(circleId, ev.id, {
+            description: updatedParentDesc,
+            isCancelled: false,
+          });
+          if (detailEvent?.id === ev.id) {
+            setDetailEvent(updatedEv);
+          }
+        }
+      } else {
+        const updatedEv = await updateCalendarEventApi(circleId, ev.id, {
+          isCancelled: false,
+        } as any);
+        if (detailEvent?.id === ev.id) {
+          setDetailEvent(updatedEv);
+        }
+      }
+
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setRestoreModalState({ isOpen: false, event: null, occDate: null });
+      setIsDetailMenuOpen(false);
+      loadEvents();
+      loadAllSearchEvents();
     } catch (err: any) {
       Alert.alert('Lỗi', err.message || 'Không thể khôi phục lịch hẹn');
     }
   };
 
-  const handleDeleteEventInDetail = (eventId: string) => {
+  const handleRestoreEventInDetail = (eventId: string) => {
     if (!detailEvent) return;
-    const { recurrenceConfig: savedConfig, cleanDesc } = parseEventRecurrence(detailEvent.description);
-    const isRecurring = Boolean(savedConfig && savedConfig.frequency !== 'none');
-    const currentOccD = detailOccurrenceDate || selectedDate || new Date(detailEvent.startTime);
+    setIsDetailMenuOpen(false);
+    setRestoreModalState({
+      isOpen: true,
+      event: detailEvent,
+      occDate: detailOccurrenceDate || selectedDate || new Date(detailEvent.startTime),
+    });
+  };
 
-    if (isRecurring && savedConfig) {
-      Alert.alert(
-        'Xóa sự kiện lặp lại',
-        'Bạn muốn xóa sự kiện này cho lần diễn ra này, các lần tiếp theo hay tất cả các lần?',
-        [
-          { text: 'Đóng', style: 'cancel' },
-          {
-            text: 'Chỉ xóa lần này',
-            style: 'destructive',
-            onPress: async () => {
-              try {
-                const occKey = formatDateKey(currentOccD);
-                const updatedConfig: RecurrenceConfig = {
-                  ...savedConfig,
-                  excludedDates: Array.from(new Set([...(savedConfig.excludedDates || []), occKey])),
-                };
-                const newDesc = serializeRecurrence(updatedConfig, cleanDesc);
-                await updateCalendarEventApi(circleId, eventId, {
-                  description: newDesc,
-                });
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                setIsDetailMenuOpen(false);
-                setDetailEvent(null);
-                setDetailOccurrenceDate(null);
-                loadEvents();
-              } catch (err: any) {
-                Alert.alert('Lỗi', err.message || 'Không thể xóa sự kiện');
-              }
-            },
-          },
-          {
-            text: 'Xóa toàn bộ lần tiếp theo',
-            style: 'destructive',
-            onPress: async () => {
-              try {
-                const startOfOld = new Date(detailEvent.startTime);
-                if (formatDateKey(currentOccD) <= formatDateKey(startOfOld)) {
-                  await deleteCalendarEventApi(circleId, eventId);
-                } else {
-                  const dayBefore = new Date(currentOccD);
-                  dayBefore.setDate(dayBefore.getDate() - 1);
-                  const updatedConfig: RecurrenceConfig = {
-                    ...savedConfig,
-                    endType: 'on_date',
-                    endDate: dayBefore,
-                  };
-                  const newDesc = serializeRecurrence(updatedConfig, cleanDesc);
-                  await updateCalendarEventApi(circleId, eventId, {
-                    description: newDesc,
-                  });
-                }
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                setIsDetailMenuOpen(false);
-                setDetailEvent(null);
-                setDetailOccurrenceDate(null);
-                loadEvents();
-              } catch (err: any) {
-                Alert.alert('Lỗi', err.message || 'Không thể xóa sự kiện');
-              }
-            },
-          },
-          {
-            text: 'Xóa tất cả các lần',
-            style: 'destructive',
-            onPress: async () => {
-              try {
-                await deleteCalendarEventApi(circleId, eventId);
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                setIsDetailMenuOpen(false);
-                setDetailEvent(null);
-                setDetailOccurrenceDate(null);
-                loadEvents();
-              } catch (err: any) {
-                Alert.alert('Lỗi', err.message || 'Không thể xóa sự kiện');
-              }
-            },
-          },
-        ],
-      );
-    } else {
-      Alert.alert(
-        'Xóa vĩnh viễn',
-        'Bạn có chắc chắn muốn xóa vĩnh viễn sự kiện này khỏi lịch nhóm?',
-        [
-          { text: 'Hủy', style: 'cancel' },
-          {
-            text: 'Xóa vĩnh viễn',
-            style: 'destructive',
-            onPress: async () => {
-              try {
-                await deleteCalendarEventApi(circleId, eventId);
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                setIsDetailMenuOpen(false);
-                setDetailEvent(null);
-                loadEvents();
-              } catch (err: any) {
-                Alert.alert('Lỗi', err.message || 'Không thể xóa sự kiện');
-              }
-            },
-          },
-        ],
-      );
-    }
+  {/* SCOPE CONFIRMATION MODAL CHO LƯU / SỬA (3 OPTIONS) */}
+  const renderScopeSaveModal = () => {
+    if (!showScopeModal) return null;
+
+    return (
+      <View style={styles.inModalPopupBackdrop}>
+        <TouchableOpacity
+          style={StyleSheet.absoluteFill}
+          activeOpacity={1}
+          onPress={() => setShowScopeModal(false)}
+        />
+        <View style={styles.scopeModalCard}>
+          <Text style={styles.scopeModalTitle}>
+            Bạn muốn áp dụng thay đổi như thế nào ?
+          </Text>
+
+          <View style={styles.scopeOptionsContainer}>
+            <TouchableOpacity
+              style={styles.scopeOptionBtn}
+              activeOpacity={0.7}
+              onPress={() => {
+                setShowScopeModal(false);
+                handleCreateOrUpdateEvent('this');
+              }}
+            >
+              <Text style={styles.scopeOptionTitle}>Chỉ lần này</Text>
+              <Text style={styles.scopeOptionSubtext}>
+                Chỉ thay đổi riêng ngày {editingOccurrenceDate ? formatDateOnly(editingOccurrenceDate) : ''}, các lần khác giữ nguyên.
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.scopeOptionBtn}
+              activeOpacity={0.7}
+              onPress={() => {
+                setShowScopeModal(false);
+                handleCreateOrUpdateEvent('future');
+              }}
+            >
+              <Text style={styles.scopeOptionTitle}>Lần này và các lần tiếp theo</Text>
+              <Text style={styles.scopeOptionSubtext}>
+                Áp dụng thay đổi từ ngày {startDate ? formatDateOnly(startDate) : editingOccurrenceDate ? formatDateOnly(editingOccurrenceDate) : ''} trở đi (sẽ tách làm 2 sự kiện có chu kỳ lặp khác nhau).
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.scopeOptionBtn}
+              activeOpacity={0.7}
+              onPress={() => {
+                setShowScopeModal(false);
+                handleCreateOrUpdateEvent('all');
+              }}
+            >
+              <Text style={styles.scopeOptionTitle}>Tất cả các lần</Text>
+              <Text style={styles.scopeOptionSubtext}>
+                Cập nhật toàn bộ các lần diễn ra trong chuỗi lặp lại.
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.scopeModalFooter}>
+            <TouchableOpacity
+              style={styles.scopeModalCloseBtn}
+              activeOpacity={0.7}
+              onPress={() => setShowScopeModal(false)}
+            >
+              <Text style={styles.scopeModalCloseText}>Đóng</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    );
+  };
+
+  {/* SCOPE CONFIRMATION MODAL CHO XÓA (3 OPTIONS HOẶC CONFIRM ĐƠN) */}
+  const renderScopeDeleteModal = () => {
+    if (!deleteModalState.isOpen || !deleteModalState.event) return null;
+    const ev = deleteModalState.event;
+    const occD = deleteModalState.occDate || selectedDate || new Date(ev.startTime);
+    const { recurrenceConfig: parsedRec } = parseEventRecurrence(ev.description);
+    const isRecurring = Boolean(parsedRec && parsedRec.frequency !== 'none');
+
+    return (
+      <View style={styles.inModalPopupBackdrop}>
+        <TouchableOpacity
+          style={StyleSheet.absoluteFill}
+          activeOpacity={1}
+          onPress={() => setDeleteModalState({ isOpen: false, event: null, occDate: null })}
+        />
+        <View style={styles.scopeModalCard}>
+          <Text style={styles.scopeModalTitle}>
+            {isRecurring ? 'Xóa sự kiện lặp lại' : 'Xóa vĩnh viễn sự kiện'}
+          </Text>
+          <Text style={styles.scopeModalSubtitle}>
+            {isRecurring
+              ? 'Bạn muốn xóa sự kiện này cho lần diễn ra này, các lần tiếp theo hay tất cả các lần?'
+              : 'Bạn có chắc chắn muốn xóa vĩnh viễn sự kiện này khỏi lịch nhóm?'}
+          </Text>
+
+          {isRecurring ? (
+            <View style={styles.scopeOptionsContainer}>
+              <TouchableOpacity
+                style={[styles.scopeOptionBtn, styles.scopeOptionBtnDelete]}
+                activeOpacity={0.7}
+                onPress={() => executeDelete('this')}
+              >
+                <Text style={[styles.scopeOptionTitle, { color: '#E11D48' }]}>
+                  Chỉ xóa lần này
+                </Text>
+                <Text style={styles.scopeOptionSubtext}>
+                  Ẩn sự kiện vào ngày {formatDateOnly(occD)}. Các lần khác vẫn hiển thị bình thường.
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.scopeOptionBtn, styles.scopeOptionBtnDelete]}
+                activeOpacity={0.7}
+                onPress={() => executeDelete('future')}
+              >
+                <Text style={[styles.scopeOptionTitle, { color: '#E11D48' }]}>
+                  Xóa lần này và các lần tiếp theo
+                </Text>
+                <Text style={styles.scopeOptionSubtext}>
+                  Ngừng chuỗi lặp lại từ ngày {formatDateOnly(occD)} trở đi.
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.scopeOptionBtn, styles.scopeOptionBtnDelete]}
+                activeOpacity={0.7}
+                onPress={() => executeDelete('all')}
+              >
+                <Text style={[styles.scopeOptionTitle, { color: '#E11D48' }]}>
+                  Xóa tất cả các lần
+                </Text>
+                <Text style={styles.scopeOptionSubtext}>
+                  Xóa vĩnh viễn toàn bộ chuỗi sự kiện khỏi lịch nhóm.
+                </Text>
+              </TouchableOpacity>
+
+              <View style={styles.scopeModalFooter}>
+                <TouchableOpacity
+                  style={styles.scopeModalCloseBtn}
+                  activeOpacity={0.7}
+                  onPress={() => setDeleteModalState({ isOpen: false, event: null, occDate: null })}
+                >
+                  <Text style={styles.scopeModalCloseText}>Đóng</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <View style={[styles.scopeModalFooter, { justifyContent: 'flex-end', gap: 10, marginTop: 16 }]}>
+              <TouchableOpacity
+                style={styles.scopeModalCloseBtn}
+                activeOpacity={0.7}
+                onPress={() => setDeleteModalState({ isOpen: false, event: null, occDate: null })}
+              >
+                <Text style={styles.scopeModalCloseText}>Đóng</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.scopeConfirmDeleteBtn}
+                activeOpacity={0.7}
+                onPress={() => executeDelete('all')}
+              >
+                <Text style={styles.scopeConfirmBtnText}>Xác nhận xóa</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+      </View>
+    );
+  };
+
+  {/* SCOPE CONFIRMATION MODAL CHO HỦY (3 OPTIONS HOẶC CONFIRM ĐƠN) */}
+  const renderScopeCancelModal = () => {
+    if (!cancelModalState.isOpen || !cancelModalState.event) return null;
+    const ev = cancelModalState.event;
+    const occD = cancelModalState.occDate || selectedDate || new Date(ev.startTime);
+    const { recurrenceConfig: parsedRec } = parseEventRecurrence(ev.description);
+    const isRecurring = Boolean(parsedRec && parsedRec.frequency !== 'none');
+
+    return (
+      <View style={styles.inModalPopupBackdrop}>
+        <TouchableOpacity
+          style={StyleSheet.absoluteFill}
+          activeOpacity={1}
+          onPress={() => setCancelModalState({ isOpen: false, event: null, occDate: null })}
+        />
+        <View style={styles.scopeModalCard}>
+          <Text style={styles.scopeModalTitle}>
+            {isRecurring ? 'Hủy sự kiện lặp lại' : 'Hủy lịch hẹn'}
+          </Text>
+          <Text style={styles.scopeModalSubtitle}>
+            {isRecurring
+              ? 'Bạn muốn hủy sự kiện này cho lần diễn ra này, các lần tiếp theo hay tất cả các lần?'
+              : 'Bạn có chắc chắn muốn hủy lịch hẹn này? Sự kiện sẽ được đánh dấu [Đã hủy] và giữ lại trên lịch nhóm.'}
+          </Text>
+
+          {isRecurring ? (
+            <View style={styles.scopeOptionsContainer}>
+              <TouchableOpacity
+                style={[styles.scopeOptionBtn, styles.scopeOptionBtnCancel]}
+                activeOpacity={0.7}
+                onPress={() => executeCancel('this')}
+              >
+                <Text style={[styles.scopeOptionTitle, { color: '#D97706' }]}>
+                  Chỉ hủy lần này
+                </Text>
+                <Text style={styles.scopeOptionSubtext}>
+                  Đánh dấu đã hủy cho ngày {formatDateOnly(occD)}. Lịch hẹn vẫn lưu lại để nhóm theo dõi.
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.scopeOptionBtn, styles.scopeOptionBtnCancel]}
+                activeOpacity={0.7}
+                onPress={() => executeCancel('future')}
+              >
+                <Text style={[styles.scopeOptionTitle, { color: '#D97706' }]}>
+                  Hủy lần này và các lần tiếp theo
+                </Text>
+                <Text style={styles.scopeOptionSubtext}>
+                  Đánh dấu đã hủy từ ngày {formatDateOnly(occD)} trở đi.
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.scopeOptionBtn, styles.scopeOptionBtnCancel]}
+                activeOpacity={0.7}
+                onPress={() => executeCancel('all')}
+              >
+                <Text style={[styles.scopeOptionTitle, { color: '#D97706' }]}>
+                  Hủy tất cả các lần
+                </Text>
+                <Text style={styles.scopeOptionSubtext}>
+                  Đánh dấu đã hủy cho toàn bộ chuỗi sự kiện.
+                </Text>
+              </TouchableOpacity>
+
+              <View style={styles.scopeModalFooter}>
+                <TouchableOpacity
+                  style={styles.scopeModalCloseBtn}
+                  activeOpacity={0.7}
+                  onPress={() => setCancelModalState({ isOpen: false, event: null, occDate: null })}
+                >
+                  <Text style={styles.scopeModalCloseText}>Quay lại</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <View style={[styles.scopeModalFooter, { justifyContent: 'flex-end', gap: 10, marginTop: 16 }]}>
+              <TouchableOpacity
+                style={styles.scopeModalCloseBtn}
+                activeOpacity={0.7}
+                onPress={() => setCancelModalState({ isOpen: false, event: null, occDate: null })}
+              >
+                <Text style={styles.scopeModalCloseText}>Quay lại</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.scopeConfirmCancelBtn}
+                activeOpacity={0.7}
+                onPress={() => executeCancel('all')}
+              >
+                <Text style={styles.scopeConfirmBtnText}>Xác nhận hủy</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+      </View>
+    );
+  };
+
+  {/* SCOPE CONFIRMATION MODAL CHO KHÔI PHỤC (2 OPTIONS HOẶC CONFIRM ĐƠN) */}
+  const renderScopeRestoreModal = () => {
+    if (!restoreModalState.isOpen || !restoreModalState.event) return null;
+    const ev = restoreModalState.event;
+    const occD = restoreModalState.occDate || selectedDate || new Date(ev.startTime);
+    const { recurrenceConfig: parsedRec } = parseEventRecurrence(ev.description);
+    const isRecurring = Boolean(parsedRec && parsedRec.frequency !== 'none');
+
+    return (
+      <View style={styles.inModalPopupBackdrop}>
+        <TouchableOpacity
+          style={StyleSheet.absoluteFill}
+          activeOpacity={1}
+          onPress={() => setRestoreModalState({ isOpen: false, event: null, occDate: null })}
+        />
+        <View style={styles.scopeModalCard}>
+          <Text style={styles.scopeModalTitle}>
+            {isRecurring ? 'Khôi phục sự kiện lặp lại' : 'Khôi phục lịch hẹn'}
+          </Text>
+          <Text style={styles.scopeModalSubtitle}>
+            {isRecurring
+              ? 'Bạn muốn khôi phục sự kiện này cho lần diễn ra này hay khôi phục tất cả các lần?'
+              : 'Bạn có chắc chắn muốn khôi phục lịch hẹn này? Lịch hẹn sẽ hoạt động bình thường trở lại.'}
+          </Text>
+
+          {isRecurring ? (
+            <View style={styles.scopeOptionsContainer}>
+              <TouchableOpacity
+                style={[styles.scopeOptionBtn, { borderColor: '#A7F3D0', backgroundColor: '#F0FDF4' }]}
+                activeOpacity={0.7}
+                onPress={() => executeRestore('this')}
+              >
+                <Text style={[styles.scopeOptionTitle, { color: '#059669' }]}>
+                  Chỉ khôi phục lần này
+                </Text>
+                <Text style={styles.scopeOptionSubtext}>
+                  Khôi phục lịch hẹn cho ngày {formatDateOnly(occD)}. Lịch hẹn sẽ hoạt động bình thường trở lại.
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.scopeOptionBtn, { borderColor: '#A7F3D0', backgroundColor: '#F0FDF4' }]}
+                activeOpacity={0.7}
+                onPress={() => executeRestore('all')}
+              >
+                <Text style={[styles.scopeOptionTitle, { color: '#059669' }]}>
+                  Khôi phục tất cả các lần
+                </Text>
+                <Text style={styles.scopeOptionSubtext}>
+                  Khôi phục trạng thái hoạt động cho toàn bộ chuỗi sự kiện.
+                </Text>
+              </TouchableOpacity>
+
+              <View style={styles.scopeModalFooter}>
+                <TouchableOpacity
+                  style={styles.scopeModalCloseBtn}
+                  activeOpacity={0.7}
+                  onPress={() => setRestoreModalState({ isOpen: false, event: null, occDate: null })}
+                >
+                  <Text style={styles.scopeModalCloseText}>Quay lại</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <View style={[styles.scopeModalFooter, { justifyContent: 'flex-end', gap: 10, marginTop: 16 }]}>
+              <TouchableOpacity
+                style={styles.scopeModalCloseBtn}
+                activeOpacity={0.7}
+                onPress={() => setRestoreModalState({ isOpen: false, event: null, occDate: null })}
+              >
+                <Text style={styles.scopeModalCloseText}>Quay lại</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.scopeConfirmCancelBtn, { backgroundColor: '#059669' }]}
+                activeOpacity={0.7}
+                onPress={() => executeRestore('all')}
+              >
+                <Text style={styles.scopeConfirmBtnText}>Xác nhận khôi phục</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+      </View>
+    );
   };
 
   const togglePickerTarget = (
@@ -2890,77 +3549,620 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
     );
   };
 
-  const handleRsvp = async (status: EventRsvpStatus) => {
+  // Xử lý Bình chọn (RSVP) - Nếu là sự kiện lặp lại thì hỏi phạm vi áp dụng
+  const handleVoteOptionClick = (status: EventRsvpStatus) => {
     if (!detailEvent || detailEvent.isCancelled) return;
-    try {
-      Haptics.selectionAsync();
-      await respondCalendarEventRsvpApi(circleId, detailEvent.id, { status });
+    setIsDetailPollModalOpen(false);
 
-      setDetailEvent((prev) => {
-        if (!prev) return null;
-        const existing = prev.rsvps || [];
-        const filtered = existing.filter((r) => r.userId !== user?.id);
-        const newRsvp: CalendarEventRsvpEntity = {
-          id: `rsvp-${Date.now()}`,
-          eventId: prev.id,
-          userId: user?.id || '',
-          status,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          user: user
-            ? {
-                id: user.id,
-                email: user.email,
-                profile: user.profile
-                  ? {
-                      displayName: user.profile.displayName || 'Tôi',
-                      avatarUrl: user.profile.avatarUrl,
-                    }
-                  : null,
-              }
-            : undefined,
-        };
-        return {
-          ...prev,
-          rsvps: [...filtered, newRsvp],
-        };
-      });
+    const { recurrenceConfig: rec } = parseEventRecurrence(detailEvent.description);
+    const isRecurring = Boolean(rec && rec.frequency !== 'none');
 
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      loadEvents();
-    } catch (err: any) {
-      Alert.alert('Lỗi', err.message || 'Không thể gửi phản hồi tham gia');
+    if (isRecurring) {
+      setPendingPollStatus(status);
+      setShowPollScopeModal(true);
+    } else {
+      executeVote(status, 'all');
     }
   };
 
-  const handleQuickUpdateReminder = async (optionValue: string) => {
+  const executeVote = async (status: EventRsvpStatus, scope: 'this' | 'future' | 'all') => {
     if (!detailEvent) return;
-    setIsUpdatingReminder(true);
+    const currentOccDate = detailOccurrenceDate || selectedDate || new Date(detailEvent.startTime);
+    const { recurrenceConfig, cleanDesc } = parseEventRecurrence(detailEvent.description);
+    const isRecurring = Boolean(recurrenceConfig && recurrenceConfig.frequency !== 'none');
+
     try {
-      let newReminderTime: string | null = null;
-      if (optionValue !== 'none') {
-        const minutes = parseInt(optionValue, 10);
-        const startMs = new Date(detailEvent.startTime).getTime();
-        newReminderTime = new Date(startMs - minutes * 60 * 1000).toISOString();
+      Haptics.selectionAsync();
+
+      if (isRecurring && scope === 'this') {
+        const occKey = formatDateKey(currentOccDate);
+        const currentExcluded = recurrenceConfig?.excludedDates || [];
+        const nextExcluded = currentExcluded.includes(occKey)
+          ? currentExcluded
+          : [...currentExcluded, occKey];
+        const updatedParentRecurrence: RecurrenceConfig = {
+          ...(recurrenceConfig!),
+          excludedDates: nextExcluded,
+        };
+        const updatedParentDesc = serializeRecurrence(updatedParentRecurrence, cleanDesc);
+
+        // 1. Loại trừ ngày này khỏi chuỗi lặp cha
+        await updateCalendarEventApi(circleId, detailEvent.id, {
+          description: updatedParentDesc,
+        });
+
+        // 2. Tạo sự kiện đơn lẻ cho ngày này
+        const evStart = new Date(detailEvent.startTime);
+        const occStartDate = new Date(
+          currentOccDate.getFullYear(),
+          currentOccDate.getMonth(),
+          currentOccDate.getDate(),
+          evStart.getHours(),
+          evStart.getMinutes(),
+          0,
+        );
+        let occEndDate = occStartDate;
+        if (detailEvent.endTime) {
+          const evEnd = new Date(detailEvent.endTime);
+          const durationMs = evEnd.getTime() - evStart.getTime();
+          occEndDate = new Date(occStartDate.getTime() + durationMs);
+        }
+
+        const standaloneConfig: RecurrenceConfig = {
+          ...(recurrenceConfig!),
+          frequency: 'none',
+          endType: 'never',
+          endDate: null,
+          isCustom: false,
+        };
+        const standaloneDesc = serializeRecurrence(standaloneConfig, cleanDesc);
+
+        const created = await createCalendarEventApi(circleId, {
+          eventTitle: detailEvent.eventTitle,
+          description: standaloneDesc,
+          location: detailEvent.location || undefined,
+          startTime: occStartDate.toISOString(),
+          endTime: occEndDate.toISOString(),
+          reminderTime: detailEvent.reminderTime || undefined,
+          isRecurrenceSplit: true,
+        } as any);
+
+        // 3. Gửi vote cho sự kiện đơn lẻ vừa tạo
+        await respondCalendarEventRsvpApi(circleId, created.id, { status });
+
+        setDetailEvent(created);
+        setDetailOccurrenceDate(new Date(created.startTime));
+      } else if (isRecurring && scope === 'future') {
+        const evStart = new Date(detailEvent.startTime);
+        const occStartDate = new Date(
+          currentOccDate.getFullYear(),
+          currentOccDate.getMonth(),
+          currentOccDate.getDate(),
+          evStart.getHours(),
+          evStart.getMinutes(),
+          0,
+        );
+        const splitDay = new Date(
+          occStartDate.getFullYear(),
+          occStartDate.getMonth(),
+          occStartDate.getDate(),
+        );
+        const evOriginalStartDay = new Date(
+          evStart.getFullYear(),
+          evStart.getMonth(),
+          evStart.getDate(),
+        );
+
+        if (splitDay.getTime() > evOriginalStartDay.getTime()) {
+          const dayBefore = new Date(splitDay);
+          dayBefore.setDate(dayBefore.getDate() - 1);
+          dayBefore.setHours(23, 59, 59, 999);
+
+          const updatedParentRecurrence: RecurrenceConfig = {
+            ...(recurrenceConfig!),
+            endType: 'on_date',
+            endDate: dayBefore,
+          };
+          const updatedParentDesc = serializeRecurrence(updatedParentRecurrence, cleanDesc);
+
+          // 1. Cập nhật chuỗi cha kết thúc trước splitDay
+          await updateCalendarEventApi(circleId, detailEvent.id, {
+            description: updatedParentDesc,
+          });
+
+          // 2. Tạo chuỗi mới từ ngày này
+          let occEndDate = occStartDate;
+          if (detailEvent.endTime) {
+            const evEnd = new Date(detailEvent.endTime);
+            const durationMs = evEnd.getTime() - evStart.getTime();
+            occEndDate = new Date(occStartDate.getTime() + durationMs);
+          }
+
+          const childConfig: RecurrenceConfig = {
+            ...(recurrenceConfig!),
+            excludedDates: [],
+            cancelledDates: [],
+          };
+          const childDesc = serializeRecurrence(childConfig, cleanDesc);
+
+          const created = await createCalendarEventApi(circleId, {
+            eventTitle: detailEvent.eventTitle,
+            description: childDesc,
+            location: detailEvent.location || undefined,
+            startTime: occStartDate.toISOString(),
+            endTime: occEndDate.toISOString(),
+            reminderTime: detailEvent.reminderTime || undefined,
+            isRecurrenceSplit: true,
+          } as any);
+
+          // 3. Vote cho chuỗi mới
+          await respondCalendarEventRsvpApi(circleId, created.id, { status });
+
+          setDetailEvent(created);
+          setDetailOccurrenceDate(new Date(created.startTime));
+        } else {
+          // Trùng ngày bắt đầu ban đầu: vote cho toàn bộ chuỗi
+          await respondCalendarEventRsvpApi(circleId, detailEvent.id, { status });
+          setDetailEvent((prev) => {
+            if (!prev) return null;
+            const existing = prev.rsvps || [];
+            const filtered = existing.filter((r) => r.userId !== user?.id);
+            const newRsvp: CalendarEventRsvpEntity = {
+              id: `rsvp-${Date.now()}`,
+              eventId: prev.id,
+              userId: user?.id || '',
+              status,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              user: user
+                ? {
+                    id: user.id,
+                    email: user.email,
+                    profile: user.profile
+                      ? {
+                          displayName: user.profile.displayName || 'Tôi',
+                          avatarUrl: user.profile.avatarUrl,
+                        }
+                      : null,
+                  }
+                : undefined,
+            };
+            return {
+              ...prev,
+              rsvps: [...filtered, newRsvp],
+            };
+          });
+        }
+      } else {
+        // Cập nhật tất cả các lần (hoặc sự kiện đơn)
+        await respondCalendarEventRsvpApi(circleId, detailEvent.id, { status });
+        setDetailEvent((prev) => {
+          if (!prev) return null;
+          const existing = prev.rsvps || [];
+          const filtered = existing.filter((r) => r.userId !== user?.id);
+          const newRsvp: CalendarEventRsvpEntity = {
+            id: `rsvp-${Date.now()}`,
+            eventId: prev.id,
+            userId: user?.id || '',
+            status,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            user: user
+              ? {
+                  id: user.id,
+                  email: user.email,
+                  profile: user.profile
+                    ? {
+                        displayName: user.profile.displayName || 'Tôi',
+                        avatarUrl: user.profile.avatarUrl,
+                      }
+                    : null,
+                }
+              : undefined,
+          };
+          return {
+            ...prev,
+            rsvps: [...filtered, newRsvp],
+          };
+        });
       }
 
-      await updateCalendarEventApi(circleId, detailEvent.id, {
-        reminderTime: newReminderTime as any,
-      });
-
-      setDetailEvent((prev) =>
-        prev && prev.id === detailEvent.id
-          ? { ...prev, reminderTime: newReminderTime as any }
-          : prev,
-      );
-      setIsQuickReminderModalOpen(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       loadEvents();
+      loadAllSearchEvents();
+    } catch (err: any) {
+      Alert.alert('Lỗi', err.message || 'Không thể gửi phản hồi tham gia');
+    } finally {
+      setShowPollScopeModal(false);
+      setPendingPollStatus(null);
+    }
+  };
+
+  // Chọn thời gian nhắc nhở: Hỏi xác nhận hoặc phạm vi áp dụng
+  const handleReminderOptionSelect = (optionValue: string) => {
+    if (!detailEvent || isUpdatingReminder) return;
+    setIsQuickReminderModalOpen(false);
+
+    const { recurrenceConfig: rec } = parseEventRecurrence(detailEvent.description);
+    const isRecurring = Boolean(rec && rec.frequency !== 'none');
+
+    setPendingReminderValue(optionValue);
+    if (isRecurring) {
+      setShowReminderScopeModal(true);
+    } else {
+      setShowReminderConfirmModal(true);
+    }
+  };
+
+  const executeReminder = async (scope: 'this' | 'future' | 'all') => {
+    if (!detailEvent || !pendingReminderValue) return;
+    const newVal = pendingReminderValue;
+    const currentOccDate = detailOccurrenceDate || selectedDate || new Date(detailEvent.startTime);
+    const { recurrenceConfig, cleanDesc } = parseEventRecurrence(detailEvent.description);
+    const isRecurring = Boolean(recurrenceConfig && recurrenceConfig.frequency !== 'none');
+
+    setIsUpdatingReminder(true);
+    setShowReminderScopeModal(false);
+    setShowReminderConfirmModal(false);
+
+    try {
+      const diffMins = newVal !== 'none' ? parseInt(newVal, 10) : null;
+      const evStart = new Date(detailEvent.startTime);
+      const occStartDate = new Date(
+        currentOccDate.getFullYear(),
+        currentOccDate.getMonth(),
+        currentOccDate.getDate(),
+        evStart.getHours(),
+        evStart.getMinutes(),
+        0,
+      );
+
+      if (isRecurring && scope === 'this') {
+        const occKey = formatDateKey(currentOccDate);
+        const currentExcluded = recurrenceConfig?.excludedDates || [];
+        const nextExcluded = currentExcluded.includes(occKey)
+          ? currentExcluded
+          : [...currentExcluded, occKey];
+        const updatedParentRecurrence: RecurrenceConfig = {
+          ...(recurrenceConfig!),
+          excludedDates: nextExcluded,
+        };
+        const updatedParentDesc = serializeRecurrence(updatedParentRecurrence, cleanDesc);
+
+        // 1. Exclude this occurrence from parent series
+        await updateCalendarEventApi(circleId, detailEvent.id, {
+          description: updatedParentDesc,
+        });
+
+        // 2. Create standalone non-recurring event for this occurrence
+        let standaloneReminderIso: string | null = null;
+        if (diffMins !== null) {
+          const s = new Date(occStartDate);
+          s.setMinutes(s.getMinutes() - diffMins);
+          standaloneReminderIso = s.toISOString();
+        }
+
+        let occEndDate = occStartDate;
+        if (detailEvent.endTime) {
+          const evEnd = new Date(detailEvent.endTime);
+          const durationMs = evEnd.getTime() - evStart.getTime();
+          occEndDate = new Date(occStartDate.getTime() + durationMs);
+        }
+
+        const standaloneConfig: RecurrenceConfig = {
+          ...(recurrenceConfig!),
+          frequency: 'none',
+          endType: 'never',
+          endDate: null,
+          isCustom: false,
+        };
+        const standaloneDesc = serializeRecurrence(standaloneConfig, cleanDesc);
+
+        const created = await createCalendarEventApi(circleId, {
+          eventTitle: detailEvent.eventTitle,
+          description: standaloneDesc,
+          location: detailEvent.location || undefined,
+          startTime: occStartDate.toISOString(),
+          endTime: occEndDate.toISOString(),
+          reminderTime: standaloneReminderIso || undefined,
+          isRecurrenceSplit: true,
+        } as any);
+
+        setDetailEvent(created);
+        setDetailOccurrenceDate(new Date(created.startTime));
+      } else if (isRecurring && scope === 'future') {
+        const splitDay = new Date(
+          occStartDate.getFullYear(),
+          occStartDate.getMonth(),
+          occStartDate.getDate(),
+        );
+        const evOriginalStartDay = new Date(
+          evStart.getFullYear(),
+          evStart.getMonth(),
+          evStart.getDate(),
+        );
+
+        let newReminderIso: string | null = null;
+        if (diffMins !== null) {
+          const s = new Date(occStartDate);
+          s.setMinutes(s.getMinutes() - diffMins);
+          newReminderIso = s.toISOString();
+        }
+
+        if (splitDay.getTime() > evOriginalStartDay.getTime()) {
+          const dayBefore = new Date(splitDay);
+          dayBefore.setDate(dayBefore.getDate() - 1);
+          dayBefore.setHours(23, 59, 59, 999);
+
+          const updatedParentRecurrence: RecurrenceConfig = {
+            ...(recurrenceConfig!),
+            endType: 'on_date',
+            endDate: dayBefore,
+          };
+          const updatedParentDesc = serializeRecurrence(updatedParentRecurrence, cleanDesc);
+
+          // 1. Cập nhật sự kiện cũ: kết thúc lặp vào ngày trước splitDate
+          await updateCalendarEventApi(circleId, detailEvent.id, {
+            description: updatedParentDesc,
+          });
+
+          // 2. Tạo sự kiện mới bắt đầu từ occStartDate với chu kỳ lặp mới và reminderTime mới
+          let occEndDate = occStartDate;
+          if (detailEvent.endTime) {
+            const evEnd = new Date(detailEvent.endTime);
+            const durationMs = evEnd.getTime() - evStart.getTime();
+            occEndDate = new Date(occStartDate.getTime() + durationMs);
+          }
+
+          const childConfig: RecurrenceConfig = {
+            ...(recurrenceConfig!),
+            excludedDates: [],
+            cancelledDates: [],
+          };
+          const childDesc = serializeRecurrence(childConfig, cleanDesc);
+
+          const created = await createCalendarEventApi(circleId, {
+            eventTitle: detailEvent.eventTitle,
+            description: childDesc,
+            location: detailEvent.location || undefined,
+            startTime: occStartDate.toISOString(),
+            endTime: occEndDate.toISOString(),
+            reminderTime: newReminderIso || undefined,
+            isRecurrenceSplit: true,
+          } as any);
+
+          setDetailEvent(created);
+          setDetailOccurrenceDate(new Date(created.startTime));
+        } else {
+          // Trùng hoặc trước ngày bắt đầu ban đầu: cập nhật tất cả
+          await updateCalendarEventApi(circleId, detailEvent.id, {
+            reminderTime: newReminderIso as any,
+          });
+          setDetailEvent((prev) =>
+            prev && prev.id === detailEvent.id
+              ? { ...prev, reminderTime: newReminderIso as any }
+              : prev,
+          );
+        }
+      } else {
+        // Cập nhật tất cả các lần (hoặc sự kiện đơn)
+        let newReminderTime: string | null = null;
+        if (newVal !== 'none') {
+          const minutes = parseInt(newVal, 10);
+          const startMs = new Date(detailEvent.startTime).getTime();
+          newReminderTime = new Date(startMs - minutes * 60 * 1000).toISOString();
+        }
+
+        await updateCalendarEventApi(circleId, detailEvent.id, {
+          reminderTime: newReminderTime as any,
+        });
+
+        setDetailEvent((prev) =>
+          prev && prev.id === detailEvent.id
+            ? { ...prev, reminderTime: newReminderTime as any }
+            : prev,
+        );
+      }
+
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      loadEvents();
+      loadAllSearchEvents();
     } catch (err: any) {
       Alert.alert('Lỗi', err.message || 'Không thể cập nhật nhắc nhở');
     } finally {
       setIsUpdatingReminder(false);
+      setPendingReminderValue(null);
     }
+  };
+
+  {/* SCOPE MODAL KHI BÌNH CHỌN CHO SỰ KIỆN LẶP LẠI (3 OPTIONS) */}
+  const renderPollScopeModal = () => {
+    if (!showPollScopeModal || !detailEvent) return null;
+    const currentOccDate = detailOccurrenceDate || selectedDate || new Date(detailEvent.startTime);
+
+    return (
+      <View style={styles.inModalPopupBackdrop}>
+        <TouchableOpacity
+          style={StyleSheet.absoluteFill}
+          activeOpacity={1}
+          onPress={() => {
+            setShowPollScopeModal(false);
+            setPendingPollStatus(null);
+          }}
+        />
+        <View style={styles.scopeModalCard}>
+          <Text style={styles.scopeModalTitle}>
+            Bạn muốn áp dụng thay đổi như thế nào ?
+          </Text>
+
+          <View style={styles.scopeOptionsContainer}>
+            <TouchableOpacity
+              style={styles.scopeOptionBtn}
+              activeOpacity={0.7}
+              onPress={() => executeVote(pendingPollStatus!, 'this')}
+            >
+              <Text style={styles.scopeOptionTitle}>Chỉ lần này</Text>
+              <Text style={styles.scopeOptionSubtext}>
+                Chỉ áp dụng phản hồi cho riêng ngày {formatDateOnly(currentOccDate)}, các lần khác giữ nguyên.
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.scopeOptionBtn}
+              activeOpacity={0.7}
+              onPress={() => executeVote(pendingPollStatus!, 'future')}
+            >
+              <Text style={styles.scopeOptionTitle}>Lần này và các lần tiếp theo</Text>
+              <Text style={styles.scopeOptionSubtext}>
+                Áp dụng phản hồi từ ngày {formatDateOnly(currentOccDate)} trở đi (sẽ tách làm 2 sự kiện có chu kỳ lặp khác nhau).
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.scopeOptionBtn}
+              activeOpacity={0.7}
+              onPress={() => executeVote(pendingPollStatus!, 'all')}
+            >
+              <Text style={styles.scopeOptionTitle}>Tất cả các lần</Text>
+              <Text style={styles.scopeOptionSubtext}>
+                Cập nhật phản hồi cho toàn bộ các lần diễn ra trong chuỗi lặp lại.
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.scopeModalFooter}>
+            <TouchableOpacity
+              style={styles.scopeModalCloseBtn}
+              activeOpacity={0.7}
+              onPress={() => {
+                setShowPollScopeModal(false);
+                setPendingPollStatus(null);
+              }}
+            >
+              <Text style={styles.scopeModalCloseText}>Đóng</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    );
+  };
+
+  {/* SCOPE MODAL KHI CẬP NHẬT NHẮC HẸN CHO SỰ KIỆN LẶP LẠI (3 OPTIONS) */}
+  const renderReminderScopeModal = () => {
+    if (!showReminderScopeModal || !detailEvent) return null;
+    const currentOccDate = detailOccurrenceDate || selectedDate || new Date(detailEvent.startTime);
+
+    return (
+      <View style={styles.inModalPopupBackdrop}>
+        <TouchableOpacity
+          style={StyleSheet.absoluteFill}
+          activeOpacity={1}
+          onPress={() => {
+            setShowReminderScopeModal(false);
+            setPendingReminderValue(null);
+          }}
+        />
+        <View style={styles.scopeModalCard}>
+          <Text style={styles.scopeModalTitle}>
+            Bạn muốn áp dụng thay đổi như thế nào ?
+          </Text>
+
+          <View style={styles.scopeOptionsContainer}>
+            <TouchableOpacity
+              style={styles.scopeOptionBtn}
+              activeOpacity={0.7}
+              onPress={() => executeReminder('this')}
+            >
+              <Text style={styles.scopeOptionTitle}>Chỉ lần này</Text>
+              <Text style={styles.scopeOptionSubtext}>
+                Chỉ thay đổi riêng ngày {formatDateOnly(currentOccDate)}, các lần khác giữ nguyên.
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.scopeOptionBtn}
+              activeOpacity={0.7}
+              onPress={() => executeReminder('future')}
+            >
+              <Text style={styles.scopeOptionTitle}>Lần này và các lần tiếp theo</Text>
+              <Text style={styles.scopeOptionSubtext}>
+                Áp dụng thay đổi từ ngày {formatDateOnly(currentOccDate)} trở đi (sẽ tách làm 2 sự kiện có chu kỳ lặp khác nhau).
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.scopeOptionBtn}
+              activeOpacity={0.7}
+              onPress={() => executeReminder('all')}
+            >
+              <Text style={styles.scopeOptionTitle}>Tất cả các lần</Text>
+              <Text style={styles.scopeOptionSubtext}>
+                Cập nhật thời gian nhắc hẹn cho toàn bộ các lần diễn ra trong chuỗi lặp lại.
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.scopeModalFooter}>
+            <TouchableOpacity
+              style={styles.scopeModalCloseBtn}
+              activeOpacity={0.7}
+              onPress={() => {
+                setShowReminderScopeModal(false);
+                setPendingReminderValue(null);
+              }}
+            >
+              <Text style={styles.scopeModalCloseText}>Đóng</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    );
+  };
+
+  {/* CONFIRMATION MODAL KHI CẬP NHẬT NHẮC HẸN CHO SỰ KIỆN ĐƠN */}
+  const renderReminderConfirmModal = () => {
+    if (!showReminderConfirmModal || !detailEvent) return null;
+
+    return (
+      <View style={styles.inModalPopupBackdrop}>
+        <TouchableOpacity
+          style={StyleSheet.absoluteFill}
+          activeOpacity={1}
+          onPress={() => {
+            setShowReminderConfirmModal(false);
+            setPendingReminderValue(null);
+          }}
+        />
+        <View style={styles.scopeModalCard}>
+          <Text style={styles.scopeModalTitle}>
+            Cập nhật thời gian nhắc hẹn
+          </Text>
+          <Text style={styles.scopeModalSubtitle}>
+            Bạn có chắc chắn muốn thay đổi thời gian nhắc hẹn cho sự kiện này?
+          </Text>
+
+          <View style={[styles.scopeModalFooter, { justifyContent: 'flex-end', gap: 10, marginTop: 16 }]}>
+            <TouchableOpacity
+              style={styles.scopeModalCloseBtn}
+              activeOpacity={0.7}
+              onPress={() => {
+                setShowReminderConfirmModal(false);
+                setPendingReminderValue(null);
+              }}
+            >
+              <Text style={styles.scopeModalCloseText}>Đóng</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.scopeConfirmPrimaryBtn}
+              activeOpacity={0.7}
+              onPress={() => executeReminder('all')}
+            >
+              <Text style={styles.scopeConfirmBtnText}>Cập nhật</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    );
   };
 
   {/* Màn hình Chi tiết lịch hẹn (Full-Screen View, không phải popup) */}
@@ -3093,7 +4295,10 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
         {/* Scrollable Content (Toàn màn hình, khi cuộn nội dung sẽ lướt qua bên dưới 3 nút Floating Pill) */}
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.detailFullScreenContent}
+          contentContainerStyle={[
+            styles.detailFullScreenContent,
+            { paddingTop: Math.max(insets.top + 8, 16) + 38 + 14 },
+          ]}
         >
           {/* =========================================================================
               THẺ 1: TÊN, ĐỊA ĐIỂM (LINK), THỜI GIAN, LẶP LẠI (NAV), NGƯỜI THAM GIA
@@ -3112,9 +4317,23 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
               </Text>
 
               {isThisOccurrenceCancelled && (
-                <View style={styles.detailStatusCancelledBadge}>
-                  <Ban size={13} color="#EF4444" />
-                  <Text style={styles.detailStatusCancelledText}>Đã hủy lịch hẹn</Text>
+                <View style={[styles.detailStatusCancelledBadge, { justifyContent: 'space-between', width: '100%' }]}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Ban size={13} color="#EF4444" />
+                    <Text style={styles.detailStatusCancelledText}>Đã hủy lịch hẹn</Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setRestoreModalState({
+                        isOpen: true,
+                        event: detailEvent,
+                        occDate: currentOccDate,
+                      });
+                    }}
+                    style={{ backgroundColor: '#059669', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 }}
+                  >
+                    <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '700' }}>Khôi phục</Text>
+                  </TouchableOpacity>
                 </View>
               )}
             </View>
@@ -3367,7 +4586,13 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
         {/* =========================================================================
             3 NÚT FLOATING PILL BUTTONS (Nổi lơ lửng ở đỉnh, nội dung lướt qua bên dưới)
            ========================================================================= */}
-        <View style={styles.detailFloatingPillHeader} pointerEvents="box-none">
+        <View
+          style={[
+            styles.detailFloatingPillHeader,
+            { top: Math.max(insets.top + 8, 16) },
+          ]}
+          pointerEvents="box-none"
+        >
           {/* Nút 1: Quay lại dạng ngày tháng năm dd/mm/yyyy - Dạng Floating Pill Button */}
           <TouchableOpacity
             style={[styles.detailFloatingPillBtn, styles.detailFloatingBackPill]}
@@ -3392,7 +4617,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                 activeOpacity={0.7}
                 onPress={() => {
                   const evToEdit = detailEvent;
-                  handleOpenEditModal(evToEdit);
+                  handleOpenEditModal(evToEdit, currentOccDate);
                 }}
               >
                 <Pencil size={17} color="#0D9488" />
@@ -3415,7 +4640,13 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
         {/* =========================================================================
             NÚT TREO ĐÁY: THAM GIA BÌNH CHỌN (DẠNG FLOATING PILL BUTTON)
            ========================================================================= */}
-        <View style={styles.detailFloatingBottomContainer} pointerEvents="box-none">
+        <View
+          style={[
+            styles.detailFloatingBottomContainer,
+            { bottom: Math.max(insets.bottom + 16, 24) },
+          ]}
+          pointerEvents="box-none"
+        >
           <TouchableOpacity
             style={styles.detailFloatingPollPillBtn}
             activeOpacity={0.85}
@@ -3507,8 +4738,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                         activeOpacity={0.7}
                         disabled={isPollClosed}
                         onPress={() => {
-                          handleRsvp(opt.status);
-                          setIsDetailPollModalOpen(false);
+                          handleVoteOptionClick(opt.status);
                         }}
                       >
                         {/* Progress bar background fill */}
@@ -3812,7 +5042,11 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                     activeOpacity={0.7}
                     onPress={() => {
                       setIsDetailMenuOpen(false);
-                      handleCancelEventInDetail(detailEvent.id);
+                      setCancelModalState({
+                        isOpen: true,
+                        event: detailEvent,
+                        occDate: detailOccurrenceDate || selectedDate || (detailEvent ? new Date(detailEvent.startTime) : new Date()),
+                      });
                     }}
                   >
                     <Ban size={18} color="#D97706" />
@@ -3831,7 +5065,11 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                     activeOpacity={0.7}
                     onPress={() => {
                       setIsDetailMenuOpen(false);
-                      handleRestoreEventInDetail(detailEvent.id);
+                      setRestoreModalState({
+                        isOpen: true,
+                        event: detailEvent,
+                        occDate: currentOccDate,
+                      });
                     }}
                   >
                     <Check size={18} color="#059669" />
@@ -3851,7 +5089,11 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                   activeOpacity={0.7}
                   onPress={() => {
                     setIsDetailMenuOpen(false);
-                    handleDeleteEventInDetail(detailEvent.id);
+                    setDeleteModalState({
+                      isOpen: true,
+                      event: detailEvent,
+                      occDate: detailOccurrenceDate || selectedDate || (detailEvent ? new Date(detailEvent.startTime) : new Date()),
+                    });
                   }}
                 >
                   <Trash2 size={18} color="#EF4444" />
@@ -3900,7 +5142,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                         styles.popupItem,
                         idx < REMINDER_OPTIONS.length - 1 && styles.popupItemBorder,
                       ]}
-                      onPress={() => handleQuickUpdateReminder(item.value)}
+                      onPress={() => handleReminderOptionSelect(item.value)}
                       activeOpacity={0.6}
                     >
                       <Text
@@ -3919,6 +5161,590 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
             </View>
           </View>
         )}
+
+        {/* SCOPE CONFIRMATION MODAL CHO XÓA (3 OPTIONS HOẶC CONFIRM ĐƠN) */}
+        {renderScopeDeleteModal()}
+
+        {/* SCOPE CONFIRMATION MODAL CHO HỦY (3 OPTIONS HOẶC CONFIRM ĐƠN) */}
+        {renderScopeCancelModal()}
+
+        {/* SCOPE CONFIRMATION MODAL CHO KHÔI PHỤC (2 OPTIONS HOẶC CONFIRM ĐƠN) */}
+        {renderScopeRestoreModal()}
+
+        {/* SCOPE MODAL KHI BÌNH CHỌN CHO SỰ KIỆN LẶP LẠI (3 OPTIONS) */}
+        {renderPollScopeModal()}
+
+        {/* SCOPE MODAL KHI CẬP NHẬT NHẮC HẸN CHO SỰ KIỆN LẶP LẠI (3 OPTIONS) */}
+        {renderReminderScopeModal()}
+
+        {/* CONFIRMATION MODAL KHI CẬP NHẬT NHẮC HẸN CHO SỰ KIỆN ĐƠN */}
+        {renderReminderConfirmModal()}
+      </View>
+    );
+  };
+
+  // Group schedule events chronologically by date: "Thứ, ngày tháng năm" (như ở Web)
+  const groupedScheduleSearch = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    const baseList = allSearchEvents.length > 0 ? allSearchEvents : events;
+    const filtered = query
+      ? baseList.filter((ev) => ev.eventTitle?.toLowerCase().includes(query))
+      : baseList;
+
+    if (filtered.length === 0) return [];
+
+    const now = new Date();
+    const todayDateOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+
+    // Cửa sổ thời gian bung lặp (-30 ngày đến +90 ngày)
+    const windowStartDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30, 0, 0, 0, 0);
+    const windowEndDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 90, 23, 59, 59, 999);
+
+    const map = new Map<
+      string,
+      {
+        dateKey: string;
+        dateObj: Date;
+        dateLabel: string;
+        isPast: boolean;
+        isToday: boolean;
+        list: CalendarEventEntity[];
+      }
+    >();
+
+    const addEntry = (d: Date, ev: CalendarEventEntity) => {
+      const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      if (!map.has(dateKey)) {
+        const rawWeekday = d.toLocaleDateString('vi-VN', { weekday: 'long' });
+        const weekday = rawWeekday
+          .split(' ')
+          .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+          .join(' ');
+        const day = d.getDate();
+        const monthNum = d.getMonth() + 1;
+        const yearNum = d.getFullYear();
+        const dateLabel = `${weekday}, ngày ${day} tháng ${monthNum} năm ${yearNum}`;
+
+        const gDateOnly = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+        const isToday = gDateOnly === todayDateOnly;
+        const isPast = gDateOnly < todayDateOnly;
+
+        map.set(dateKey, { dateKey, dateObj: d, dateLabel, isPast, isToday, list: [] });
+      }
+
+      if (!map.get(dateKey)!.list.some((e) => e.id === ev.id)) {
+        map.get(dateKey)!.list.push(ev);
+      }
+    };
+
+    for (const ev of filtered) {
+      const { recurrenceConfig } = parseEventRecurrence(ev.description);
+      const isRecurring = Boolean(recurrenceConfig && recurrenceConfig.frequency !== 'none');
+
+      if (!isRecurring) {
+        const startD = new Date(ev.startTime);
+        addEntry(new Date(startD.getFullYear(), startD.getMonth(), startD.getDate()), ev);
+      } else {
+        const cur = new Date(windowStartDate);
+        while (cur.getTime() <= windowEndDate.getTime()) {
+          if (isEventOccurringOnDate(ev, cur, recurrenceConfig)) {
+            const isCancelledThisOcc = isEventCancelledOnDate(ev, cur, recurrenceConfig);
+            const occEvent = isCancelledThisOcc ? { ...ev, isCancelled: true } : ev;
+            addEntry(new Date(cur), occEvent);
+          }
+          cur.setDate(cur.getDate() + 1);
+        }
+      }
+    }
+
+    return Array.from(map.values()).sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime());
+  }, [allSearchEvents, events, searchQuery]);
+
+  const handleScheduleCardRsvp = useCallback(
+    async (ev: CalendarEventEntity, status: EventRsvpStatus) => {
+      Haptics.selectionAsync();
+      const optimisticUpdate = (list: CalendarEventEntity[]) =>
+        list.map((item) => {
+          if (item.id !== ev.id) return item;
+          const curRsvps = item.rsvps || [];
+          const filtered = curRsvps.filter((r) => r.userId !== user?.id);
+          filtered.push({
+            id: `rsvp-${Date.now()}`,
+            eventId: item.id,
+            userId: user?.id || '',
+            status,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            user: user
+              ? {
+                  id: user.id,
+                  email: user.email,
+                  profile: user.profile
+                    ? {
+                        displayName: user.profile.displayName || 'Tôi',
+                        avatarUrl: user.profile.avatarUrl,
+                      }
+                    : null,
+                }
+              : undefined,
+          });
+          return { ...item, rsvps: filtered };
+        });
+
+      setAllSearchEvents(optimisticUpdate);
+      setEvents(optimisticUpdate);
+
+      try {
+        await respondCalendarEventRsvpApi(circleId, ev.id, { status });
+      } catch (err: any) {
+        Alert.alert('Lỗi', err.message || 'Không thể cập nhật bình chọn');
+        loadAllSearchEvents();
+      }
+    },
+    [circleId, user, loadAllSearchEvents],
+  );
+
+  const renderTopFloatingBar = () => {
+    return (
+      <View
+        pointerEvents="box-none"
+        style={{
+          position: 'absolute',
+          top: topHeaderTop,
+          left: 14,
+          right: 14,
+          zIndex: 40,
+          gap: 8,
+        }}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          {/* Nút Quay lại (< icon only) */}
+          <TouchableOpacity
+            activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            onPress={() => {
+              if (isYearView) {
+                setIsYearView(false);
+                Haptics.selectionAsync();
+              } else {
+                onBack?.();
+              }
+            }}
+            style={[
+              styles.headerIconBtn,
+              { backgroundColor: isDark ? 'rgba(29, 29, 33, 0.92)' : 'rgba(255, 255, 255, 0.94)' },
+            ]}
+            accessibilityLabel={t.common.back}
+          >
+            <ArrowLeft size={16} color={colors.text} />
+          </TouchableOpacity>
+
+          {/* CHỮ LỊCH NHÓM BỎ KHUNG, GHI DẠNG LABEL NHƯ FILE PHƯƠNG TIỆN */}
+          <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 4 }}>
+            <Text numberOfLines={1} style={{ fontSize: 16, fontWeight: '700', color: colors.text }}>
+              {t.nav.calendarEvents}
+            </Text>
+          </View>
+
+          {/* KHI ẤN VÀO NĂM: NÚT DẠNG XEM MẤT ĐI, THAY BẰNG NÚT HÔM NAY ĐẨY LÊN TRÊN ĐÓ */}
+          {isYearView ? (
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => {
+                const now = new Date();
+                setCurrentDate(new Date(now.getFullYear(), now.getMonth(), 1));
+                setSelectedDate(now);
+                scrollToYear(now.getFullYear(), true);
+                Haptics.selectionAsync();
+              }}
+              style={[
+                styles.headerTodayPillBtn,
+                { backgroundColor: isDark ? 'rgba(29, 29, 33, 0.92)' : 'rgba(255, 255, 255, 0.94)' },
+              ]}
+              accessibilityLabel="Hôm nay"
+            >
+              <Text style={styles.headerTodayPillText}>Hôm nay</Text>
+            </TouchableOpacity>
+          ) : (
+            /* NÚT DẠNG XEM: ĐỂ MỖI ICON THÔI (THEO THÁNG / THEO LỊCH TRÌNH) */
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => {
+                setIsViewModeModalOpen(true);
+                Haptics.selectionAsync();
+              }}
+              style={[
+                styles.headerIconBtn,
+                { backgroundColor: isDark ? 'rgba(29, 29, 33, 0.92)' : 'rgba(255, 255, 255, 0.94)' },
+              ]}
+              accessibilityLabel="Dạng xem"
+            >
+              {calendarTab === 'month' ? (
+                <CalendarDays size={16} color="#0D9488" />
+              ) : (
+                <Clock size={16} color="#0D9488" />
+              )}
+            </TouchableOpacity>
+          )}
+
+          {/* NÚT TÌM KIẾM (FLOATING PILL BUTTON) */}
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={handleOpenSearch}
+            style={[
+              styles.headerIconBtn,
+              isSearchActive
+                ? { backgroundColor: '#0D9488' }
+                : { backgroundColor: isDark ? 'rgba(29, 29, 33, 0.92)' : 'rgba(255, 255, 255, 0.94)' },
+            ]}
+            accessibilityLabel="Tìm kiếm"
+          >
+            <Search size={16} color={isSearchActive ? '#FFFFFF' : colors.text} />
+          </TouchableOpacity>
+
+          {/* NÚT TẠO LỊCH (FLOATING PILL BUTTON) */}
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => {
+              if (isYearView) {
+                setIsYearView(false);
+              }
+              handleOpenCreateModal();
+              Haptics.selectionAsync();
+            }}
+            style={styles.headerAddBtn}
+            accessibilityLabel="Tạo sự kiện mới"
+          >
+            <Plus size={16} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
+
+  const renderViewModeModal = () => {
+    if (!isViewModeModalOpen) return null;
+
+    return (
+      <Modal
+        visible={isViewModeModalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsViewModeModalOpen(false)}
+      >
+        <TouchableOpacity
+          style={styles.viewModeModalBackdrop}
+          activeOpacity={1}
+          onPress={() => setIsViewModeModalOpen(false)}
+        >
+          <View
+            style={[
+              styles.viewModeModalCard,
+              { backgroundColor: isDark ? '#1E293B' : '#FFFFFF' },
+            ]}
+            onStartShouldSetResponder={() => true}
+          >
+            <View style={styles.viewModeModalHeader}>
+              <Text style={[styles.viewModeModalTitle, { color: colors.text }]}>
+                Dạng xem lịch
+              </Text>
+              <TouchableOpacity
+                onPress={() => setIsViewModeModalOpen(false)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <X size={18} color={colors.subtle} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Option 1: Theo tháng */}
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => {
+                setCalendarTab('month');
+                setIsViewModeModalOpen(false);
+                Haptics.selectionAsync();
+              }}
+              style={[
+                styles.viewModeOptionItem,
+                calendarTab === 'month' && styles.viewModeOptionActive,
+              ]}
+            >
+              <View style={[styles.viewModeOptionIconWrap, { backgroundColor: calendarTab === 'month' ? '#ECFDF5' : (isDark ? '#334155' : '#F1F5F9') }]}>
+                <CalendarDays size={18} color={calendarTab === 'month' ? '#0D9488' : colors.text} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.viewModeOptionTitle, { color: colors.text }]}>
+                  Theo tháng
+                </Text>
+                <Text style={[styles.viewModeOptionSubtitle, { color: colors.subtle }]}>
+                  Xem lịch theo tháng, cuộn lướt và xem sự kiện từng ngày
+                </Text>
+              </View>
+              {calendarTab === 'month' && <Check size={18} color="#0D9488" />}
+            </TouchableOpacity>
+
+            {/* Option 2: Theo lịch trình */}
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => {
+                setCalendarTab('upcoming');
+                setIsViewModeModalOpen(false);
+                Haptics.selectionAsync();
+              }}
+              style={[
+                styles.viewModeOptionItem,
+                calendarTab === 'upcoming' && styles.viewModeOptionActive,
+              ]}
+            >
+              <View style={[styles.viewModeOptionIconWrap, { backgroundColor: calendarTab === 'upcoming' ? '#ECFDF5' : (isDark ? '#334155' : '#F1F5F9') }]}>
+                <Clock size={18} color={calendarTab === 'upcoming' ? '#0D9488' : colors.text} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.viewModeOptionTitle, { color: colors.text }]}>
+                  Theo lịch trình
+                </Text>
+                <Text style={[styles.viewModeOptionSubtitle, { color: colors.subtle }]}>
+                  Xem danh sách các sự kiện gom nhóm theo dòng thời gian
+                </Text>
+              </View>
+              {calendarTab === 'upcoming' && <Check size={18} color="#0D9488" />}
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+    );
+  };
+
+  const renderSearchScheduleScreen = () => {
+    return (
+      <View style={[styles.container, { backgroundColor: '#F8FAFC' }]}>
+        {/* Thanh tìm kiếm kéo từ trên đỉnh xuống (Slide Down Animated) */}
+        <Animated.View
+          style={[
+            styles.searchHeaderContainer,
+            {
+              transform: [{ translateY: searchSlideAnim }],
+              paddingTop: Math.max(insets.top + 8, 16),
+            },
+          ]}
+        >
+          <View style={styles.searchInputRow}>
+            <View style={styles.searchInputWrapper}>
+              <Search size={18} color="#64748B" style={styles.searchIcon} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Tìm kiếm sự kiện theo tên..."
+                placeholderTextColor="#94A3B8"
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                autoFocus
+                returnKeyType="search"
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity
+                  style={styles.searchClearBtn}
+                  onPress={() => setSearchQuery('')}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <View style={styles.searchClearIconWrap}>
+                    <X size={12} color="#FFFFFF" />
+                  </View>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Thay chữ Đóng thành dấu X */}
+            <TouchableOpacity
+              style={styles.searchCloseIconBtn}
+              onPress={handleCloseSearch}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityLabel={t.common.close}
+            >
+              <X size={18} color={colors.text} />
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+
+        {/* Danh sách sự kiện dạng lịch trình */}
+        {isSearchLoading ? (
+          <View style={styles.searchLoadingContainer}>
+            <ActivityIndicator size="small" color="#0D9488" />
+            <Text style={styles.searchLoadingText}>Đang tải lịch hẹn...</Text>
+          </View>
+        ) : groupedScheduleSearch.length === 0 ? (
+          <View style={styles.searchEmptyContainer}>
+            <View style={styles.searchEmptyIconWrap}>
+              <Search size={36} color="#94A3B8" />
+            </View>
+            <Text style={styles.searchEmptyTitle}>
+              {searchQuery.trim()
+                ? 'Không tìm thấy sự kiện phù hợp'
+                : 'Chưa có sự kiện nào trong lịch'}
+            </Text>
+            <Text style={styles.searchEmptySubtitle}>
+              {searchQuery.trim()
+                ? `Không có sự kiện nào chứa từ khóa "${searchQuery.trim()}"`
+                : 'Hãy tạo sự kiện mới để bắt đầu lên lịch cùng nhóm nhé'}
+            </Text>
+          </View>
+        ) : (
+          <ScrollView
+            style={styles.searchScrollView}
+            contentContainerStyle={styles.searchScrollContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+          >
+            {groupedScheduleSearch.map((group) => (
+              <View key={group.dateKey} style={styles.scheduleGroupSection}>
+                {/* Header ngày */}
+                <View style={styles.scheduleDateHeaderRow}>
+                  <Text
+                    style={[
+                      styles.scheduleDateLabel,
+                      group.isToday && styles.scheduleDateLabelToday,
+                    ]}
+                  >
+                    {group.dateLabel}
+                  </Text>
+                  {group.isToday && (
+                    <View style={styles.scheduleTodayBadge}>
+                      <Text style={styles.scheduleTodayBadgeText}>Hôm nay</Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* Danh sách thẻ sự kiện trong ngày */}
+                <View style={styles.scheduleCardsList}>
+                  {group.list.map((ev) => {
+                    const myRsvp = ev.rsvps?.find((r) => r.userId === user?.id)?.status;
+                    const formattedTime = formatEventTimeForDate(ev, group.dateObj);
+
+                    return (
+                      <View
+                        key={`${ev.id}-${group.dateKey}`}
+                        style={[
+                          styles.scheduleCard,
+                          ev.isCancelled && styles.scheduleCardCancelled,
+                        ]}
+                      >
+                        <TouchableOpacity
+                          activeOpacity={0.7}
+                          onPress={() => {
+                            setDetailOccurrenceDate(group.dateObj);
+                            setDetailEvent(ev);
+                          }}
+                        >
+                          {/* Hàng 1: Tiêu đề & Tag Đã Hủy */}
+                          <View style={styles.scheduleCardTopRow}>
+                            <View style={styles.scheduleCardTitleWrap}>
+                              <Text
+                                numberOfLines={1}
+                                style={[
+                                  styles.scheduleCardTitle,
+                                  ev.isCancelled && styles.scheduleCardTitleCancelled,
+                                ]}
+                              >
+                                {ev.eventTitle}
+                              </Text>
+                              {ev.isCancelled && (
+                                <View style={styles.scheduleCancelledBadge}>
+                                  <Text style={styles.scheduleCancelledBadgeText}>ĐÃ HỦY</Text>
+                                </View>
+                              )}
+                            </View>
+                          </View>
+
+                          {/* Hàng 2: Thời gian diễn ra */}
+                          <View style={styles.scheduleMetaRow}>
+                            <Clock size={14} color="#0D9488" style={{ marginRight: 6 }} />
+                            <Text style={styles.scheduleTimeText}>{formattedTime}</Text>
+                          </View>
+
+                          {/* Hàng 3: Địa điểm (nếu có) */}
+                          {Boolean(ev.location) && (
+                            <View style={styles.scheduleMetaRow}>
+                              <MapPin size={14} color="#64748B" style={{ marginRight: 6 }} />
+                              <Text numberOfLines={1} style={styles.scheduleLocationText}>
+                                {ev.location}
+                              </Text>
+                            </View>
+                          )}
+                        </TouchableOpacity>
+
+                        {/* Hàng 4: 3 Nút RSVP nhanh */}
+                        <View style={styles.scheduleRsvpRow}>
+                          {[
+                            {
+                              status: EventRsvpStatus.YES,
+                              label: 'Tham gia',
+                              icon: Check,
+                              activeBg: '#ECFDF5',
+                              activeBorder: '#A7F3D0',
+                              activeColor: '#059669',
+                            },
+                            {
+                              status: EventRsvpStatus.MAYBE,
+                              label: 'Chưa chắc',
+                              icon: HelpCircle,
+                              activeBg: '#FFFBEB',
+                              activeBorder: '#FDE68A',
+                              activeColor: '#D97706',
+                            },
+                            {
+                              status: EventRsvpStatus.NO,
+                              label: 'Bận',
+                              icon: X,
+                              activeBg: '#FEF2F2',
+                              activeBorder: '#FECACA',
+                              activeColor: '#DC2626',
+                            },
+                          ].map((btn) => {
+                            const isSelected = myRsvp === btn.status;
+                            const Icon = btn.icon;
+                            return (
+                              <TouchableOpacity
+                                key={btn.status}
+                                disabled={ev.isCancelled}
+                                activeOpacity={0.7}
+                                onPress={() => handleScheduleCardRsvp(ev, btn.status)}
+                                style={[
+                                  styles.scheduleRsvpBtn,
+                                  isSelected
+                                    ? {
+                                        backgroundColor: btn.activeBg,
+                                        borderColor: btn.activeBorder,
+                                      }
+                                    : styles.scheduleRsvpBtnInactive,
+                                ]}
+                              >
+                                <Icon
+                                  size={12}
+                                  color={isSelected ? btn.activeColor : '#64748B'}
+                                  style={{ marginRight: 4 }}
+                                />
+                                <Text
+                                  style={[
+                                    styles.scheduleRsvpBtnText,
+                                    isSelected
+                                      ? { color: btn.activeColor, fontWeight: '700' }
+                                      : { color: '#64748B', fontWeight: '500' },
+                                  ]}
+                                >
+                                  {btn.label}
+                                </Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+            ))}
+          </ScrollView>
+        )}
       </View>
     );
   };
@@ -3928,63 +5754,16 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
 
     return (
       <View style={styles.container}>
-        {/* Year View Header */}
-        <View style={styles.appleYearHeader}>
-          <View style={{ flex: 1 }} />
+        {renderTopFloatingBar()}
 
-          <View style={styles.appleHeaderActions}>
-            {/* Nút Hôm nay - lướt tới năm hiện tại */}
-            <TouchableOpacity
-              style={styles.appleMonthTodayBtn}
-              onPress={() => {
-                const now = new Date();
-                setCurrentDate(new Date(now.getFullYear(), now.getMonth(), 1));
-                setSelectedDate(now);
-                scrollToYear(now.getFullYear(), true);
-                Haptics.selectionAsync();
-              }}
-            >
-              <Text style={styles.appleMonthTodayBtnText}>Hôm nay</Text>
-            </TouchableOpacity>
-
-            {/* Nút Tìm kiếm */}
-            <TouchableOpacity
-              style={styles.appleSearchBtn}
-              activeOpacity={0.7}
-              onPress={() => {
-                Haptics.selectionAsync();
-              }}
-            >
-              <Search size={18} color="#0D9488" />
-            </TouchableOpacity>
-
-            {/* Nút Tạo sự kiện */}
-            <TouchableOpacity
-              style={styles.appleMonthAddBtn}
-              activeOpacity={0.7}
-              onPress={handleOpenCreateModal}
-            >
-              <Plus size={16} color="#FFFFFF" />
-            </TouchableOpacity>
-
-            {/* Nút Đóng Year View */}
-            <TouchableOpacity
-              style={styles.yearCloseBtn}
-              onPress={() => {
-                setIsYearView(false);
-                Haptics.selectionAsync();
-              }}
-            >
-              <X size={18} color="#64748B" />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Danh sách các năm cuộn dọc liên tục */}
+        {/* Danh sách các năm cuộn dọc liên tục (đã đẩy nút Hôm nay lên Floating Bar) */}
         <ScrollView
           ref={yearScrollRef}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.yearScrollContent}
+          contentContainerStyle={[
+            styles.yearScrollContent,
+            { paddingTop: Math.max(insets.top + 54, Platform.OS === 'ios' ? 88 : 76) },
+          ]}
         >
           {YEARS_RANGE.map((y) => (
             <View
@@ -4081,72 +5860,82 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
     );
   };
 
+  if (isSearchActive) {
+    return (
+      <View style={styles.container}>
+        {renderSearchScheduleScreen()}
+        {detailEvent && renderDetailScreen()}
+        {renderScopeDeleteModal()}
+        {renderScopeCancelModal()}
+        {renderScopeRestoreModal()}
+        {renderPollScopeModal()}
+        {renderReminderScopeModal()}
+        {renderReminderConfirmModal()}
+        {renderScopeSaveModal()}
+        {renderViewModeModal()}
+      </View>
+    );
+  }
+
   if (isYearView) {
     return renderYearView();
   }
 
   return (
     <View style={styles.container}>
-      {/* Month Calendar Header */}
-      <View style={styles.appleMonthCalendarHeader}>
-        <View style={styles.appleMonthTitleContainer}>
-          {/* Năm nằm trước Tháng - Chạm vào Năm để mở danh sách Năm cuộn dọc */}
-          <TouchableOpacity
-            style={styles.appleYearBtn}
-            activeOpacity={0.7}
-            onPress={() => {
-              setIsYearView(true);
-              Haptics.selectionAsync();
-            }}
-          >
-            <Text style={styles.appleYearBtnText}>{year}</Text>
-          </TouchableOpacity>
-          <Text style={styles.appleMonthTitleText}>Tháng {month}</Text>
-        </View>
-
-        <View style={styles.appleHeaderActions}>
-          {/* Nút Hôm nay */}
-          <TouchableOpacity
-            style={styles.appleMonthTodayBtn}
-            onPress={() => {
-              const now = new Date();
-              setCurrentDate(new Date(now.getFullYear(), now.getMonth(), 1));
-              setSelectedDate(now);
-              scrollToMonth(now.getFullYear(), now.getMonth() + 1, true);
-              Haptics.selectionAsync();
-            }}
-          >
-            <Text style={styles.appleMonthTodayBtnText}>Hôm nay</Text>
-          </TouchableOpacity>
-
-          {/* Nút Tìm kiếm */}
-          <TouchableOpacity
-            style={styles.appleSearchBtn}
-            activeOpacity={0.7}
-            onPress={() => {
-              Haptics.selectionAsync();
-            }}
-          >
-            <Search size={18} color="#0D9488" />
-          </TouchableOpacity>
-
-          {/* Nút Tạo sự kiện */}
-          <TouchableOpacity style={styles.appleMonthAddBtn} onPress={handleOpenCreateModal}>
-            <Plus size={16} color="#FFFFFF" />
-          </TouchableOpacity>
-        </View>
-      </View>
+      {renderTopFloatingBar()}
 
       {calendarTab === 'upcoming' ? (
-        <MobileUpcomingEventsFeed
-          circleId={circleId}
-          onSelectEvent={(ev) => {
-            setDetailOccurrenceDate(new Date(ev.startTime));
-            setDetailEvent(ev);
-          }}
-        />
+        <View style={{ flex: 1, paddingTop: topHeaderTop + 44 }}>
+          <MobileUpcomingEventsFeed
+            circleId={circleId}
+            onSelectEvent={(ev) => {
+              setDetailOccurrenceDate(new Date(ev.startTime));
+              setDetailEvent(ev);
+            }}
+          />
+        </View>
       ) : (
         <>
+          {/* Month Calendar Header */}
+          <View
+            style={[
+              styles.appleMonthCalendarHeader,
+              { paddingTop: Math.max(insets.top + 54, Platform.OS === 'ios' ? 88 : 76) },
+            ]}
+          >
+            <View style={styles.appleMonthTitleContainer}>
+              {/* Năm nằm trước Tháng - Chạm vào Năm để mở danh sách Năm cuộn dọc */}
+              <TouchableOpacity
+                style={styles.appleYearBtn}
+                activeOpacity={0.7}
+                onPress={() => {
+                  setIsYearView(true);
+                  Haptics.selectionAsync();
+                }}
+              >
+                <Text style={styles.appleYearBtnText}>{year}</Text>
+              </TouchableOpacity>
+              <Text style={styles.appleMonthTitleText}>Tháng {month}</Text>
+            </View>
+
+            <View style={styles.appleHeaderActions}>
+              {/* Nút Hôm nay */}
+              <TouchableOpacity
+                style={styles.appleMonthTodayBtn}
+                onPress={() => {
+                  const now = new Date();
+                  setCurrentDate(new Date(now.getFullYear(), now.getMonth(), 1));
+                  setSelectedDate(now);
+                  scrollToMonth(now.getFullYear(), now.getMonth() + 1, true);
+                  Haptics.selectionAsync();
+                }}
+              >
+                <Text style={styles.appleMonthTodayBtnText}>Hôm nay</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
           {/* PHẦN 1: LỊCH Ở TRÊN (Lướt theo từng tháng, snap chuẩn xác từng tháng) */}
       <View style={styles.calendarTopContainer}>
         {/* Days of Week - Cố định trên đầu */}
@@ -4158,9 +5947,29 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
           ))}
         </View>
 
-        {/* Lướt theo từng tháng (paging / snap chuẩn từng tháng) */}
-        <ScrollView
+        {/* Lướt theo từng tháng (FlatList ảo hóa, chỉ giữ 1–3 tháng trong RAM, siêu mượt 60-120 FPS) */}
+        <FlatList
           ref={monthScrollRef}
+          data={MONTHS_RANGE}
+          keyExtractor={(item) => item.key}
+          getItemLayout={(_, index) => ({
+            length: MONTH_PAGE_HEIGHT,
+            offset: MONTH_PAGE_HEIGHT * index,
+            index,
+          })}
+          initialScrollIndex={initialMonthIndex}
+          onScrollToIndexFailed={(info) => {
+            setTimeout(() => {
+              monthScrollRef.current?.scrollToOffset({
+                offset: info.index * MONTH_PAGE_HEIGHT,
+                animated: false,
+              });
+            }, 50);
+          }}
+          initialNumToRender={1}
+          maxToRenderPerBatch={2}
+          windowSize={3}
+          removeClippedSubviews={Platform.OS === 'android'}
           showsVerticalScrollIndicator={false}
           snapToInterval={MONTH_PAGE_HEIGHT}
           decelerationRate="fast"
@@ -4168,104 +5977,17 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
           style={styles.monthScrollViewport}
           contentContainerStyle={styles.monthScrollContent}
           onMomentumScrollEnd={handleMonthScrollEnd}
-        >
-          {MONTHS_RANGE.map((item) => {
-            const itemYear = item.year;
-            const itemMonth = item.month;
-            const itemDaysInMonth = new Date(itemYear, itemMonth, 0).getDate();
-            const itemFirstDay = new Date(itemYear, itemMonth - 1, 1).getDay();
-            const totalSlots = 42;
-            const trailingEmpty = totalSlots - (itemFirstDay + itemDaysInMonth);
-
-            return (
-              <View
-                key={item.key}
-                style={styles.monthPageBlock}
-              >
-                {/* Lưới ngày 7 cột x 6 hàng cố định không hiển thị chữ tháng năm ở góc */}
-                <View style={styles.appleMainMonthGrid}>
-                  {Array.from({ length: itemFirstDay }).map((_, i) => (
-                    <View key={`empty-lead-${item.key}-${i}`} style={styles.appleMonthEmptyDayCell} />
-                  ))}
-
-                  {Array.from({ length: itemDaysInMonth }).map((_, i) => {
-                    const dayNum = i + 1;
-                    const now = new Date();
-                    const isSelected =
-                      selectedDate.getDate() === dayNum &&
-                      selectedDate.getMonth() + 1 === itemMonth &&
-                      selectedDate.getFullYear() === itemYear;
-
-                    const isToday =
-                      now.getDate() === dayNum &&
-                      now.getMonth() + 1 === itemMonth &&
-                      now.getFullYear() === itemYear;
-
-                    const isCurrentViewMonth = itemMonth === month && itemYear === year;
-                    const dayEventsCount = isCurrentViewMonth
-                      ? activeMonthEventsCountMap[dayNum] || 0
-                      : 0;
-                    const dotsCount = Math.min(dayEventsCount, 5);
-
-                    return (
-                      <TouchableOpacity
-                        key={`day-${item.key}-${dayNum}`}
-                        style={styles.appleMonthDayCell}
-                        activeOpacity={0.7}
-                        onPress={() => {
-                          const newSel = new Date(itemYear, itemMonth - 1, dayNum);
-                          setSelectedDate(newSel);
-                          if (itemMonth !== month || itemYear !== year) {
-                            setCurrentDate(new Date(itemYear, itemMonth - 1, 1));
-                          }
-                          Haptics.selectionAsync();
-                        }}
-                      >
-                        <View
-                          style={[
-                            styles.appleMonthDayCircle,
-                            isSelected &&
-                              (isToday
-                                ? styles.appleMonthDayCircleTodaySelected
-                                : styles.appleMonthDayCircleSelected),
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.appleMonthDayText,
-                              isToday && !isSelected && styles.appleMonthDayTextToday,
-                              isSelected && styles.appleMonthDayTextSelected,
-                            ]}
-                          >
-                            {dayNum}
-                          </Text>
-                        </View>
-
-                        {/* Chấm sự kiện (1 sự kiện = 1 chấm) */}
-                        <View style={styles.appleMonthEventDotsContainer}>
-                          {Array.from({ length: dotsCount }).map((_, dotIdx) => (
-                            <View
-                              key={`dot-${dotIdx}`}
-                              style={[
-                                styles.appleMonthEventDot,
-                                isSelected && !isToday && styles.appleMonthEventDotSelected,
-                              ]}
-                            />
-                          ))}
-                        </View>
-                      </TouchableOpacity>
-                    );
-                  })}
-
-                  {/* Bù các ô trống cuối tháng để mọi tháng đều đúng 6 hàng */}
-                  {Array.from({ length: Math.max(0, trailingEmpty) }).map((_, i) => (
-                    <View key={`empty-trail-${item.key}-${i}`} style={styles.appleMonthEmptyDayCell} />
-                  ))}
-                </View>
-              </View>
-            );
-          })}
-        </ScrollView>
+          renderItem={({ item }) => (
+            <MonthPageBlock
+              item={item}
+              selectedDate={selectedDate}
+              activeMonthEventsCountMap={activeMonthEventsCountMap}
+              activeViewMonth={month}
+              activeViewYear={year}
+              onSelectDay={handleSelectDay}
+            />
+          )}
+        />
       </View>
 
       {/* PHẦN 2: SỰ KIỆN Ở DƯỚI (Lướt cuộn độc lập, đã bỏ thứ ngày tháng) */}
@@ -4352,7 +6074,6 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
         </>
       )}
 
-      {/* Add Event Modal
       {/* Add Event Modal - Mở to sẵn lên trên, chuẩn Apple HIG */}
       <Modal visible={isAddModalOpen} transparent animationType="slide">
         <KeyboardAvoidingView
@@ -4384,9 +6105,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                       (editingEvent.description && (editingEvent.description.includes('[RECURRENCE:') || editingEvent.description.includes('[Lặp lại:')))
                     );
                     if (isRecurring) {
-                      promptEditScope((scope) => {
-                        handleCreateOrUpdateEvent(scope);
-                      });
+                      setShowScopeModal(true);
                       return;
                     }
                   }
@@ -4896,12 +6615,22 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
 
             {/* Modal / Sheet Tùy chỉnh Lặp lại (Custom Recurrence View) */}
             {renderCustomRepeatModal()}
+
+            {/* Scope Confirmation Modal cho Lưu / Sửa */}
+            {renderScopeSaveModal()}
           </View>
         </KeyboardAvoidingView>
       </Modal>
     
       {/* Màn hình Chi tiết lịch hẹn (Full-Screen View, không phải popup) */}
       {detailEvent && renderDetailScreen()}
+
+      {renderScopeDeleteModal()}
+      {renderScopeCancelModal()}
+      {renderScopeRestoreModal()}
+
+      {/* Modal Chọn Dạng xem (Theo tháng / Theo lịch trình) */}
+      {renderViewModeModal()}
     </View>
   );
 };
@@ -7671,5 +9400,475 @@ appleYearBtn: {
     backgroundColor: '#CCFBF1',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  scopeModalCard: {
+    width: '100%',
+    maxWidth: 360,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  scopeModalTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  scopeModalSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 4,
+    lineHeight: 17,
+  },
+  scopeOptionsContainer: {
+    marginTop: 14,
+    gap: 8,
+  },
+  scopeOptionBtn: {
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+  },
+  scopeOptionBtnDelete: {
+    backgroundColor: '#FFF1F2',
+    borderColor: '#FECDD3',
+  },
+  scopeOptionBtnCancel: {
+    backgroundColor: '#FFFBEB',
+    borderColor: '#FDE68A',
+  },
+  scopeOptionTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  scopeOptionSubtext: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 3,
+    lineHeight: 15,
+  },
+  scopeModalFooter: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#E2E8F0',
+  },
+  scopeModalCloseBtn: {
+    paddingVertical: 7,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+  },
+  scopeModalCloseText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  scopeConfirmDeleteBtn: {
+    backgroundColor: '#E11D48',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+  },
+  scopeConfirmCancelBtn: {
+    backgroundColor: '#D97706',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+  },
+  scopeConfirmPrimaryBtn: {
+    backgroundColor: '#0D9488',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+  },
+  scopeConfirmBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+
+  // Search Header Styles
+  searchHeaderContainer: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 2,
+    zIndex: 10,
+  },
+  searchInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  searchInputWrapper: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F1F5F9',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    height: 40,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: '#0F172A',
+    paddingVertical: 0,
+  },
+  searchClearBtn: {
+    padding: 4,
+    marginLeft: 4,
+  },
+  searchClearIconWrap: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#94A3B8',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  searchCancelBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+  },
+  searchCancelText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#0D9488',
+  },
+
+  // Search Results Loading & Empty
+  searchLoadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  searchLoadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  searchEmptyContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+    paddingVertical: 80,
+  },
+  searchEmptyIconWrap: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  searchEmptyTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1E293B',
+    textAlign: 'center',
+    marginBottom: 6,
+  },
+  searchEmptySubtitle: {
+    fontSize: 13,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+
+  // Schedule View (như ở Web)
+  searchScrollView: {
+    flex: 1,
+  },
+  searchScrollContent: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 40,
+  },
+  scheduleGroupSection: {
+    marginBottom: 20,
+  },
+  scheduleDateHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
+  },
+  scheduleDateLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  scheduleDateLabelToday: {
+    color: '#DC2626',
+    fontWeight: '800',
+  },
+  scheduleTodayBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 999,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  scheduleTodayBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#DC2626',
+  },
+  scheduleCardsList: {
+    gap: 10,
+  },
+  scheduleCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  scheduleCardCancelled: {
+    backgroundColor: '#FFF1F2',
+    borderColor: '#FECDD3',
+  },
+  scheduleCardTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  scheduleCardTitleWrap: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  scheduleCardTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+    flexShrink: 1,
+  },
+  scheduleCardTitleCancelled: {
+    color: '#94A3B8',
+    textDecorationLine: 'line-through',
+  },
+  scheduleCancelledBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    backgroundColor: '#FEE2E2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  scheduleCancelledBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#DC2626',
+  },
+  scheduleMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  scheduleTimeText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#0D9488',
+  },
+  scheduleLocationText: {
+    fontSize: 13,
+    color: '#64748B',
+    flex: 1,
+  },
+  scheduleRsvpRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  scheduleRsvpBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  scheduleRsvpBtnInactive: {
+    backgroundColor: '#F8FAFC',
+    borderColor: '#E2E8F0',
+  },
+  scheduleRsvpBtnText: {
+    fontSize: 12,
+  },
+
+  // Floating Top Header Buttons
+  headerIconBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(0, 0, 0, 0.08)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  headerAddBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#0D9488',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#0D9488',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  headerTodayPillBtn: {
+    height: 36,
+    paddingHorizontal: 12,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  headerTodayPillText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0D9488',
+  },
+  headerViewModeBtn: {
+    height: 36,
+    borderRadius: 18,
+    paddingHorizontal: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(0, 0, 0, 0.08)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  headerViewModeText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  searchCloseIconBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F1F5F9',
+  },
+
+  // View Mode Modal Styles
+  viewModeModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'flex-end',
+  },
+  viewModeModalCard: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    paddingBottom: 36,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 10,
+  },
+  viewModeModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+    paddingBottom: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#E2E8F0',
+  },
+  viewModeModalTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  viewModeOptionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    borderRadius: 14,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 12,
+  },
+  viewModeOptionActive: {
+    borderColor: '#0D9488',
+    backgroundColor: 'rgba(13, 148, 136, 0.04)',
+  },
+  viewModeOptionIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  viewModeOptionTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  viewModeOptionSubtitle: {
+    fontSize: 12,
+    marginTop: 2,
   },
 });

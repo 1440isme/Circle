@@ -3,10 +3,13 @@ import {
   SharedAlbumEntity,
   PhotoEntity,
   CreateSharedAlbumInput,
+  UpdateSharedAlbumInput,
   AddPhotosInput,
   DecisionWheelEntity,
   CreateWheelInput,
   UpdateWheelInput,
+  LiveWheelSession,
+  LiveSpinWheelInput,
   WheelFolderEntity,
   CreateWheelFolderInput,
   UpdateWheelFolderInput,
@@ -65,6 +68,21 @@ export async function createAlbumApi(
     method: 'POST',
     body: JSON.stringify(input),
   });
+  return res.data;
+}
+
+export async function updateAlbumApi(
+  circleId: string,
+  albumId: string,
+  input: UpdateSharedAlbumInput,
+): Promise<SharedAlbumEntity> {
+  const res = await mobileApiRequest<SharedAlbumEntity>(
+    `/circles/${circleId}/albums/${albumId}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    },
+  );
   return res.data;
 }
 
@@ -227,6 +245,123 @@ export async function deleteWheelApi(circleId: string, wheelId: string): Promise
   await mobileApiRequest(`/circles/${circleId}/wheels/${wheelId}`, {
     method: 'DELETE',
   });
+}
+
+export async function createLiveWheelStageApi(
+  circleId: string,
+  channelId?: string | null,
+): Promise<LiveWheelSession> {
+  const res = await mobileApiRequest<LiveWheelSession>(
+    `/circles/${circleId}/wheels/live-stage`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ channelId }),
+    },
+  );
+  return res.data;
+}
+
+export async function joinLiveWheelApi(
+  circleId: string,
+  sessionId?: string | null,
+): Promise<LiveWheelSession> {
+  const res = await mobileApiRequest<LiveWheelSession>(
+    `/circles/${circleId}/wheels/live-join`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ sessionId }),
+    },
+  );
+  return res.data;
+}
+
+export async function liveSpinWheelApi(
+  circleId: string,
+  input: LiveSpinWheelInput,
+): Promise<LiveWheelSession> {
+  const res = await mobileApiRequest<LiveWheelSession>(
+    `/circles/${circleId}/wheels/live-spin`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    },
+  );
+  return res.data;
+}
+
+export async function getActiveLiveWheelApi(
+  circleId: string,
+): Promise<LiveWheelSession | null> {
+  const res = await mobileApiRequest<LiveWheelSession | null>(
+    `/circles/${circleId}/wheels/live-active`,
+  );
+  return res.data;
+}
+
+export async function liveRemoveResultApi(
+  circleId: string,
+  input: { wheelId?: string; optionLabel?: string; removeAll?: boolean },
+): Promise<LiveWheelSession> {
+  const res = await mobileApiRequest<LiveWheelSession>(
+    `/circles/${circleId}/wheels/live-remove-result`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input || {}),
+    },
+  );
+  return res.data;
+}
+
+export async function updateLiveWheelSettingsApi(
+  circleId: string,
+  input: { allowMembersToEdit?: boolean; soundEnabled?: boolean; newHostUserId?: string },
+): Promise<LiveWheelSession> {
+  const res = await mobileApiRequest<LiveWheelSession>(
+    `/circles/${circleId}/wheels/live-settings`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(input || {}),
+    },
+  );
+  return res.data;
+}
+
+export async function leaveLiveWheelStageApi(
+  circleId: string,
+): Promise<{ success: boolean }> {
+  const res = await mobileApiRequest<{ success: boolean }>(
+    `/circles/${circleId}/wheels/live-leave`,
+    {
+      method: 'POST',
+    },
+  );
+  return res.data;
+}
+
+export async function closeLiveWheelStageApi(
+  circleId: string,
+  results?: { wheelTitle: string; winner: string }[],
+): Promise<{ success: boolean }> {
+  const res = await mobileApiRequest<{ success: boolean }>(
+    `/circles/${circleId}/wheels/live-close`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ results: results || [] }),
+    },
+  );
+  return res.data;
+}
+
+export async function dismissLiveCelebrationApi(
+  circleId: string,
+): Promise<{ success: boolean }> {
+  const res = await mobileApiRequest<{ success: boolean }>(
+    `/circles/${circleId}/wheels/live-dismiss-celebration`,
+    {
+      method: 'POST',
+    },
+  );
+  return res.data;
 }
 
 // =============================================================================

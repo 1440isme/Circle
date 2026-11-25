@@ -145,6 +145,9 @@ import { MobilePollView } from '../../src/components/tools/MobilePollView';
 import { MobileChatPollCard } from '../../src/components/chat/MobileChatPollCard';
 import { MobileChatLocationCard } from '../../src/components/chat/MobileChatLocationCard';
 import { MobileCreatePollModal } from '../../src/components/chat/MobileCreatePollModal';
+import { MobileLiveWheelPickerModal } from '../../src/components/chat/MobileLiveWheelPickerModal';
+import { MobileLiveWheelOverlay } from '../../src/components/chat/MobileLiveWheelOverlay';
+import { MobileLiveWheelChatEmbed } from '../../src/components/chat/MobileLiveWheelChatEmbed';
 import * as Location from 'expo-location';
 
 function getInitials(name: string): string {
@@ -1188,6 +1191,12 @@ const MobileSwipeMessageBubble = React.memo(function MobileSwipeMessageBubble({
                   colors={colors}
                   onViewOnCalendar={onViewOnCalendar}
                 />
+              ) : Boolean(msg.content?.startsWith('[LIVE_WHEEL]:')) ? (
+                <MobileLiveWheelChatEmbed
+                  content={msg.content}
+                  circleId={msg.circleId || circleId || ''}
+                  isSenderMe={isSenderMe}
+                />
               ) : callSummaryData ? (
                 <View style={styles.callSummaryCard}>
                   <View style={styles.callSummaryHeader}>
@@ -1675,6 +1684,7 @@ export default function CircleWorkspaceScreen() {
   const [isFullEmojiModalVisible, setIsFullEmojiModalVisible] = useState(false);
   const [targetReactMessageId, setTargetReactMessageId] = useState<string | null>(null);
   const [isCreatePollModalVisible, setIsCreatePollModalVisible] = useState(false);
+  const [isLiveWheelPickerVisible, setIsLiveWheelPickerVisible] = useState(false);
   const [isLocatingChat, setIsLocatingChat] = useState(false);
   const [momentsMemberFilter, setMomentsMemberFilter] = useState<string | 'all'>('all');
   const [isMomentsFilterOpen, setIsMomentsFilterOpen] = useState(false);
@@ -3449,6 +3459,28 @@ export default function CircleWorkspaceScreen() {
 
                   <TouchableOpacity
                     activeOpacity={0.75}
+                    onPress={() => {
+                      setIsPlusMenuOpen(false);
+                      setIsLiveWheelPickerVisible(true);
+                    }}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 12,
+                      minHeight: 46,
+                      paddingHorizontal: 14,
+                      borderBottomWidth: StyleSheet.hairlineWidth,
+                      borderBottomColor: colors.hairline,
+                    }}
+                  >
+                    <Compass size={18} color="#2563EB" />
+                    <Text style={{ fontSize: 13.5, fontWeight: '600', color: colors.text }}>
+                      {t.luckyWheel.createRandomWheel || (locale === 'vi' ? 'Tạo vòng quay ngẫu nhiên' : 'Create Random Wheel')}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    activeOpacity={0.75}
                     disabled={isLocatingChat}
                     onPress={() => {
                       setIsPlusMenuOpen(false);
@@ -4014,6 +4046,8 @@ export default function CircleWorkspaceScreen() {
               ? t.chat.calendarSharedLabel
               : rawContent.startsWith('[LOCATION_PIN]:')
               ? t.chat.locationSharedLabel
+              : rawContent.startsWith('[LIVE_WHEEL]:')
+              ? (locale === 'vi' ? '🎡 Vòng quay may mắn' : '🎡 Lucky Wheel')
               : rawContent.includes('"callType"')
               ? t.nav.groupCall
               : rawContent;
@@ -4932,6 +4966,17 @@ export default function CircleWorkspaceScreen() {
         }}
       />
 
+      {/* Mobile Live Wheel Picker Sheet */}
+      <MobileLiveWheelPickerModal
+        visible={isLiveWheelPickerVisible}
+        onClose={() => setIsLiveWheelPickerVisible(false)}
+        circleId={circleId}
+        channelId={currentChannelId}
+      />
+
+      {/* Mobile Live Wheel Realtime Overlay */}
+      <MobileLiveWheelOverlay circleId={circleId} />
+
       {/* Inline Member Filter Dropdown for Moments Tab */}
       {isMomentsFilterOpen && activeTab === 'moments' && (
         <View style={styles.momentsFilterDropdownOverlay}>
@@ -5043,138 +5088,136 @@ export default function CircleWorkspaceScreen() {
       >
         <View style={{ flex: 1, backgroundColor: colors.canvas }}>
           {/* Floating Navigation Bar (strictly gated Glass vs Flat) */}
-          <View
-            pointerEvents="box-none"
-            style={{
-              position: 'absolute',
-              top: Math.max(insets.top + 8, 16),
-              left: 16,
-              right: 16,
-              zIndex: 50,
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-            }}
-          >
-            {(() => {
-              const pillBaseStyle = {
-                borderRadius: 999,
-                overflow: 'hidden' as const,
-                backgroundColor: isGlass ? glassTheme.colors.glassBg : colors.surface,
-                borderWidth: isGlass ? StyleSheet.hairlineWidth : 1,
-                borderColor: isGlass ? glassTheme.colors.glassBorder : colors.hairline,
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: isGlass ? (isDark ? 0.3 : 0.08) : 0,
-                shadowRadius: 8,
-                elevation: isGlass ? 3 : 0,
-              };
+          {selectedTool !== 'album' && selectedTool !== 'wheel' && selectedTool !== 'calendar' && selectedTool !== 'anonymous' && (
+            <View
+              pointerEvents="box-none"
+              style={{
+                position: 'absolute',
+                top: Math.max(insets.top + 8, 16),
+                left: 16,
+                right: 16,
+                zIndex: 50,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              {(() => {
+                const pillBaseStyle = {
+                  borderRadius: 999,
+                  overflow: 'hidden' as const,
+                  backgroundColor: isGlass ? glassTheme.colors.glassBg : colors.surface,
+                  borderWidth: isGlass ? StyleSheet.hairlineWidth : 1,
+                  borderColor: isGlass ? glassTheme.colors.glassBorder : colors.hairline,
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: isGlass ? (isDark ? 0.3 : 0.08) : 0,
+                  shadowRadius: 8,
+                  elevation: isGlass ? 3 : 0,
+                };
 
-              const backPill = (
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  onPress={() => setSelectedTool('menu')}
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 6,
-                    minHeight: 36,
-                    paddingVertical: 7,
-                    paddingHorizontal: 12,
-                  }}
-                  accessibilityLabel={t.common.back}
-                >
-                  <ArrowLeft size={16} color={colors.text} />
-                  <Text style={{ fontSize: 13, fontWeight: '600', color: colors.text }}>
-                    {t.nav.groupTools}
-                  </Text>
-                </TouchableOpacity>
-              );
+                const backPill = (
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    onPress={() => setSelectedTool('menu')}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 6,
+                      minHeight: 36,
+                      paddingVertical: 7,
+                      paddingHorizontal: 12,
+                    }}
+                    accessibilityLabel={t.common.back}
+                  >
+                    <ArrowLeft size={16} color={colors.text} />
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: colors.text }}>
+                      {t.nav.groupTools}
+                    </Text>
+                  </TouchableOpacity>
+                );
 
-              const titlePill = (
-                <View
-                  style={{
-                    minHeight: 36,
-                    justifyContent: 'center',
-                    paddingVertical: 7,
-                    paddingHorizontal: 16,
-                    alignItems: 'center',
-                  }}
-                >
-                  <Text style={{ fontSize: 13, fontWeight: '700', color: colors.text }}>
-                    {selectedTool === 'album'
-                      ? t.nav.photoAlbum
-                      : selectedTool === 'calendar'
-                      ? t.nav.calendarEvents
-                      : selectedTool === 'planning'
-                      ? t.nav.planningSheet
-                      : selectedTool === 'location'
-                      ? t.nav.liveLocation
-                      : selectedTool === 'poll'
-                      ? t.nav.groupPoll
-                      : selectedTool === 'wheel'
-                      ? t.nav.luckyWheel
-                      : selectedTool === 'anonymous'
-                      ? t.nav.reflectionMailbox
-                      : ''}
-                  </Text>
-                </View>
-              );
+                const titlePill = (
+                  <View
+                    style={{
+                      minHeight: 36,
+                      justifyContent: 'center',
+                      paddingVertical: 7,
+                      paddingHorizontal: 16,
+                      alignItems: 'center',
+                    }}
+                  >
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: colors.text }}>
+                      {selectedTool === 'planning'
+                        ? t.nav.planningSheet
+                        : selectedTool === 'location'
+                        ? t.nav.liveLocation
+                        : selectedTool === 'poll'
+                        ? t.nav.groupPoll
+                        : ''}
+                    </Text>
+                  </View>
+                );
 
-              const closePill = (
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  onPress={() => setSelectedTool('menu')}
-                  style={{
-                    minWidth: 36,
-                    minHeight: 36,
-                    padding: 8,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                  accessibilityLabel={t.common.close}
-                >
-                  <X size={16} color={colors.text} />
-                </TouchableOpacity>
-              );
+                const closePill = (
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    onPress={() => setSelectedTool('menu')}
+                    style={{
+                      minWidth: 36,
+                      minHeight: 36,
+                      padding: 8,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                    accessibilityLabel={t.common.close}
+                  >
+                    <X size={16} color={colors.text} />
+                  </TouchableOpacity>
+                );
 
-              const showTitlePill = selectedTool !== 'album';
+                const showTitlePill = true;
+                const showClosePill = true;
 
-              if (isGlass) {
+                if (isGlass) {
+                  return (
+                    <>
+                      <BlurView intensity={glassTheme.blur.intensity} tint={glassTheme.blur.tint} style={pillBaseStyle}>
+                        {backPill}
+                      </BlurView>
+                      {showTitlePill && (
+                        <BlurView intensity={glassTheme.blur.intensity} tint={glassTheme.blur.tint} style={pillBaseStyle}>
+                          {titlePill}
+                        </BlurView>
+                      )}
+                      {showClosePill && (
+                        <BlurView intensity={glassTheme.blur.intensity} tint={glassTheme.blur.tint} style={pillBaseStyle}>
+                          {closePill}
+                        </BlurView>
+                      )}
+                    </>
+                  );
+                }
+
                 return (
                   <>
-                    <BlurView intensity={glassTheme.blur.intensity} tint={glassTheme.blur.tint} style={pillBaseStyle}>
-                      {backPill}
-                    </BlurView>
-                    {showTitlePill && (
-                      <BlurView intensity={glassTheme.blur.intensity} tint={glassTheme.blur.tint} style={pillBaseStyle}>
-                        {titlePill}
-                      </BlurView>
-                    )}
-                    <BlurView intensity={glassTheme.blur.intensity} tint={glassTheme.blur.tint} style={pillBaseStyle}>
-                      {closePill}
-                    </BlurView>
+                    <View style={pillBaseStyle}>{backPill}</View>
+                    {showTitlePill && <View style={pillBaseStyle}>{titlePill}</View>}
+                    {showClosePill && <View style={pillBaseStyle}>{closePill}</View>}
                   </>
                 );
-              }
-
-              return (
-                <>
-                  <View style={pillBaseStyle}>{backPill}</View>
-                  {showTitlePill && <View style={pillBaseStyle}>{titlePill}</View>}
-                  <View style={pillBaseStyle}>{closePill}</View>
-                </>
-              );
-            })()}
-          </View>
+              })()}
+            </View>
+          )}
 
           <View style={{ flex: 1 }}>
             {selectedTool === 'album' ? (
-              <MobileAlbumsView circleId={circleId} />
+              <MobileAlbumsView circleId={circleId} onBack={() => setSelectedTool('menu')} />
             ) : selectedTool === 'calendar' ? (
-              <MobileCalendarView circleId={circleId} />
+              <MobileCalendarView circleId={circleId} onBack={() => setSelectedTool('menu')} />
             ) : selectedTool === 'planning' ? (
               <MobilePlanningView circleId={circleId} />
             ) : selectedTool === 'location' ? (
@@ -5182,9 +5225,9 @@ export default function CircleWorkspaceScreen() {
             ) : selectedTool === 'poll' ? (
               <MobilePollView circleId={circleId} />
             ) : selectedTool === 'wheel' ? (
-              <MobileWheelView circleId={circleId} />
+              <MobileWheelView circleId={circleId} onBack={() => setSelectedTool('menu')} />
             ) : selectedTool === 'anonymous' ? (
-              <MobileAnonymousView circleId={circleId} />
+              <MobileAnonymousView circleId={circleId} onBack={() => setSelectedTool('menu')} />
             ) : null}
           </View>
         </View>

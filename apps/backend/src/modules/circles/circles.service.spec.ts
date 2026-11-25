@@ -188,15 +188,15 @@ describe('CirclesService — Unit Tests (US-CIRCLE-001 & US-CIRCLE-002)', () => 
       expect(result.data.handle).toMatch(/^hoi-k23-dh-spkt-[a-z0-9]+$/);
     });
 
-    it('should create Circle with memberIds, automatically generating name and adding friends', async () => {
+    it('should throw BadRequestException if name is missing or empty', async () => {
+      await expect(
+        service.create(userId, { name: '', memberIds: ['friend-1'] } as any),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should create Circle with name and memberIds up to 100 max members', async () => {
       const friendId1 = 'friend-cuid-1';
       const friendId2 = 'friend-cuid-2';
-
-      mockPrisma.user.findMany.mockResolvedValueOnce([
-        { id: userId, email: 'owner@test.com', profile: { displayName: 'Trương Công Bình' } },
-        { id: friendId1, email: 'hanh@test.com', profile: { displayName: 'Ninh Thị Mỹ Hạnh' } },
-        { id: friendId2, email: 'an@test.com', profile: { displayName: 'Nguyễn Văn An' } },
-      ]);
 
       mockPrisma.circle.findUnique.mockResolvedValueOnce(null); // candidate handle
       mockPrisma.circle.findUnique.mockResolvedValueOnce(null); // inviteCode
@@ -227,12 +227,11 @@ describe('CirclesService — Unit Tests (US-CIRCLE-001 & US-CIRCLE-002)', () => 
         });
       });
 
-      const result = await service.create(userId, { memberIds: [friendId1, friendId2] });
+      const result = await service.create(userId, { name: 'Nhóm K23', memberIds: [friendId1, friendId2] });
 
       expect(result.success).toBe(true);
       expect(result.statusCode).toBe(201);
-      expect(result.data.name).toContain('Trương Công Bình');
-      expect(result.data.name).toContain('Ninh Thị Mỹ Hạnh');
+      expect(result.data.name).toBe('Nhóm K23');
       expect(result.data.memberCount).toBe(3); // Owner + 2 friends
       expect(mockCircleMemberCreate).toHaveBeenCalledTimes(3);
     });
@@ -419,14 +418,30 @@ describe('CirclesService — Unit Tests (US-CIRCLE-001 & US-CIRCLE-002)', () => 
       expect(mockPrisma.circle.update).toHaveBeenCalled();
     });
 
-    it('should forbid regular MEMBER from updating Circle metadata', async () => {
+    it('should allow regular MEMBER to update Circle chat info (name & avatar)', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValue({
+        id: 'm-1',
+        role: MemberRole.MEMBER,
+      });
+
+      mockPrisma.circle.update.mockResolvedValue({
+        id: circleId,
+        name: 'Member Updated Name',
+      });
+
+      const result = await service.update(circleId, userId, { name: 'Member Updated Name' });
+      expect(result.success).toBe(true);
+      expect(mockPrisma.circle.update).toHaveBeenCalled();
+    });
+
+    it('should forbid regular MEMBER from updating restricted settings (isPrivate, maxMembers)', async () => {
       mockPrisma.circleMember.findUnique.mockResolvedValue({
         id: 'm-1',
         role: MemberRole.MEMBER,
       });
 
       await expect(
-        service.update(circleId, userId, { name: 'Hacked Name' }),
+        service.update(circleId, userId, { isPrivate: true }),
       ).rejects.toThrow(ForbiddenException);
     });
 
