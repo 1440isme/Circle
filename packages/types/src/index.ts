@@ -1001,6 +1001,7 @@ export interface UpdateCalendarEventInput {
   startTime?: string;
   endTime?: string;
   reminderTime?: string | null;
+  isCancelled?: boolean;
 }
 export interface CalendarEventMessagePayload {
   type: 'CALENDAR_EVENT';

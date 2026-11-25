@@ -41,6 +41,8 @@ describe('CircleToolsService', () => {
         create: jest.fn(),
         findFirst: jest.fn(),
         update: jest.fn(),
+        delete: jest.fn(),
+        deleteMany: jest.fn(),
       },
       sharedAlbum: {
         findMany: jest.fn(),

@@ -119,6 +119,7 @@ export class UpdateCalendarEventDto implements UpdateCalendarEventInput {
   startTime?: string;
   endTime?: string;
   reminderTime?: string;
+  isCancelled?: boolean;
 }
 
 export class RespondEventRsvpDto implements RespondEventRsvpInput {

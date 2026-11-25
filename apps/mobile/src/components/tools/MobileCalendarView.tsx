@@ -906,6 +906,11 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
     event: CalendarEventEntity | null;
     occDate: Date | null;
   }>({ isOpen: false, event: null, occDate: null });
+  const [restoreModalState, setRestoreModalState] = useState<{
+    isOpen: boolean;
+    event: CalendarEventEntity | null;
+    occDate: Date | null;
+  }>({ isOpen: false, event: null, occDate: null });
 
   const handleShareToChat = useCallback(
     async (eventId: string) => {
@@ -1760,37 +1765,76 @@ const handleOpenEditModal = (ev: CalendarEventEntity, occDate?: Date) => {
     }
   };
 
-  const handleRestoreEventInDetail = async (eventId: string) => {
-    if (!detailEvent) return;
-    const { recurrenceConfig: savedConfig, cleanDesc } = parseEventRecurrence(detailEvent.description);
-    const isRecurring = Boolean(savedConfig && savedConfig.frequency !== 'none');
-    const currentOccD = detailOccurrenceDate || selectedDate || new Date(detailEvent.startTime);
-    const occKey = formatDateKey(currentOccD);
+  // Xử lý Khôi phục lịch hẹn với phạm vi (đồng bộ 100% với Web)
+  const executeRestore = async (scope: 'this' | 'all') => {
+    const ev = restoreModalState.event || detailEvent;
+    const occD = restoreModalState.occDate || detailOccurrenceDate || selectedDate || (ev ? new Date(ev.startTime) : new Date());
+    if (!ev) return;
 
     try {
-      if (isRecurring && savedConfig) {
-        const updatedConfig: RecurrenceConfig = {
-          ...savedConfig,
-          cancelledDates: (savedConfig.cancelledDates || []).filter((d) => d !== occKey),
-        };
-        const newDesc = serializeRecurrence(updatedConfig, cleanDesc);
-        const updatedEv = await updateCalendarEventApi(circleId, eventId, {
-          description: newDesc,
-        });
-        setDetailEvent(updatedEv);
+      const { recurrenceConfig: parentConfig, cleanDesc: parentCleanDesc } = parseEventRecurrence(ev.description);
+      const isRecurring = Boolean(parentConfig && parentConfig.frequency !== 'none');
+
+      if (isRecurring && parentConfig) {
+        const occKey = formatDateKey(occD);
+
+        if (scope === 'this') {
+          const currentCancelled = parentConfig.cancelledDates || [];
+          const nextCancelled = currentCancelled.filter((d) => d !== occKey);
+          const updatedParentRecurrence: RecurrenceConfig = {
+            ...parentConfig,
+            cancelledDates: nextCancelled,
+          };
+          const updatedParentDesc = serializeRecurrence(updatedParentRecurrence, parentCleanDesc);
+          const updatedEv = await updateCalendarEventApi(circleId, ev.id, {
+            description: updatedParentDesc,
+            isCancelled: false,
+          });
+          if (detailEvent?.id === ev.id) {
+            setDetailEvent(updatedEv);
+          }
+        } else {
+          // scope === 'all'
+          const updatedParentRecurrence: RecurrenceConfig = {
+            ...parentConfig,
+            cancelledDates: [],
+          };
+          const updatedParentDesc = serializeRecurrence(updatedParentRecurrence, parentCleanDesc);
+          const updatedEv = await updateCalendarEventApi(circleId, ev.id, {
+            description: updatedParentDesc,
+            isCancelled: false,
+          });
+          if (detailEvent?.id === ev.id) {
+            setDetailEvent(updatedEv);
+          }
+        }
       } else {
-        const updatedEv = await updateCalendarEventApi(circleId, eventId, {
+        const updatedEv = await updateCalendarEventApi(circleId, ev.id, {
           isCancelled: false,
         } as any);
-        setDetailEvent(updatedEv);
+        if (detailEvent?.id === ev.id) {
+          setDetailEvent(updatedEv);
+        }
       }
-      setIsDetailMenuOpen(false);
+
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setRestoreModalState({ isOpen: false, event: null, occDate: null });
+      setIsDetailMenuOpen(false);
       loadEvents();
       loadAllSearchEvents();
     } catch (err: any) {
       Alert.alert('Lỗi', err.message || 'Không thể khôi phục lịch hẹn');
     }
+  };
+
+  const handleRestoreEventInDetail = (eventId: string) => {
+    if (!detailEvent) return;
+    setIsDetailMenuOpen(false);
+    setRestoreModalState({
+      isOpen: true,
+      event: detailEvent,
+      occDate: detailOccurrenceDate || selectedDate || new Date(detailEvent.startTime),
+    });
   };
 
   {/* SCOPE CONFIRMATION MODAL CHO LƯU / SỬA (3 OPTIONS) */}
@@ -2057,6 +2101,92 @@ const handleOpenEditModal = (ev: CalendarEventEntity, occDate?: Date) => {
                 onPress={() => executeCancel('all')}
               >
                 <Text style={styles.scopeConfirmBtnText}>Xác nhận hủy</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+      </View>
+    );
+  };
+
+  {/* SCOPE CONFIRMATION MODAL CHO KHÔI PHỤC (2 OPTIONS HOẶC CONFIRM ĐƠN) */}
+  const renderScopeRestoreModal = () => {
+    if (!restoreModalState.isOpen || !restoreModalState.event) return null;
+    const ev = restoreModalState.event;
+    const occD = restoreModalState.occDate || selectedDate || new Date(ev.startTime);
+    const { recurrenceConfig: parsedRec } = parseEventRecurrence(ev.description);
+    const isRecurring = Boolean(parsedRec && parsedRec.frequency !== 'none');
+
+    return (
+      <View style={styles.inModalPopupBackdrop}>
+        <TouchableOpacity
+          style={StyleSheet.absoluteFill}
+          activeOpacity={1}
+          onPress={() => setRestoreModalState({ isOpen: false, event: null, occDate: null })}
+        />
+        <View style={styles.scopeModalCard}>
+          <Text style={styles.scopeModalTitle}>
+            {isRecurring ? 'Khôi phục sự kiện lặp lại' : 'Khôi phục lịch hẹn'}
+          </Text>
+          <Text style={styles.scopeModalSubtitle}>
+            {isRecurring
+              ? 'Bạn muốn khôi phục sự kiện này cho lần diễn ra này hay khôi phục tất cả các lần?'
+              : 'Bạn có chắc chắn muốn khôi phục lịch hẹn này? Lịch hẹn sẽ hoạt động bình thường trở lại.'}
+          </Text>
+
+          {isRecurring ? (
+            <View style={styles.scopeOptionsContainer}>
+              <TouchableOpacity
+                style={[styles.scopeOptionBtn, { borderColor: '#A7F3D0', backgroundColor: '#F0FDF4' }]}
+                activeOpacity={0.7}
+                onPress={() => executeRestore('this')}
+              >
+                <Text style={[styles.scopeOptionTitle, { color: '#059669' }]}>
+                  Chỉ khôi phục lần này
+                </Text>
+                <Text style={styles.scopeOptionSubtext}>
+                  Khôi phục lịch hẹn cho ngày {formatDateOnly(occD)}. Lịch hẹn sẽ hoạt động bình thường trở lại.
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.scopeOptionBtn, { borderColor: '#A7F3D0', backgroundColor: '#F0FDF4' }]}
+                activeOpacity={0.7}
+                onPress={() => executeRestore('all')}
+              >
+                <Text style={[styles.scopeOptionTitle, { color: '#059669' }]}>
+                  Khôi phục tất cả các lần
+                </Text>
+                <Text style={styles.scopeOptionSubtext}>
+                  Khôi phục trạng thái hoạt động cho toàn bộ chuỗi sự kiện.
+                </Text>
+              </TouchableOpacity>
+
+              <View style={styles.scopeModalFooter}>
+                <TouchableOpacity
+                  style={styles.scopeModalCloseBtn}
+                  activeOpacity={0.7}
+                  onPress={() => setRestoreModalState({ isOpen: false, event: null, occDate: null })}
+                >
+                  <Text style={styles.scopeModalCloseText}>Quay lại</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <View style={[styles.scopeModalFooter, { justifyContent: 'flex-end', gap: 10, marginTop: 16 }]}>
+              <TouchableOpacity
+                style={styles.scopeModalCloseBtn}
+                activeOpacity={0.7}
+                onPress={() => setRestoreModalState({ isOpen: false, event: null, occDate: null })}
+              >
+                <Text style={styles.scopeModalCloseText}>Quay lại</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.scopeConfirmCancelBtn, { backgroundColor: '#059669' }]}
+                activeOpacity={0.7}
+                onPress={() => executeRestore('all')}
+              >
+                <Text style={styles.scopeConfirmBtnText}>Xác nhận khôi phục</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -4187,9 +4317,23 @@ const handleOpenEditModal = (ev: CalendarEventEntity, occDate?: Date) => {
               </Text>
 
               {isThisOccurrenceCancelled && (
-                <View style={styles.detailStatusCancelledBadge}>
-                  <Ban size={13} color="#EF4444" />
-                  <Text style={styles.detailStatusCancelledText}>Đã hủy lịch hẹn</Text>
+                <View style={[styles.detailStatusCancelledBadge, { justifyContent: 'space-between', width: '100%' }]}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Ban size={13} color="#EF4444" />
+                    <Text style={styles.detailStatusCancelledText}>Đã hủy lịch hẹn</Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setRestoreModalState({
+                        isOpen: true,
+                        event: detailEvent,
+                        occDate: currentOccDate,
+                      });
+                    }}
+                    style={{ backgroundColor: '#059669', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 }}
+                  >
+                    <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '700' }}>Khôi phục</Text>
+                  </TouchableOpacity>
                 </View>
               )}
             </View>
@@ -4921,7 +5065,11 @@ const handleOpenEditModal = (ev: CalendarEventEntity, occDate?: Date) => {
                     activeOpacity={0.7}
                     onPress={() => {
                       setIsDetailMenuOpen(false);
-                      handleRestoreEventInDetail(detailEvent.id);
+                      setRestoreModalState({
+                        isOpen: true,
+                        event: detailEvent,
+                        occDate: currentOccDate,
+                      });
                     }}
                   >
                     <Check size={18} color="#059669" />
@@ -5019,6 +5167,9 @@ const handleOpenEditModal = (ev: CalendarEventEntity, occDate?: Date) => {
 
         {/* SCOPE CONFIRMATION MODAL CHO HỦY (3 OPTIONS HOẶC CONFIRM ĐƠN) */}
         {renderScopeCancelModal()}
+
+        {/* SCOPE CONFIRMATION MODAL CHO KHÔI PHỤC (2 OPTIONS HOẶC CONFIRM ĐƠN) */}
+        {renderScopeRestoreModal()}
 
         {/* SCOPE MODAL KHI BÌNH CHỌN CHO SỰ KIỆN LẶP LẠI (3 OPTIONS) */}
         {renderPollScopeModal()}
@@ -5716,6 +5867,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity, occDate?: Date) => {
         {detailEvent && renderDetailScreen()}
         {renderScopeDeleteModal()}
         {renderScopeCancelModal()}
+        {renderScopeRestoreModal()}
         {renderPollScopeModal()}
         {renderReminderScopeModal()}
         {renderReminderConfirmModal()}
@@ -6472,6 +6624,10 @@ const handleOpenEditModal = (ev: CalendarEventEntity, occDate?: Date) => {
     
       {/* Màn hình Chi tiết lịch hẹn (Full-Screen View, không phải popup) */}
       {detailEvent && renderDetailScreen()}
+
+      {renderScopeDeleteModal()}
+      {renderScopeCancelModal()}
+      {renderScopeRestoreModal()}
 
       {/* Modal Chọn Dạng xem (Theo tháng / Theo lịch trình) */}
       {renderViewModeModal()}

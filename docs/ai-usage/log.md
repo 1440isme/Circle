@@ -6242,3 +6242,43 @@
 - **AI Errors / Hallucinations Found:** None.
 - **Commit:** e915c14
 - **PR:** #127
+
+---
+
+## AI-0173: Calendar Event Restore Scope Modal & Fix Duplicate Chat Logs on Cancel/Delete (#120)
+
+- **Date:** 2026-11-25 16:25:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210) & Trương Công Bình (MSSV: 23110184)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120 (Event RSVP & Realtime Delights)
+- **Purpose:** 
+  1. Hộp thoại xác nhận phạm vi khôi phục lịch hẹn ("Chỉ khôi phục lần này" vs "Khôi phục tất cả các lần") đồng bộ hoàn hảo trên cả Web (`CircleCalendarView.tsx`) và Mobile App (`MobileCalendarView.tsx`), kèm nút khôi phục nhanh ngay trên thẻ trạng thái đã hủy.
+  2. Khắc phục triệt để lỗi ghi trùng lặp (duplicate) nhiều dòng log tin nhắn trong chat khi thực hiện hủy hoặc xóa lịch hẹn 1 lần tất cả:
+     - Root cause: Trong backend `circle-tools.service.ts` (`broadcastCalendarEventMessage`), hàm vừa cập nhật tin nhắn thẻ gốc thành định dạng text thông báo `action: 'CANCELLED'/'DELETED'`, vừa tạo thêm một tin nhắn thông báo dạng text thứ hai ở cuối cuộc trò chuyện, dẫn đến xuất hiện đồng thời 2 dòng log giống hệt nhau trong khung chat.
+     - Solution: Khi xóa sự kiện (`DELETED`), tự động xóa sạch các tin nhắn thẻ cũ của sự kiện đó khỏi phòng chat và chỉ phát ra duy nhất 1 tin nhắn thông báo xóa sự kiện. Khi hủy sự kiện (`CANCELLED`), giữ nguyên thẻ sự kiện gốc với huy hiệu `[Đã hủy]` và gạch ngang tiêu đề, đồng thời dọn dẹp các dòng log text thông báo trung gian cũ và chỉ để lại duy nhất 1 dòng text thông báo mới nhất ở cuối chat.
+- **Prompt Summary:** Phần khôi phục lịch cũng hỏi là khôi phục tất cả hay 1 cái như lúc xoá huỷ sửa trên cả app và web; giải thích và khắc phục tại sao việc huỷ lịch hẹn hay xoá 1 lần tất cả lại ghi log trong tin nhắn nhiều lần.
+- **Files Affected:**
+  - `packages/types/src/index.ts`
+  - `apps/backend/src/modules/circle-tools/dto/circle-tools.dto.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.service.spec.ts`
+  - `apps/web/src/components/chat/CalendarEventChatEmbed.tsx`
+  - `apps/web/src/components/tools/CircleCalendarView.tsx`
+  - `apps/mobile/src/components/chat/MobileCalendarEventChatEmbed.tsx`
+  - `apps/mobile/src/components/tools/MobileCalendarView.tsx`
+  - `docs/ai-usage/log.md`
+  - `agentic/memory/2026-11-25.md`
+- **AI-Generated Portion:** 100% backend broadcast optimization, type definitions, and frontend Scope Restore Modal implementation.
+- **Human Modifications:** Trực tiếp yêu cầu phạm vi khôi phục tương tự như lưu/sửa/xóa/hủy và khắc phục lỗi lặp log tin nhắn trong chat.
+- **Verification Method:**
+  - `npm --prefix apps/backend test -- circle-tools.service.spec.ts`: 52/52 tests passed.
+  - `npx tsc --noEmit --project apps/web/tsconfig.json`: 0 errors.
+  - `npx tsc --noEmit --project apps/mobile/tsconfig.json`: 0 errors.
+  - `bash ./scripts/check-agent-map.sh`: 137/137 framework files resolve.
+  - `bash ./scripts/check-secrets.sh`: 0 secret leaks.
+- **Official Source Checked:** `agentic/playbooks/05-chat.md`, `agentic/playbooks/07-circle-utilities.md`, `agentic/playbooks/cross-cutting-gate.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secrets.
+- **AI Errors / Hallucinations Found:** None.
+- **Commit:** b922846
+- **PR:** #127

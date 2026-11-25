@@ -640,17 +640,11 @@ export const MobileCalendarEventChatEmbed: React.FC<MobileCalendarEventChatEmbed
     data?.eventTitle,
   ]);
 
-  // "và chỉ cần thẻ sự kiện khi tạo hoặc nhắc thui" (chỉ có tạo với nhắc lại mới hiện thẻ banner mà)
-  // Chỉ có Tạo mới (CREATED) và Nhắc hẹn (REMINDER) mới hiển thị thẻ banner đầy đủ.
-  // Khi Sửa (UPDATED), Hủy (CANCELLED), hoặc xóa: KHÔNG BAO GIỜ hiện thẻ banner, chỉ hiện dòng thông báo hệ thống dạng text.
-  const effectiveAction = data.latestAction || data.action;
+  // Chỉ có thẻ gốc (CREATED / REMINDER) mới hiển thị thẻ sự kiện.
+  // Các thông báo hệ thống phụ (UPDATED, CANCELLED, DELETED) sẽ chỉ hiển thị dòng text thông báo duy nhất.
   const showCard =
-    (effectiveAction === 'CREATED' || effectiveAction === 'REMINDER') &&
-    data.action !== 'UPDATED' &&
-    data.latestAction !== 'UPDATED' &&
-    data.action !== 'CANCELLED' &&
-    data.latestAction !== 'CANCELLED' &&
-    !data.isCancelled;
+    (data.action === 'CREATED' || data.action === 'REMINDER') &&
+    (data as any)?.latestAction !== 'DELETED';
 
   if (!showCard) {
     return (

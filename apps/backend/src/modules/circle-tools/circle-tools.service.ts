@@ -2578,6 +2578,7 @@ export class CircleToolsService {
               ? new Date(dto.reminderTime)
               : null
             : undefined,
+        isCancelled: dto.isCancelled !== undefined ? dto.isCancelled : undefined,
       },
       include: {
         creator: {
@@ -3130,7 +3131,7 @@ export class CircleToolsService {
               contains: `"eventId":"${event.id}"`,
             },
           },
-          orderBy: { sentAt: 'desc' },
+          orderBy: { sentAt: 'asc' },
           include: {
             channel: true,
             sender: {
@@ -3203,10 +3204,50 @@ export class CircleToolsService {
         rsvps: rsvpsData,
       };
 
-      // "và chỉ cần thẻ sự kiện khi tạo hoặc nhắc thui":
-      // Khi sửa, hủy hoặc xóa:
-      // 1) Cập nhật thẻ gốc trong database (giữ action: 'CREATED' để thẻ gốc vẫn hiển thị đầy đủ thẻ, đồng thời cập nhật latestAction để header thẻ hiển thị chính xác)
-      // 2) Gửi tin nhắn thông báo hệ thống mới vào kênh chat (action !== 'CREATED', chỉ hiển thị dòng text)
+      // 1) Khi XÓA sự kiện (DELETED): Xóa toàn bộ tin nhắn/thẻ cũ liên quan đến sự kiện này
+      // và chỉ phát DUY NHẤT 1 tin nhắn thông báo dạng text vào chat (tránh lặp log nhiều lần)
+      if (action === 'DELETED') {
+        if (this.prisma.message?.deleteMany) {
+          await this.prisma.message.deleteMany({
+            where: {
+              channel: { circleId },
+              content: {
+                contains: `"eventId":"${event.id}"`,
+              },
+            },
+          });
+        }
+
+        const rawSystemMessage = await this.prisma.message.create({
+          data: {
+            channelId: channel.id,
+            memberId: member.id,
+            type: 'TEXT',
+            content: `[CALENDAR_EVENT]:${JSON.stringify(payload)}`,
+          },
+          include: {
+            sender: {
+              include: {
+                user: {
+                  include: {
+                    profile: true,
+                  },
+                },
+              },
+            },
+            reactions: true,
+            pinnedRecord: true,
+          },
+        });
+
+        this.chatGateway?.broadcastNewMessage(channel.id, this.mapMessageToEntity(rawSystemMessage));
+        return;
+      }
+
+      // 2) Khi SỬA hoặc HỦY sự kiện:
+      // - Cập nhật thẻ gốc (nếu có): giữ action: 'CREATED' để thẻ gốc vẫn hiển thị giao diện thẻ đầy đủ kèm badge [Đã hủy], không bị co thành dòng text trùng lặp.
+      // - Dọn dẹp các tin nhắn log text cũ (nếu có trước đó) để không bị ghi log nhiều lần trong tin nhắn.
+      // - Tạo DUY NHẤT 1 dòng thông báo hệ thống mới nhất ở cuối chat.
       if (action !== 'CREATED') {
         if (existingMessage && existingMessage.content) {
           let parsedExisting: any = {};
@@ -3222,8 +3263,8 @@ export class CircleToolsService {
             location: event.location || null,
             description: event.description || null,
             reminderTime: event.reminderTime ? (event.reminderTime instanceof Date ? event.reminderTime.toISOString() : String(event.reminderTime)) : null,
-            isCancelled: Boolean(event.isCancelled || action === 'CANCELLED' || action === 'DELETED'),
-            action,
+            isCancelled: Boolean(event.isCancelled || action === 'CANCELLED'),
+            action: parsedExisting.action || 'CREATED', // Luôn giữ action: 'CREATED' cho thẻ gốc
             latestAction: action,
             lastActorName: creatorName,
             lastActorUserId: member.userId,
@@ -3252,8 +3293,20 @@ export class CircleToolsService {
           this.chatGateway?.broadcastMessageUpdated(channel.id, this.mapMessageToEntity(updatedRaw));
         }
 
-        // Tạo tin nhắn thông báo hệ thống mới (action: 'UPDATED' hoặc 'CANCELLED')
-        // Client sẽ chỉ hiển thị dòng thông báo hệ thống (KHÔNG CÓ THẺ SỰ KIỆN)
+        // Xóa các tin nhắn log phụ cũ của sự kiện này (để tránh ghi log nhiều lần trùng lặp)
+        if (this.prisma.message?.deleteMany) {
+          await this.prisma.message.deleteMany({
+            where: {
+              channel: { circleId },
+              content: {
+                contains: `"eventId":"${event.id}"`,
+              },
+              NOT: existingMessage ? { id: existingMessage.id } : undefined,
+            },
+          });
+        }
+
+        // Tạo DUY NHẤT 1 tin nhắn thông báo hệ thống mới (action: 'UPDATED' hoặc 'CANCELLED')
         const rawSystemMessage = await this.prisma.message.create({
           data: {
             channelId: channel.id,
