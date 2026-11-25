@@ -3,7 +3,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { puppeteer } from '/home/tcb/.npm/_npx/15c61037b1978c83/node_modules/chrome-devtools-mcp/out/Default/gen/src/third_party/index.js';
 
-const ARTIFACT_DIR = '/home/tcb/.gemini/antigravity/brain/2aaede0f-d74c-4adb-8b43-911d9dd46c59';
+const ARTIFACT_DIR =
+  process.env.ARTIFACT_DIR ||
+  '/home/tcb/.gemini/antigravity/brain/155dc609-b9c0-43f7-a656-781fe4d73270';
 const BRIDGE_PORT = 9333;
 
 let browser = null;

@@ -36,6 +36,7 @@ import {
   useShareWheelResultsToChatMutation,
 } from '../../hooks/use-circle-tools';
 import { DecisionWheelEntity, SpinWheelResult } from '@circle/types';
+import { ConfirmModal } from '../ui/ConfirmModal';
 
 interface CircleWheelViewProps {
   circleId: string;
@@ -282,6 +283,16 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
 
   // Panel Collapsed State (mặc định mở bảng khi mới vào, cho phép thu gọn để xem vòng to hơn)
   const [isPanelCollapsed, setIsPanelCollapsed] = useState(false);
+
+  // Unified confirmation modal (Rule 9)
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    confirmLabel?: string;
+    variant?: 'danger' | 'warning' | 'primary';
+    onConfirm: () => void | Promise<void>;
+  } | null>(null);
 
   // Auto-seed: Khởi tạo 1 vòng mặc định ngay khi tải trang nếu Circle chưa có vòng nào (mở ra là quay ngay)
   const autoSeedRef = useRef(false);
@@ -531,9 +542,14 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
     if (!activeWheel || isAnySpinning) return;
     const initial = activeWheel.initialOptions || [];
     if (initial.length >= 2) {
-      if (window.confirm(t.luckyWheel.confirmReset)) {
-        handleOptionsChange(initial.join('\n'));
-      }
+      setConfirmModal({
+        isOpen: true,
+        title: t.luckyWheel.resetOptions || t.common.confirm,
+        description: t.luckyWheel.confirmReset,
+        confirmLabel: t.luckyWheel.resetOptions || t.common.confirm,
+        variant: 'warning',
+        onConfirm: () => handleOptionsChange(initial.join('\n')),
+      });
     } else {
       alert(t.luckyWheel.resetEmptyWarning);
     }
@@ -542,16 +558,23 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
   // Delete All Wheels (leaves 1 default wheel)
   const handleDeleteAllWheels = () => {
     if (isAnySpinning || wheels.length === 0) return;
-    if (window.confirm(t.luckyWheel.confirmDeleteAllWheels)) {
-      const defaultTitle = t.luckyWheel.wheelNumber.replace('{number}', '1');
-      deleteAllMutation.mutate(defaultTitle, {
-        onSuccess: (res: any) => {
-          if (res?.defaultWheel?.id) {
-            setActiveWheelId(res.defaultWheel.id);
-          }
-        },
-      });
-    }
+    setConfirmModal({
+      isOpen: true,
+      title: t.luckyWheel.deleteAllWheels || t.common.delete,
+      description: t.luckyWheel.confirmDeleteAllWheels,
+      confirmLabel: t.common.delete,
+      variant: 'danger',
+      onConfirm: () => {
+        const defaultTitle = t.luckyWheel.wheelNumber.replace('{number}', '1');
+        deleteAllMutation.mutate(defaultTitle, {
+          onSuccess: (res: any) => {
+            if (res?.defaultWheel?.id) {
+              setActiveWheelId(res.defaultWheel.id);
+            }
+          },
+        });
+      },
+    });
   };
 
   // Settings toggle (hoạt động cho cả tab setup lẫn tab kết quả)
@@ -835,9 +858,14 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
   // Clear all results history with confirmation
   const handleClearResults = () => {
     if (resultLines.length === 0) return;
-    if (window.confirm(t.luckyWheel.confirmClearResultsDesc)) {
-      setResultsText('');
-    }
+    setConfirmModal({
+      isOpen: true,
+      title: t.luckyWheel.clearResults || t.common.delete,
+      description: t.luckyWheel.confirmClearResultsDesc,
+      confirmLabel: t.common.delete,
+      variant: 'danger',
+      onConfirm: () => setResultsText(''),
+    });
   };
 
   // Realtime Socket.IO listener
@@ -1393,9 +1421,14 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
                       <button
                         onClick={() => {
                           if (isAnySpinning) return;
-                          if (window.confirm(t.luckyWheel.confirmDeleteDesc)) {
-                            deleteWheelMutation.mutate(activeWheel.id);
-                          }
+                          setConfirmModal({
+                            isOpen: true,
+                            title: t.luckyWheel.confirmDeleteTitle || t.common.delete,
+                            description: t.luckyWheel.confirmDeleteDesc,
+                            confirmLabel: t.common.delete,
+                            variant: 'danger',
+                            onConfirm: () => deleteWheelMutation.mutate(activeWheel.id),
+                          });
                         }}
                         disabled={isAnySpinning}
                         className="p-1.5 rounded-lg text-circle-slate dark:text-circle-dark-muted hover:text-rose-500 hover:bg-rose-500/10 dark:hover:bg-rose-950/20 disabled:opacity-30 transition-colors cursor-pointer"
@@ -1673,6 +1706,23 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
           </div>
         </div>
       )}
+
+      {/* Unified Confirm Modal (Rule 9) */}
+      <ConfirmModal
+        isOpen={Boolean(confirmModal?.isOpen)}
+        onClose={() => setConfirmModal(null)}
+        onConfirm={async () => {
+          if (confirmModal?.onConfirm) {
+            await confirmModal.onConfirm();
+            setConfirmModal(null);
+          }
+        }}
+        title={confirmModal?.title || ''}
+        description={confirmModal?.description}
+        confirmLabel={confirmModal?.confirmLabel || t.common.confirm}
+        variant={confirmModal?.variant || 'danger'}
+        isLoading={deleteAllMutation.isPending || deleteWheelMutation.isPending}
+      />
     </div>
   );
 };

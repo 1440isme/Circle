@@ -17,6 +17,7 @@ import { X, Search, MessageSquare, Clock } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { searchMessagesApi } from '../../services/chat.service';
 import { MessageEntity } from '@circle/types';
+import { isSpecialSystemMessage } from '@circle/shared';
 
 interface SearchMessagesModalProps {
   visible: boolean;
@@ -65,7 +66,8 @@ export const SearchMessagesModal: React.FC<SearchMessagesModalProps> = ({
     debounceTimerRef.current = setTimeout(async () => {
       try {
         const res = await searchMessagesApi(channelId, query.trim());
-        setResults(res.messages || []);
+        const validMessages = (res.messages || []).filter((m: any) => !isSpecialSystemMessage(m));
+        setResults(validMessages);
       } catch (err) {
         console.error('Failed to search messages:', err);
         setResults([]);

@@ -4,9 +4,10 @@ import { CallsController } from './calls.controller';
 import { CallsGateway } from './calls.gateway';
 import { DatabaseModule } from '../../database/database.module';
 import { AuthModule } from '../auth/auth.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
-  imports: [DatabaseModule, AuthModule],
+  imports: [DatabaseModule, AuthModule, NotificationsModule],
   controllers: [CallsController],
   providers: [CallsService, CallsGateway],
   exports: [CallsService, CallsGateway],

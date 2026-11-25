@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Optional,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
@@ -14,11 +15,14 @@ import {
 } from '@circle/shared';
 import { MomentEntity, MessageEntity } from '@circle/types';
 
+import { NotificationEventsService } from '../notifications/notification-events.service';
+
 @Injectable()
 export class MomentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly chatGateway: ChatGateway,
+    @Optional() private readonly notificationEvents?: NotificationEventsService,
   ) {}
 
   /**
@@ -171,6 +175,8 @@ export class MomentsService {
         reactions: true,
       },
     });
+
+    await this.notificationEvents?.notifyMoment(userId, moment.id, dto.circleIds);
 
     return this.transformMoments([moment], userId)[0]!;
   }

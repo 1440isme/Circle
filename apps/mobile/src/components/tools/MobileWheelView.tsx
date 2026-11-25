@@ -54,6 +54,7 @@ import { useThemeStore } from '../../stores/theme.store';
 interface MobileWheelViewProps {
   circleId: string;
   onBack?: () => void;
+  onRegisterBack?: (handler: (() => boolean) | null) => void;
 }
 
 const PASTEL_WHEEL_COLORS = [
@@ -76,7 +77,7 @@ interface WheelMobileState {
   isSpinning: boolean;
 }
 
-export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onBack }) => {
+export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onBack, onRegisterBack }) => {
   const insets = useSafeAreaInsets();
   const { colors, resolvedTheme } = useThemeStore();
   const isDark = resolvedTheme === 'dark';
@@ -127,6 +128,20 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onBa
 
   // ScrollView Ref để hỗ trợ tự động cuộn lên khi bàn phím mở
   const scrollViewRef = useRef<React.ElementRef<typeof ScrollView>>(null);
+
+  useEffect(() => {
+    if (onRegisterBack) {
+      if (combinedWinnersModal && combinedWinnersModal.length > 0) {
+        onRegisterBack(() => {
+          setCombinedWinnersModal(null);
+          return true;
+        });
+      } else {
+        onRegisterBack(null);
+      }
+    }
+    return () => onRegisterBack?.(null);
+  }, [combinedWinnersModal, onRegisterBack]);
 
   // Sync wheel states when wheels load
   useEffect(() => {

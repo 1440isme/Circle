@@ -10,6 +10,7 @@ import { ChatModule } from './modules/chat/chat.module';
 import { StorageModule } from './modules/storage/storage.module';
 import { CallsModule } from './modules/calls/calls.module';
 import { CircleToolsModule } from './modules/circle-tools/circle-tools.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 
@@ -28,6 +29,7 @@ import { RolesGuard } from './common/guards/roles.guard';
     StorageModule,
     CallsModule,
     CircleToolsModule,
+    NotificationsModule,
   ],
   providers: [
     {

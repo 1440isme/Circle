@@ -103,9 +103,6 @@ export default function LoginScreen() {
           <Text style={[styles.mainPrompt, { color: colors.text }]}>
             {t.auth.welcomeBack}
           </Text>
-          <Text style={[styles.subPrompt, { color: colors.subtle }]}>
-            {t.auth.loginSubtitle}
-          </Text>
         </View>
 
         {/* API Error Banner */}

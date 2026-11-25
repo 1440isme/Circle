@@ -6351,3 +6351,942 @@
 - **AI Errors / Hallucinations Found:** None.
 - **Commit:** 864f2d8
 - **PR:** #131
+
+- **Commit:** cc0f00f
+- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
+
+
+---
+
+## AI-0193: Khôi Phục Kích Cỡ Chuẩn & Đồng Bộ Thanh Điều Khiển Floating Pill Bar Trên Web (#120)
+
+- **Date:** 2026-11-13 05:57:00 +07:00
+- **Developer:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 2.5 (High)
+- **Related Issue:** #120
+- **Purpose:** Khôi phục kích thước chuẩn và tính đồng bộ cao cấp cho toàn bộ thanh điều khiển Floating Pill Bar:
+  1. **Khôi phục chiều cao chuẩn `h-9` (36px):** Đồng bộ tuyệt đối chiều cao của tất cả các nút điều khiển, các tab, ô tìm kiếm và các bộ lọc popover ở cả màn hình chính lẫn chi tiết album, loại bỏ triệt để hiện tượng nút bị bé hay lệch hàng.
+  2. **Khôi phục khoảng đệm & độ rộng cân đối (Proportional Sizing):**
+     - **Ô tìm kiếm:** Kích thước chuẩn `h-9 w-36 sm:w-44 md:w-48 pl-7 pr-7`, icon kính lúp cách lề vừa vặn `left-2.5`.
+     - **Bộ lọc Loại file:** Kích thước chuẩn `h-9 w-32 min-w-[120px] px-3`, chữ hiển thị `max-w-[85px]`.
+     - **Bộ lọc Người gửi:** Kích thước chuẩn `h-9 w-36 min-w-[130px] px-3`, chữ hiển thị `max-w-[95px]`.
+     - **Bộ lọc Ngày gửi:** Kích thước chuẩn `h-9 w-36 sm:w-40 min-w-[130px] px-3`, chữ hiển thị `max-w-[100px]`.
+     - **Các nút chức năng khác (Camera, Chọn ảnh, Tải ảnh lên, Xóa album, Quay lại):** Chiều cao chuẩn `h-9`, padding `px-3` hoặc `px-3.5` cân đối, hài hòa.
+  3. **Đảm bảo trải phẳng 1 hàng duy nhất:** Áp dụng `overflow-x-auto no-scrollbar` và `shrink-0` linh hoạt, giữ cho thanh công cụ luôn nằm trên 1 dòng duy nhất, không bị co dúm hay vỡ giao diện khi thu nhỏ cửa sổ.
+- **Files Affected:**
+  - `apps/web/src/components/tools/CircleAlbumsView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% cân chỉnh kích thước và đồng bộ hóa styling.
+- **Human Modifications:** Không có thay đổi thủ công.
+- **Verification Method:**
+  - `npx tsc -p apps/web/tsconfig.json --noEmit`: Passed 0 errors.
+  - `npm run build --workspace=apps/web`: Passed 0 errors (12/12 static pages generated).
+  - `bash ./scripts/check-agent-map.sh`: Passed (130/130 files resolve).
+  - `bash ./scripts/check-secrets.sh`: Passed (600 files checked, 0 secret leaks).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`, `agentic/CONVENTIONS.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
+- **Commit:** cc0f00f
+- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
+
+
+---
+
+## AI-0194: Hiển Thị Thường Trực Toàn Bộ Floating Pill Buttons Trong Album (#120)
+
+- **Date:** 2026-11-13 16:43:00 +07:00
+- **Developer:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 2.5 (High)
+- **Related Issue:** #120
+- **Purpose:** Đảm bảo tất cả các Floating Pill Buttons trong Album luôn hiển thị ngay từ đầu theo phản hồi người dùng:
+  1. **Nút "Chọn" ảnh luôn xuất hiện:** Loại bỏ điều kiện kiểm tra ảnh (`photos.length > 0`), giúp nút "Chọn" luôn hiện diện trên thanh Floating Pill Bar ngay cả khi album mới tạo và chưa có ảnh nào.
+  2. **Thanh công cụ đầy đủ và cố định:** Toàn bộ 7 nút chức năng (Quay lại "Album", Camera tìm kiếm theo ảnh, Bộ lọc Người gửi, Bộ lọc Ngày gửi, Nút "Chọn", Nút Tải ảnh lên, Nút Xóa album) đều luôn hiển thị thường trực, tạo cảm giác ổn định, liền mạch và chuyên nghiệp.
+  3. **Đồng bộ phần Tất cả file phương tiện:** Nút "Chọn" cũng luôn được hiển thị thường trực trên tiêu đề danh sách file phương tiện.
+- **Files Affected:**
+  - `apps/web/src/components/tools/CircleAlbumsView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% logic rendering and condition cleanup.
+- **Human Modifications:** Không có thay đổi thủ công.
+- **Verification Method:**
+  - `npx tsc -p apps/web/tsconfig.json --noEmit`: Passed 0 errors.
+  - `npm run build --workspace=apps/web`: Passed 0 errors (12/12 static pages generated).
+  - `bash ./scripts/check-agent-map.sh`: Passed (130/130 files resolve).
+  - `bash ./scripts/check-secrets.sh`: Passed (600 files checked, 0 secret leaks).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`, `agentic/CONVENTIONS.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
+- **Commit:** cc0f00f
+- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
+
+
+---
+
+## AI-0195: Sửa Lỗi Cắt/Chìm Menu Popover Dưới Nền & Nâng Cấp Stacking Context Floating Pill Bar (#120)
+
+- **Date:** 2026-11-13 16:53:00 +07:00
+- **Developer:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 2.5 (High)
+- **Related Issue:** #120
+- **Purpose:** Khắc phục triệt để lỗi các nút lọc khi nhấn vào bị chìm hoặc đè dưới nền giao diện:
+  1. **Loại bỏ `overflow-x-auto` trên container thanh Floating Pill Bar:**
+     - Trong CSS, thuộc tính `overflow-x-auto` sẽ tự động chuyển `overflow-y` thành `auto` (hoặc `hidden`), tạo thành một vùng cuộn giới hạn theo chiều cao nút (36px). Kết quả là khi click vào các bộ lọc (Ngày gửi, Người gửi, Loại file), menu popover xổ xuống bị cắt đứt ngang và giấu dưới nền, không thể xem hoặc click vào các mục bên trong.
+     - Đã loại bỏ `overflow-x-auto`, khôi phục `overflow: visible` mặc định để các popover tự do bung phủ lên trên nền trang.
+  2. **Nâng cấp Stacking Context & Z-Index:**
+     - Đưa thanh Floating Pill Controls Bar từ `z-20` lên `z-30` (tránh xung đột với các phần tử `z-20` của ảnh trong lớp cuộn content layer bên dưới).
+     - Thiết lập `z-50` và bổ sung `pointer-events-auto` cho tất cả menu popover (`FileTypeFilterPopover`, `SenderFilterPopover`, `DateRangePickerPopover`), đảm bảo menu luôn nổi lên trên cùng và nhận 100% sự kiện click/touch.
+- **Files Affected:**
+  - `apps/web/src/components/tools/CircleAlbumsView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% CSS stacking context and overflow fix.
+- **Human Modifications:** Không có thay đổi thủ công.
+- **Verification Method:**
+  - `npx tsc -p apps/web/tsconfig.json --noEmit`: Passed 0 errors.
+  - `npm run build --workspace=apps/web`: Passed 0 errors (12/12 static pages generated).
+  - `bash ./scripts/check-agent-map.sh`: Passed (130/130 files resolve).
+  - `bash ./scripts/check-secrets.sh`: Passed (600 files checked, 0 secret leaks).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`, `agentic/CONVENTIONS.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
+- **Commit:** cc0f00f
+- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
+
+
+---
+
+## AI-0196: Tối Ưu Chiều Rộng Tối Giản Các Nút Lọc (Không Bị Ellipsis ...) & Kéo Dài Thanh Tìm Kiếm (#120)
+
+- **Date:** 2026-11-13 17:30:00 +07:00
+- **Developer:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 2.5 (High)
+- **Related Issue:** #120
+- **Purpose:** Tối ưu hóa không gian thanh Floating Pill Bar trên giao diện Web theo phản hồi của người dùng:
+  1. **Nút "Loại file" (FileTypeFilterPopover):**
+     - Rút gọn kích thước từ `w-32 min-w-[120px] px-3` xuống `w-[100px] px-2.5 gap-1 shrink-0`.
+     - Sử dụng `whitespace-nowrap` cho nhãn hiển thị; vừa vặn trọn vẹn nhãn mặc định "Loại file" (~54px) và tất cả các loại file ("RAR,Zip", "Word", "Excel", "PDF", "Canva", "Khác") mà không bao giờ bị cắt chữ dạng `...`.
+  2. **Nút "Người gửi" (SenderFilterPopover):**
+     - Rút gọn kích thước từ `w-36 min-w-[130px] px-3` xuống `w-[110px] px-2.5 gap-1 shrink-0`.
+     - Nhãn văn bản hiển thị mặc định "Người gửi" (~56px) với `max-w-[76px]` vừa khít 100% không bị `...`, đồng thời icon đóng/mở hoặc nút xoá reset hiển thị tinh tế, gọn gàng.
+  3. **Nút "Ngày gửi" (DateRangePickerPopover):**
+     - Rút gọn kích thước từ `w-36 sm:w-40 min-w-[130px] px-3` xuống `w-[118px] px-2.5 gap-1 shrink-0`.
+     - Áp dụng `whitespace-nowrap` cho nhãn hiển thị; đáp ứng hoàn hảo cho cả chuỗi dải ngày dài nhất (ví dụ: `13/11 - 15/11` ~75px) lẫn các trạng thái `Từ 13/11`, `Đến 15/11` và mặc định `Ngày gửi` mà không bao giờ xuất hiện `...`.
+  4. **Kéo dài thanh tìm kiếm (Search Bar) hấp thụ không gian tiết kiệm được:**
+     - Mở rộng thanh tìm kiếm từ `w-36 sm:w-44 md:w-48` lên `w-48 sm:w-64 md:w-72 lg:w-80` (từ 192px lên tối đa 320px).
+     - Người dùng có thêm hơn 100px không gian nhập liệu tìm kiếm tệp tin và liên kết, giúp trải nghiệm gõ từ khóa dài thoải mái và trực quan hơn rất nhiều.
+- **Files Affected:**
+  - `apps/web/src/components/tools/CircleAlbumsView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% CSS dimension optimization and responsiveness calibration.
+- **Human Modifications:** Không có thay đổi thủ công.
+- **Verification Method:**
+  - `npx tsc -p apps/web/tsconfig.json --noEmit`: Passed 0 errors.
+  - `npm run build --workspace=apps/web`: Passed 0 errors (12/12 static pages generated).
+  - `bash ./scripts/check-agent-map.sh`: Passed (130/130 files resolve).
+  - `bash ./scripts/check-secrets.sh`: Passed (600 files checked, 0 secret leaks).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`, `agentic/CONVENTIONS.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
+- **Commit:** cc0f00f
+- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
+
+
+---
+
+## AI-0197: Cố Định Nhãn Nút "Chọn" Ảnh/Media Khi Đang Chọn (Tránh Co Dãn Giao Diện) (#120)
+
+- **Date:** 2026-11-13 17:40:00 +07:00
+- **Developer:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 2.5 (High)
+- **Related Issue:** #120
+- **Purpose:** Cố định nhãn text của nút "Chọn" trên giao diện Web theo phản hồi người dùng:
+  1. **Nút Chọn trong Chi tiết Album (Floating Pill Controls Bar):**
+     - Giữ nguyên nhãn hiển thị `t.collab.selectAction` ("Chọn") liên tục, không chuyển đổi văn bản sang "Huỷ" khi ở chế độ chọn (`isAlbumSelectMode`).
+     - Trạng thái được phân biệt bằng màu nhấn active (`bg-circle-primary text-white border-circle-primary shadow-xs`), khi bấm lại sẽ tự động tắt chế độ chọn và reset danh sách đã chọn.
+     - Thêm `shrink-0` bảo đảm nút không bao giờ bị co dãn hay thay đổi kích thước ngang làm xê dịch các nút xung quanh trên thanh điều khiển.
+  2. **Nút Chọn trong Tab File Phương tiện (Tất cả ảnh/video):**
+     - Đồng bộ hóa logic nút "Chọn": Giữ nguyên icon `<CheckSquare>` và nhãn "Chọn" khi bật/tắt chế độ chọn (`isMediaSelectMode`), không thay thế bằng nút chữ "Huỷ" trơn.
+     - Khi active chuyển sang nền màu chủ đạo `bg-circle-primary text-white shadow-xs` với kích thước cố định, chống co dãn giao diện triệt để.
+- **Files Affected:**
+  - `apps/web/src/components/tools/CircleAlbumsView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% UI label and active state logic stabilization.
+- **Human Modifications:** Không có thay đổi thủ công.
+- **Verification Method:**
+  - `npx tsc -p apps/web/tsconfig.json --noEmit`: Passed 0 errors.
+  - `npm run build --workspace=apps/web`: Passed 0 errors (12/12 static pages generated).
+  - `bash ./scripts/check-agent-map.sh`: Passed (130/130 files resolve).
+  - `bash ./scripts/check-secrets.sh`: Passed (600 files checked, 0 secret leaks).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`, `agentic/CONVENTIONS.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
+- **Commit:** cc0f00f
+- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
+
+
+---
+
+## AI-0198: Tối Giản Modal Tạo Album — Chỉ Cần Tên Album, Loại Bỏ Trường Mô Tả (#120)
+
+- **Date:** 2026-11-13 18:14:00 +07:00
+- **Developer:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 2.5 (High)
+- **Related Issue:** #120
+- **Purpose:** Tối giản quy trình tạo album trên cả Web và Mobile theo phản hồi của người dùng:
+  1. **Web (`CircleAlbumsView.tsx`):**
+     - Loại bỏ hoàn toàn trường nhập liệu "Mô tả album" (`newDescription` textarea) khỏi Modal Tạo Album mới.
+     - Form tạo album giờ chỉ yêu cầu duy nhất trường "Tên album" bắt buộc, giúp giao diện tạo album tinh gọn, tập trung và thao tác nhanh chóng hơn.
+     - Dọn dẹp state và logic submit `createAlbumMutation` không còn gửi dữ liệu mô tả rỗng.
+  2. **Mobile (`MobileAlbumsView.tsx`):**
+     - Đồng bộ hóa trải nghiệm (Web/Mobile parity): Loại bỏ trường nhập liệu mô tả (`albumDescription` textarea) khỏi modal tạo album trên React Native.
+     - Modal tạo album di động trở nên gọn gàng, giảm bớt chiều cao che khuất màn hình khi bật bàn phím ảo.
+- **Files Affected:**
+  - `apps/web/src/components/tools/CircleAlbumsView.tsx`
+  - `apps/mobile/src/components/tools/MobileAlbumsView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% UI simplification and state cleanup.
+- **Human Modifications:** Không có thay đổi thủ công.
+- **Verification Method:**
+  - `npx tsc -p apps/web/tsconfig.json --noEmit`: Passed 0 errors.
+  - `npx tsc -p apps/mobile/tsconfig.json --noEmit`: Passed 0 errors.
+  - `npm run build --workspace=apps/web`: Passed 0 errors (12/12 static pages generated).
+  - `bash ./scripts/check-agent-map.sh`: Passed (130/130 files resolve).
+  - `bash ./scripts/check-secrets.sh`: Passed (600 files checked, 0 secret leaks).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`, `agentic/CONVENTIONS.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
+- **Commit:** cc0f00f
+- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
+
+
+---
+
+## AI-0199: Triển Khai Hệ Thống Thông Báo In-App Realtime & Push Notification Đa Nền Tảng (Module 8) (#128)
+
+- **Date:** 2026-11-14 13:48:00 +07:00
+- **Developer:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (Medium)
+- **Related Issue:** #128
+- **Purpose:** Xây dựng hoàn chỉnh Hệ thống Thông báo In-App Realtime & Mobile Push Notification Service đa nền tảng (Web & Mobile Parity, Module 8):
+  1. **Prisma & Data Model:** Mở rộng entity `Notification` (type, targetType, targetId, deepLink, metadata, readAt) và tạo entity `DeviceToken` (upsert theo deviceId, platform, status).
+  2. **Backend Engine (`@circle/backend`):** `NotificationsModule` (Service + Controller) với phân trang cursor, đếm unread count, đánh dấu đã đọc / đã đọc tất cả, xóa thông báo.
+  3. **Realtime Socket.IO Delivery:** Đồng bộ tức thì tới phòng cá nhân `user:<userId>` qua các sự kiện `notification:new` và `notification:unread_count`.
+  4. **Mobile Push Notification (Expo Push API):** `PushNotificationService` với cơ chế bảo mật màn hình khóa (NOT-08), dọn dẹp token chết khi nhận lỗi `DeviceNotRegistered` (NOT-09), exponential backoff retry.
+  5. **Frontend Web (`apps/web`):** `NotificationCenterPopover` chuẩn kiến trúc Liquid Glass, filter tabs (Tất cả / Chưa đọc), mark all as read, delete, click deep link.
+  6. **Frontend Mobile (`apps/mobile`):** `MobileNotificationCenterModal` chuẩn Liquid Glass controls & scroll-under content, tích hợp đăng ký Expo Push Token khi đăng nhập và thu hồi token khi đăng xuất.
+  7. **Shared & Zero Hardcoding:** `NotificationType`, `NotificationEntity`, `DeviceTokenEntity` trong `@circle/types`; 100% i18n keys trong `@circle/shared` (`vi.ts` và `en.ts`).
+- **Files Affected:**
+  - `apps/backend/prisma/schema.prisma`
+  - `apps/backend/src/app.module.ts`
+  - `apps/backend/src/modules/chat/chat.gateway.ts`
+  - `apps/backend/src/modules/notifications/dto/query-notifications.dto.ts`
+  - `apps/backend/src/modules/notifications/dto/register-device-token.dto.ts`
+  - `apps/backend/src/modules/notifications/push-notification.service.ts`
+  - `apps/backend/src/modules/notifications/notifications.service.ts`
+  - `apps/backend/src/modules/notifications/notifications.controller.ts`
+  - `apps/backend/src/modules/notifications/notifications.module.ts`
+  - `apps/backend/src/modules/notifications/notifications.service.spec.ts`
+  - `packages/types/src/index.ts`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `apps/web/src/components/notifications/NotificationCenterPopover.tsx`
+  - `apps/web/src/components/header/Header.tsx`
+  - `apps/mobile/package.json`
+  - `apps/mobile/src/services/notifications.service.ts`
+  - `apps/mobile/src/components/notifications/MobileNotificationCenterModal.tsx`
+  - `apps/mobile/app/(tabs)/index.tsx`
+  - `apps/mobile/app/_layout.tsx`
+  - `apps/mobile/src/stores/auth.store.ts`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% full-stack notification and push implementation.
+- **Human Modifications:** Không có thay đổi thủ công.
+- **Verification Method:**
+  - `npm test --workspace=@circle/backend`: Passed 12/12 suites, 208/208 tests.
+  - `npx tsc -p apps/backend/tsconfig.json --noEmit`: Passed 0 errors.
+  - `npx tsc -p apps/web/tsconfig.json --noEmit`: Passed 0 errors.
+  - `npx tsc -p apps/mobile/tsconfig.json --noEmit`: Passed 0 errors.
+  - `npm run build --workspace=apps/web`: Passed 0 errors (12/12 static pages).
+  - `bash ./scripts/check-agent-map.sh`: Passed (131/131 files resolve).
+  - `bash ./scripts/check-secrets.sh`: Passed (600 files checked, 0 secret leaks).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/playbooks/08-notification.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
+
+---
+
+### AI-0169
+
+- **Date:** 2026-11-18
+- **Tool:** Antigravity IDE
+- **Author:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Model:** Gemini 3.8 Flash (Medium)
+- **Related Issue:** #128
+- **Purpose:** Tái cấu trúc toàn diện điều hướng Mobile CIRCLE theo triết lý "Hoạt động nhóm", tối ưu hóa hiệu năng và bẻ nhỏ monolith:
+  1. **Bẻ nhỏ Monolith & Tối ưu hiệu năng 60fps:** Tách toàn bộ module Chat từ `apps/mobile/app/circle/[id].tsx` (7.093 dòng xuống còn ~1.160 dòng) sang `CircleChatFullscreenView.tsx` (~5.700 dòng), loại bỏ tình trạng drop frame khi chuyển đổi các mục trong Không gian nhóm.
+  2. **Gating Push Notification Expo Go SDK 53:** Tránh nghẽn JS thread và dập tắt console warning `expo-notifications` trong môi trường Expo Go SDK 53+.
+  3. **Điều hướng chính xác theo Mockup:**
+     - Home page (`(tabs)/index.tsx`): Biến các pill "Khoảnh khắc", "Trò chuyện", "Tiện ích" trên thẻ nhóm thành `TouchableOpacity` điều hướng trực tiếp; thêm liên kết "Lịch chung ›" và "Tạo nhóm ›".
+     - Circle Workspace (`circle/[id].tsx` & `CircleActivityHubView.tsx`): 1 tầng header đối xứng, chỉ báo vuốt ngang 3 mục `[● ○ ○]`, dải khoảnh khắc có thẻ `+ Chụp mới` đầu tiên, đồng bộ `useEffect` cho các route param `tab`, `tool`, `openCall`, `action='capture'`.
+  4. **Nút + Tạo nhanh:** Hỗ trợ chip đổi nhóm đích "Đăng vào: [Tên nhóm]" và mở thẳng camera/viewfinder khi chọn Khoảnh khắc.
+  5. **An toàn nút Universal Back:** Tăng `topClearance` và `paddingTop` cho Bảng kế hoạch (`MobilePlanningView.tsx`) không bị che khuất; tích hợp nút chu kỳ 15m/30m/60m trong Tiện ích Vị trí (`MobileLocationView.tsx`).
+  6. **Tin nhắn không viền (Borderless):** Loại bỏ viền và nền cho tin nhắn hình ảnh và thẻ vị trí tức thì, giữ đầy đủ phản ứng cảm xúc và menu ngữ cảnh với nút Tải xuống cạnh nút đóng X khi xem toàn màn hình.
+- **Files Affected:**
+  - `apps/mobile/app/(tabs)/_layout.tsx`
+  - `apps/mobile/app/(tabs)/index.tsx`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `apps/mobile/src/components/chat/CircleChatFullscreenView.tsx`
+  - `apps/mobile/src/components/circle/CircleActivityHubView.tsx`
+  - `apps/mobile/src/components/tools/MobilePlanningView.tsx`
+  - `apps/mobile/src/services/notifications.service.ts`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `agentic/memory/2026-11-18.md`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% Mobile navigation refactoring, monolith splitting, and performance tuning.
+- **Human Modifications:** Không có thay đổi thủ công.
+- **Verification Method:**
+  - `npx tsc -p apps/mobile/tsconfig.json --noEmit`: Passed 0 errors.
+  - `npm run build --workspace=@circle/types --if-present && npm run build --workspace=@circle/shared --if-present`: Passed 0 errors.
+  - `./scripts/check-agent-map.sh`: Passed (132/132 files resolve).
+  - `./scripts/check-secrets.sh`: Passed (611 files checked, 0 secret leaks).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`, `Brief thiết kế lại điều hướng mobile CIRCLE`.
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
+
+---
+
+## AI-0170: Triển khai Nâng cấp Toàn diện Trải nghiệm Thực tế Công cụ Nhóm (Planning Sheet, Live Location Map, Group Poll) & Circle Activity Command Center (Web & Mobile)
+
+- **Date:** 2026-11-18 23:17:00 +07:00
+- **Developer:** Trương Công Bình (23110184)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Pro
+- **Related Issue:** #128 - Notification Center & Push, Module 4 Chat, Module 6 Voice/Video, Module 7.2 Collaboration Tools, Module 8 Notification Center
+- **Purpose:** Đóng vai trò người dùng cuối khó tính, đánh giá và giải quyết triệt để vấn đề "tính năng làm cho xong nhưng thiếu tính ứng dụng thực tế":
+  1. **Tái sinh Bảng Kế hoạch (Planning Sheet):**
+     - Xây dựng 4 pre-built templates chuẩn nhu cầu nhóm thực tế: `Quỹ nhóm & Chia tiền (expense)`, `Checklist chuẩn bị đồ (packing)`, `Lịch trình dã ngoại / du lịch (trip)`, `Phân công nhiệm vụ (task)`.
+     - Tích hợp Engine tính toán KPI tự động (`computePlanningSheetSummary`): tính tổng tiền quỹ VND, tự động chia đều đầu người, đếm số mục hoàn thành/tiến độ checklist %.
+     - Trải nghiệm Mobile thông minh: Chuyển mặc định sang **Interactive Cards View** (1-tap toggle checkbox với Haptics không cần mở modal; 1-tap xoay vòng trạng thái `Chưa làm` -> `Đang làm` -> `Hoàn thành`; tiền tệ hiển thị VND định dạng đẹp; nút Xóa dòng 2 bước an toàn). Hỗ trợ nút chuyển đổi linh hoạt sang Table Grid.
+     - Thanh tóm tắt nổi (Floating Glass Summary Bar) với nút "Chia sẻ vào Chat" 1-chạm gửi card kế hoạch sinh động `[PLANNING_SHEET]:{...}` vào kênh chat chung kèm haptic & toast feedback.
+  2. **Nâng cấp Bản đồ Vị trí Trực tiếp (Live Location) & Điểm hẹn Nhóm (Meeting Point):**
+     - Xóa bỏ hoàn toàn cơ chế fake tọa độ Quận 1 Sài Gòn khi người dùng từ chối quyền GPS hoặc lỗi định vị; hiển thị thông báo phản hồi trung thực `gpsDeniedMessage`.
+     - Kích hoạt cơ chế theo dõi GPS liên tục theo thời gian thực (`navigator.geolocation.watchPosition` trên Web, `Location.watchPositionAsync` trên Mobile) khi người dùng bật chia sẻ vị trí để cập nhật backend tức thì.
+     - Bổ sung tính năng Điểm hẹn chung (`CircleMeetingPoint`): hiển thị ghim sao/cờ nổi bật trên bản đồ Leaflet (Web & Mobile WebView), banner hiển thị tên điểm hẹn, địa chỉ và khoảng cách động (`calculateDistanceMeters` / Haversine) đến điểm hẹn (ví dụ: `Cách điểm hẹn ~1.2 km`). Hỗ trợ Đặt/Đổi/Xóa điểm hẹn.
+  3. **Đồng bộ Thời gian thực (Real-time Socket):**
+     - Lắng nghe và cập nhật giao diện lập tức với các sự kiện: `circle:sheet-cell-updated`, `circle:sheet-structure-updated`, `circle:sheet-deleted`, `circle:location-updated`, `circle:location-stopped`, `circle:meeting-point-updated`.
+  4. **Web Circle Activity Command Center (Bento Grid):**
+     - Trang chủ vòng tròn biến thành trung tâm điều hành sống động: Stage phòng thoại âm thanh động (Acoustic wave bars), Spotlight cuộc bình chọn đang mở với vote tức thì, Sự kiện sắp diễn ra với RSVP inline 1-chạm, Kế hoạch nhanh (Quỹ chi tiêu / Tiến độ checklist) và Điểm tin khoảnh khắc nổi bật.
+- **Files Affected:**
+  - `packages/shared/src/planning/types.ts`
+  - `packages/shared/src/planning/templates.ts`
+  - `packages/shared/src/planning/summary.ts`
+  - `packages/shared/src/utils/distance.ts`
+  - `packages/shared/src/index.ts`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `packages/types/src/index.ts`
+  - `apps/backend/prisma/schema.prisma`
+  - `apps/backend/src/modules/chat/chat.gateway.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.controller.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.service.spec.ts`
+  - `apps/web/src/components/tools/CirclePlanningView.tsx`
+  - `apps/web/src/components/tools/CircleLocationView.tsx`
+  - `apps/web/src/components/hub/CircleCommandCenter.tsx`
+  - `apps/web/src/components/hub/AcousticWaveBars.tsx`
+  - `apps/web/src/components/hub/LiveRoomWidget.tsx`
+  - `apps/web/src/components/hub/HubQuickActionsBar.tsx`
+  - `apps/web/src/components/hub/ActivePollSpotlightCard.tsx`
+  - `apps/web/src/components/hub/UpcomingEventSpotlightCard.tsx`
+  - `apps/web/src/components/hub/QuickPlanningTrackerCard.tsx`
+  - `apps/web/src/components/hub/SocialPulseHighlightsCard.tsx`
+  - `apps/web/src/components/chat/ChatPlanningCard.tsx`
+  - `apps/web/src/hooks/use-circle-tools.ts`
+  - `apps/mobile/src/components/tools/MobilePlanningView.tsx`
+  - `apps/mobile/src/components/tools/MobileLocationView.tsx`
+  - `apps/mobile/src/components/chat/MobileChatPlanningCard.tsx`
+  - `apps/mobile/src/services/circle-tools.service.ts`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% full-stack code implementation, template engine, realtime sockets, responsive components, and automated tests.
+- **Human Modifications:** Không có thay đổi thủ công.
+- **Verification Method:**
+  - `npm test --workspace=@circle/backend`: Passed 12/12 test suites, 208/208 tests passed.
+  - `cd apps/web && npx tsc --noEmit`: Passed 0 errors.
+  - `cd apps/mobile && npx tsc --noEmit`: Passed 0 errors.
+  - `./scripts/check-agent-map.sh`: Passed 132/132 files.
+  - `./scripts/check-secrets.sh`: Passed 611/611 files (0 secret leaks).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`, `agentic/playbooks/04-group-chat.md`, `06-voice-video.md`, `07-circle-collaboration.md`, `08-notifications.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+
+## AI-0200: Next.js App Router Nested Layouts & URL-Driven Routing Architecture
+
+- **Date:** 2026-11-24
+- **Author:** Trương Công Bình (23110184) via AI Assistant
+- **Task:** Chuyển đổi kiến trúc Web CIRCLE từ Client Memory State thuần túy sang Next.js App Router Nested Layouts (URL-driven Routing) chuẩn mực quốc tế như Discord/Slack/Linear.
+- **Components & Files Affected:**
+  - `apps/web/src/components/layout/AppShell.tsx` (Root Shell dùng chung cho Header, AuthGuard & Global Modals)
+  - `apps/web/src/app/page.tsx` (Homepage `/` với FeedStream & Command Center)
+  - `apps/web/src/app/circle/[circleId]/layout.tsx` (Nested Workspace Shell 3 cột: Sidebar + Main Content + Presence Rail)
+  - `apps/web/src/app/circle/[circleId]/page.tsx` (Auto redirect sang `/circle/[circleId]/chat`)
+  - `apps/web/src/app/circle/[circleId]/chat/page.tsx` (Trò chuyện nhóm)
+  - `apps/web/src/app/circle/[circleId]/moments/page.tsx` (Khoảnh khắc thường ngày)
+  - `apps/web/src/app/circle/[circleId]/albums/page.tsx` (Album ảnh kỷ niệm)
+  - `apps/web/src/app/circle/[circleId]/calendar/page.tsx` (Lịch hẹn & Sự kiện)
+  - `apps/web/src/app/circle/[circleId]/planning/page.tsx` (Bảng kế hoạch nhóm)
+  - `apps/web/src/app/circle/[circleId]/location/page.tsx` (Bản đồ vị trí trực tiếp)
+  - `apps/web/src/app/circle/[circleId]/polls/page.tsx` (Bình chọn nhóm)
+  - `apps/web/src/app/circle/[circleId]/wheel/page.tsx` (Vòng xoay may mắn)
+  - `apps/web/src/app/circle/[circleId]/anonymous/page.tsx` (Hộp thư ẩn danh)
+  - `apps/web/src/components/navigation/Sidebar.tsx` (Tích hợp Next.js useRouter & usePathname điều hướng mềm)
+  - `apps/web/src/components/stream/FeedStream.tsx` (Điều hướng khi chọn Circle trên trang chủ)
+  - `apps/web/src/components/chat/ChatPlanningCard.tsx` (Mở bảng kế hoạch từ tin nhắn chat qua URL)
+  - `apps/web/src/components/chat/CalendarEventChatEmbed.tsx` (Mở lịch hẹn từ tin nhắn chat qua URL)
+  - `apps/web/next.config.mjs`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% mã nguồn kiến trúc phân tầng Next.js App Router, Nested Layouts, sub-routes và soft navigation.
+- **Human Modifications:** Không có thay đổi thủ công.
+- **Verification Method:**
+  - `cd apps/web && npx tsc --noEmit`: PASS 0 errors.
+  - `cd apps/web && npm run build`: PASS 100% static/dynamic routes.
+  - `cd apps/mobile && npx tsc --noEmit`: PASS 0 errors.
+  - `./scripts/check-agent-map.sh`: PASS 132/132 files.
+  - `./scripts/check-secrets.sh`: PASS 611/611 files (0 leaks).
+  - HTTP curl checks: `http://localhost:3000/` (200), `http://localhost:3000/circle/test/chat` (200), `http://localhost:3000/circle/test/planning` (200), `http://localhost:3000/circle/test/moments` (200).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`, `agentic/CONVENTIONS.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+
+## AI-0201: Clean Social-Media URLs (/chat, /moments, /planning, etc.)
+
+- **Date:** 2026-11-24
+- **Author:** Trương Công Bình (23110184) via AI Assistant
+- **Task:** Đơn giản hóa toàn bộ URL web CIRCLE theo phong cách mạng xã hội hiện đại (Instagram, Facebook), loại bỏ hoàn toàn ID khỏi URL.
+- **Components & Files Affected:**
+  - `apps/web/src/app/(workspace)/layout.tsx` (Route group layout cố định 3 cột, auto-select circle)
+  - `apps/web/src/app/(workspace)/chat/page.tsx` (`/chat`)
+  - `apps/web/src/app/(workspace)/moments/page.tsx` (`/moments`)
+  - `apps/web/src/app/(workspace)/albums/page.tsx` (`/albums`)
+  - `apps/web/src/app/(workspace)/calendar/page.tsx` (`/calendar`)
+  - `apps/web/src/app/(workspace)/planning/page.tsx` (`/planning`)
+  - `apps/web/src/app/(workspace)/location/page.tsx` (`/location`)
+  - `apps/web/src/app/(workspace)/polls/page.tsx` (`/polls`)
+  - `apps/web/src/app/(workspace)/wheel/page.tsx` (`/wheel`)
+  - `apps/web/src/app/(workspace)/anonymous/page.tsx` (`/anonymous`)
+  - `apps/web/src/components/navigation/Sidebar.tsx` (Điều hướng mềm sang clean routes)
+  - `apps/web/src/components/stream/FeedStream.tsx` (Chọn nhóm điều hướng thẳng sang `/chat`)
+  - `apps/web/src/components/chat/ChatPlanningCard.tsx` (Mở bảng kế hoạch từ tin nhắn sang `/planning`)
+  - `apps/web/src/components/chat/CalendarEventChatEmbed.tsx` (Mở lịch hẹn từ tin nhắn sang `/calendar`)
+  - Đã xoá sạch toàn bộ thư mục cũ `apps/web/src/app/circle`
+- **Verification Method:**
+  - `cd apps/web && npx tsc --noEmit`: PASS 0 errors.
+  - `cd apps/web && npm run build`: PASS 21/21 static pages generated.
+  - `cd apps/mobile && npx tsc --noEmit`: PASS 0 errors.
+  - `./scripts/check-agent-map.sh`: PASS 132/132 files.
+  - `./scripts/check-secrets.sh`: PASS 611/611 files (0 leaks).
+  - HTTP checks: `/` (200), `/chat` (200), `/planning` (200), `/moments` (200), `/calendar` (200).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+
+## AI-0202: Direct /chat Entry, Welcome Onboarding & Logo /chat Navigation
+
+- **Date:** 2026-11-24
+- **Author:** Trương Công Bình (23110184) via AI Assistant
+- **Task:** Tối ưu luồng truy cập gốc: vào web tự động vào thẳng `/chat` nếu đã đăng nhập và có nhóm; hiển thị màn hình chào mừng Onboarding nếu chưa có nhóm; bấm Logo C CIRCLE điều hướng trực tiếp về `/chat`.
+- **Components & Files Affected:**
+  - `apps/web/src/app/page.tsx` (Xử lý auto-redirect sang `/chat` hoặc màn hình Chào mừng Onboarding ấm áp)
+  - `apps/web/src/components/header/Header.tsx` (Logo C CIRCLE liên kết trực tiếp về `/chat`)
+  - `docs/ai-usage/log.md`
+- **Verification Method:**
+  - `cd apps/web && npx tsc --noEmit`: PASS 0 errors.
+  - `cd apps/web && npm run build`: PASS 21/21 static pages generated.
+  - `cd apps/mobile && npx tsc --noEmit`: PASS 0 errors.
+  - `./scripts/check-agent-map.sh`: PASS 132/132 files.
+  - `./scripts/check-secrets.sh`: PASS 611/611 files (0 leaks).
+  - HTTP checks: `GET /` (200), `GET /chat` (200).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+
+## AI-0203: Complete Deletion of Legacy Homepage & Unused Hub Components
+
+- **Date:** 2026-11-24
+- **Author:** Trương Công Bình (23110184) via AI Assistant
+- **Task:** Xoá sổ triệt để toàn bộ mã nguồn cũ của Homepage (`FeedStream.tsx`), thư mục `apps/web/src/components/stream` và `apps/web/src/components/hub`, hoàn tất dọn dẹp sạch sẽ kiến trúc web CIRCLE.
+- **Components & Files Affected:**
+  - `D apps/web/src/components/stream/FeedStream.tsx` (Đã xoá)
+  - `D apps/web/src/components/hub/` (Đã xoá 8 file hub cũ)
+  - `docs/ai-usage/log.md`
+- **Verification Method:**
+  - `cd apps/web && npx tsc --noEmit`: PASS 0 errors.
+  - `cd apps/web && npm run build`: PASS 21/21 static pages generated.
+  - `./scripts/check-agent-map.sh`: PASS 132/132 files.
+  - `./scripts/check-secrets.sh`: PASS 611/611 files (0 leaks).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+
+## AI-0204: Refined Welcome Splash Experience & Smooth Transition to /chat
+
+- **Date:** 2026-11-24
+- **Author:** Trương Công Bình (23110184) via AI Assistant
+- **Task:** Thêm màn hình Chào mừng (Welcome Splash) ấm áp với hiệu ứng thở của thương hiệu CIRCLE, giữ lại trải nghiệm chào đón ~1.1s trước khi mượt mà chuyển tiếp vào `/chat`.
+- **Components & Files Affected:**
+  - `apps/web/src/app/page.tsx` (Welcome Splash với timeout chuyển tiếp êm dịu sang `/chat`)
+  - `docs/ai-usage/log.md`
+- **Verification Method:**
+  - `cd apps/web && npx tsc --noEmit`: PASS 0 errors.
+  - `cd apps/web && npm run build`: PASS 21/21 static pages generated.
+  - `cd apps/mobile && npx tsc --noEmit`: PASS 0 errors.
+  - `./scripts/check-agent-map.sh`: PASS 132/132 files.
+  - `./scripts/check-secrets.sh`: PASS 611/611 files (0 leaks).
+  - HTTP checks: `GET /` (200), `GET /chat` (200).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+
+## AI-0205: Server-Side Instant Route Protection & Zero-Flash Direct Chat Entry
+
+- **Date:** 2026-11-24
+- **Author:** Trương Công Bình (23110184) via AI Assistant
+- **Task:** Đảm bảo luồng vào web chuẩn tuyệt đối: Server-side redirect ngay lập tức tại `/` (chưa login -> `/login`; đã login -> `/chat`), loại bỏ hoàn toàn mọi màn hình trung gian hoặc nhấp nháy chào mừng khi đã có Circle. Màn hình Chào mừng Onboarding chỉ xuất hiện khi user đã login nhưng thực sự chưa có Circle nào (với 2 nút Tạo Vòng tròn mới và Tham gia bằng mã).
+- **Components & Files Affected:**
+  - `apps/web/src/app/page.tsx` (Next.js Server Component đọc `cookies()`, redirect tức thì 307 không qua client render)
+  - `apps/web/src/app/(workspace)/chat/page.tsx` (Đảm bảo render thẳng ChannelChatView khi có Circle, Onboarding chỉ hiện khi không có Circle)
+  - `docs/ai-usage/log.md`
+- **Verification Method:**
+  - `curl -s -I http://localhost:3000/` -> `HTTP/1.1 307 Temporary Redirect` -> `Location: /login`
+  - `curl -s -I -H "Cookie: circle_access_token=mock" http://localhost:3000/` -> `HTTP/1.1 307 Temporary Redirect` -> `Location: /chat`
+  - `npm run build` in `apps/web`: PASS 21/21 static pages generated.
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+
+## AI-0206: Smart Presence Rail UX Optimization & Dynamic Activity Filtering
+
+- **Date:** 2026-11-24
+- **Author:** Trương Công Bình (23110184) via AI Assistant
+- **Task:** Tối ưu thanh PresenceRail bên phải: Kích hoạt điều hướng URL sạch (/calendar, /location, /polls) cho các tiện ích; chỉ hiển thị các khối tiện ích khi có hoạt động đang mở (ẩn toàn bộ placeholder rỗng); loại bỏ thông báo thừa "Hiện tại chưa có phòng thoại"; triển khai cơ chế hiển thị thành viên thông minh (Smart Member Sorting: Bạn -> Trưởng nhóm -> Online -> Bảng chữ cái; Capped at 5 thành viên kèm nút thu gọn/xem thêm không làm tràn rail khi nhóm đông).
+- **Components & Files Affected:**
+  - `apps/web/src/components/presence/PresenceRail.tsx` (Thêm useRouter, Smart Member Capping & Sorting, ẩn các tiện ích rỗng, dọn dẹp text voice stage)
+  - `docs/ai-usage/log.md`
+- **Verification Method:**
+  - `cd apps/web && npx tsc --noEmit`: PASS 0 errors.
+  - `cd apps/web && npm run build`: PASS 21/21 static pages generated.
+  - Chụp màn hình thực tế qua Brave browser bridge daemon: giao diện thanh rail tinh tế, gọn gàng, nút bấm hoạt động chuẩn xác.
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+
+## AI-0207: Unified Design Language Consolidation & Clean Obsidian Dark Palette
+
+- **Date:** 2026-11-24
+- **Author:** Trương Công Bình (23110184) via AI Assistant
+- **Task:** Hợp nhất Flat UI và Liquid Glass thành một ngôn ngữ thiết kế duy nhất (Unified Frosted-Flat Design): loại bỏ bóng đổ nặng và viền bóng loáng (specular highlights), giữ cấu trúc phẳng trung tính tối giản và bổ sung hiệu ứng kính mờ nhẹ (delicate frosted blur 16px) cho các thanh nổi, header và popovers. Loại bỏ hoàn toàn tùy chọn đổi giao diện khỏi Settings trên cả Web và Mobile. Nâng cấp Dark Theme sang chuẩn Obsidian Clean (#0B0C0E canvas, #16181B surface, #26292E hairline, #F9FAFB text) học hỏi từ Instagram/Threads.
+- **Components & Files Affected:**
+  - `packages/shared/src/theme/colors.ts` (Cập nhật dark palette obsidian clean và unified frosted tokens)
+  - `apps/web/tailwind.config.ts` (Cập nhật dark tokens)
+  - `apps/web/src/app/globals.css` (Xóa bỏ toàn bộ override data-ui-style, chuẩn hóa .glass và .frosted-glass)
+  - `apps/web/src/stores/theme.store.ts` (Xóa uiStyle, setUiStyle, circle_ui_style)
+  - `apps/web/src/components/settings/SystemSettingsModal.tsx` (Xóa Section chọn phong cách giao diện)
+  - `apps/web/src/components/header/Header.tsx` (Dọn dẹp isGlass, áp dụng unified frosted flat)
+  - `apps/web/src/components/chat/ChatComposer.tsx` (Dọn dẹp isGlass)
+  - `apps/web/src/components/notifications/NotificationCenterPopover.tsx` (Dọn dẹp isGlass)
+  - `apps/web/src/app/layout.tsx` (Xóa data-ui-style và script lưu trữ)
+  - `apps/mobile/src/constants/glass-theme.ts` (Cập nhật unified glass theme cho mobile)
+  - `apps/mobile/src/stores/theme.store.ts` (Xóa uiStyle và setUiStyle)
+  - `apps/mobile/src/components/settings/SystemSettingsModal.tsx` (Xóa mục Phong cách thiết kế)
+  - `apps/mobile/src/components/circle/CircleManagementModal.tsx` (Dọn dẹp setUiStyle)
+  - `docs/ai-usage/log.md`
+- **Verification Method:**
+  - `cd apps/web && npx tsc --noEmit`: PASS 0 errors.
+  - `cd apps/mobile && npx tsc --noEmit`: PASS 0 errors.
+  - `cd apps/web && npm run build`: PASS 21/21 static pages generated.
+  - `./scripts/check-agent-map.sh`: PASS 132/132 files.
+  - `./scripts/check-secrets.sh`: PASS 611/611 files (0 leaks).
+  - Brave live verification: Kiểm tra trực quan cả Dark Theme (Obsidian) và Light Theme.
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+
+## AI-0208: Circle Settings Modal Layout Harmonization & Text Cleanup Audit
+
+- **Date:** 2026-11-24
+- **Author:** Trương Công Bình (23110184) via AI Assistant
+- **Task:** 
+  1. Adapt giao diện Cài đặt Vòng tròn (`CircleManagementModal.tsx`) theo phong cách và cấu trúc 2 cột chuẩn của Cài đặt hệ thống (`SystemSettingsModal.tsx`): Cột trái (Identity card, danh sách navigation pill tabs, nút hành động nguy hiểm Rời nhóm / Giải tán nhóm dưới đáy) + Cột phải (Header tab title kèm nút đóng tròn, card containers đồng nhất).
+  2. Sửa lỗi hiển thị danh sách thành viên ở PresenceRail: Khắc phục lỗi `((Tôi))` -> hiển thị chuẩn `dbinh (Bạn)`; sửa logic `effectiveOnlineCount` đếm chính xác số người trực tuyến (kết hợp socket presence và local user state).
+  3. Dọn sạch toàn bộ text mô tả thừa, prompt artifacts và developer notes: Bỏ `(Sheet)` ở Bảng kế hoạch; bỏ `loginSubtitle` và `registerSubtitle` ở màn hình Auth web và mobile; bỏ chú thích `({t.auth.min8Chars})` tại label mật khẩu khi đăng ký (vì đã có Password Strength Indicator); rà soát và loại bỏ các từ tiếng Anh trong ngoặc giải thích ở `vi.ts` (`(New Circle)`, `(Moment)`, `(Reflection)`, `(Public)`, `(Private)`, `(Pastel)`, `(Admin)`).
+- **Components & Files Affected:**
+  - `packages/shared/src/locales/vi.ts` & `en.ts` (Sửa `planningSheet`, `meLabel: 'Bạn'`, xóa bỏ các hậu tố ngoặc đơn tiếng Anh thừa)
+  - `apps/web/src/components/presence/PresenceRail.tsx` (Tính toán `effectiveOnlineCount`, làm sạch tên và hiển thị `(Bạn)`)
+  - `apps/web/src/components/circle/CircleManagementModal.tsx` (Chuyển sang layout 2 cột chuẩn của SystemSettingsModal, thay thế toàn bộ confirm modal)
+  - `apps/web/src/app/(auth)/login/page.tsx` & `register/page.tsx` (Xóa subtitle và note 8 ký tự thừa)
+  - `apps/mobile/app/(auth)/login.tsx` (Xóa subtitle thừa)
+  - `docs/ai-usage/log.md`
+- **Verification Method:**
+  - `cd apps/web && npx tsc --noEmit`: PASS 0 errors.
+  - `cd apps/mobile && npx tsc --noEmit`: PASS 0 errors.
+  - `./scripts/check-agent-map.sh`: PASS 132/132 files.
+  - `./scripts/check-secrets.sh`: PASS 611/611 files (0 leaks).
+  - Brave live visual inspection: Chụp ảnh màn hình thực tế `presence-rail-fixed.png` và `circle-settings-adapted-modal.png`, kiểm chứng hiển thị `THÀNH VIÊN (3) · 1 Trực tuyến`, `dbinh (Bạn)`, modal Cài đặt Vòng tròn 2 cột chuẩn chỉnh.
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+
+## AI-0209: Circle Settings Clustered Cards Refactor, Danger Zone Restructuring, Profile Modal Fix & Web-Mobile Composer Parity
+
+- **Date:** 2026-11-24
+- **Author:** Trương Công Bình (23110184) via AI Assistant
+- **Task:** 
+  1. Tái cấu trúc Cài đặt Vòng tròn (`CircleManagementModal.tsx`) theo các cụm Card chức năng khoa học chuẩn như `SystemSettingsModal.tsx`: Phân nhóm rõ ràng theo tiêu đề in hoa (HỒ SƠ VÒNG TRÒN, MÃ MỜI & CHIA SẺ, MÀU CHỦ ĐỀ TIN NHẮN, CÀI ĐẶT THÔNG BÁO, QUYỀN RIÊNG TƯ, QUYỀN THAM GIA & QUY MÔ, VÙNG NGUY HIỂM, BÁO CÁO VI PHẠM, HỖ TRỢ & HƯỚNG DẪN).
+  2. Dọn dẹp nút nguy hiểm không ưu tiên "Giải tán Vòng tròn / Rời Vòng tròn": Xóa hoàn toàn nút nguy hiểm ở thanh điều hướng bên trái và nút trùng lặp ở tab Trợ giúp; chỉ duy trì duy nhất trong cụm Card "VÙNG NGUY HIỂM" (Danger Zone) đặt ở cuối tab Thiết lập Vòng tròn.
+  3. Xóa text tên giải thích màu chủ đề tin nhắn (`formThemeColor.name`): Giữ nguyên vòng tròn màu pastel tối giản, tinh tế mà người dùng dễ nhận biết trực quan mà không cần nhãn chữ.
+  4. Chuẩn hóa `EditProfileModal.tsx`: Bo tròn hoàn toàn nút trở về (`rounded-full`), đồng thời tách biệt rõ ràng trạng thái: Khi chỉnh sửa (`mode !== 'view'`) chỉ hiển thị duy nhất nút Trở về (`ArrowLeft`), khi xem (`mode === 'view'`) chỉ hiển thị nút Đóng (`X`), loại bỏ hoàn toàn việc xuất hiện cùng lúc 2 nút.
+  5. Đồng bộ hóa 1:1 thanh Chat Composer giữa Web và Mobile: Đưa các hành động trong menu popover `(+)` về cùng chuẩn gồm 1) Đính kèm tệp (`FileText`), 2) Bình chọn nhóm (`Vote`/`BarChart3`), 3) Vị trí trực tiếp (`MapPin`); cấu trúc thanh capsule đồng nhất: `(+)` -> `[Image]` -> `[Input]` -> `[Emoji]`, bên ngoài là nút `[Mic]` / `[Send]` / `[Save]`.
+- **Components & Files Affected:**
+  - `apps/web/src/components/circle/CircleManagementModal.tsx` (Nhóm các card chức năng theo cụm, di chuyển nút giải tán vào Vùng nguy hiểm, bỏ text giải thích tên màu)
+  - `apps/web/src/components/profile/EditProfileModal.tsx` (Sửa nút trở về `rounded-full`, tách riêng nút Trở về và Đóng theo mode)
+  - `apps/mobile/src/components/chat/CircleChatFullscreenView.tsx` (Đồng bộ các nút hành động trong popover `(+)` của mobile với web: đính kèm tệp, bình chọn, vị trí trực tiếp)
+  - `docs/ai-usage/log.md`
+- **Verification Method:**
+  - `cd apps/web && npx tsc --noEmit`: PASS 0 errors.
+  - `cd apps/mobile && npx tsc --noEmit`: PASS 0 errors.
+  - `./scripts/check-agent-map.sh`: PASS 132/132 files.
+  - `./scripts/check-secrets.sh`: PASS 611/611 files (0 leaks).
+  - Brave live visual inspection: Chụp ảnh màn hình thực tế `circle-settings-clustered-tab1.png` và `circle-settings-clustered-tab4.png`, xác nhận sidebar sạch sẽ không còn nút đỏ, các cụm card và Vùng nguy hiểm hiển thị chuẩn xác, không còn text tên màu thừa.
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+
+## AI-0210: Theme Notification Refactoring, Uniform Composer Action Icons & Support/Reports Tab Redesign
+
+- **Date:** 2026-11-24
+- **Author:** Trương Công Bình (23110184) via AI Assistant
+- **Task:** 
+  1. Khắc phục lỗi vị trí thông báo đổi màu chủ đề tin nhắn: Di chuyển phản hồi thông báo cập nhật màu chủ đề (`themeSuccessNotice`) hiển thị trực tiếp (inline feedback) ngay tại tiêu đề của card "MÀU CHỦ ĐỀ ĐOẠN CHAT" ở Tab 1 (`chatInfo`), chấm dứt việc bật banner toàn cục ở đỉnh modal gây xê dịch bố cục. Đồng thời xóa bỏ triệt để khối chọn màu bị trùng lặp còn sót lại ở Tab 4 trên ứng dụng Mobile.
+  2. Chuẩn hóa màu sắc các icon trong menu mở rộng `(+)` của Chat Composer (`ChatComposer.tsx`): Loại bỏ hoàn toàn sự lộn xộn màu sắc cầu vồng (trước đó đính kèm tệp màu xám, bình chọn màu xanh ngọc, vị trí màu hồng đỏ/xanh dương); đưa toàn bộ icon về phong cách đơn sắc thanh lịch đồng nhất (`text-circle-slate dark:text-circle-dark-muted` chuyển sang `text-circle-charcoal dark:text-white` khi hover).
+  3. Tái thiết kế toàn diện Tab 5 Trợ giúp & Báo cáo (`CircleManagementModal.tsx`):
+     - Đồng bộ phân cấp chữ và kích thước font chuẩn mực theo đúng thiết kế của `SystemSettingsModal.tsx` (`text-xs font-bold uppercase tracking-wider` cho header nhóm, `text-xs font-bold` cho tiêu đề hành vi, `text-xs text-circle-slate dark:text-white/60` cho mô tả chi tiết, bỏ hoàn toàn các cỡ chữ `[11px]` vụn vặt).
+     - Thiết kế lại các form báo cáo vi phạm Vòng tròn và báo cáo thành viên theo phong cách card lồng gọn gàng, radio reasons dạng lưới chip 2 cột rõ ràng, nút bấm đồng đều.
+     - Nâng cấp khối Hỗ trợ & Hướng dẫn cộng đồng thành các card quy tắc có đánh số thứ tự trực quan, đẹp mắt.
+- **Components & Files Affected:**
+  - `apps/web/src/components/chat/ChatComposer.tsx` (Chuẩn hóa màu icon menu `(+)`)
+  - `apps/web/src/components/circle/CircleManagementModal.tsx` (Thông báo đổi màu inline tại Tab 1, tái thiết kế Tab 5 Trợ giúp & Báo cáo)
+  - `apps/mobile/src/components/circle/CircleManagementModal.tsx` (Xóa bỏ section chọn màu trùng lặp ở Tab 4)
+  - `packages/shared/src/locales/vi.ts` & `en.ts` (Bổ sung `reportsViolationTitle`, `communityGuidelinesHeader`)
+  - `docs/ai-usage/log.md`
+- **Verification Method:**
+  - `cd packages/shared && npm run build`: PASS.
+  - `cd apps/web && npx tsc --noEmit`: PASS 0 errors.
+  - `cd apps/mobile && npx tsc --noEmit`: PASS 0 errors.
+  - `./scripts/check-agent-map.sh`: PASS 132/132 files.
+  - `./scripts/check-secrets.sh`: PASS 611/611 files (0 leaks).
+  - Brave live visual inspection: Chụp ảnh màn hình thực tế `circle-settings-tab5-redesigned.png` và `circle-settings-inline-color-notice.png`, nghiệm thu bố cục phân tầng khoa học, font chữ hài hòa và thông báo đổi màu chuẩn xác.
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+
+## AI-0211: Fix Active Tab Unintended Reset on Circle State Mutation
+
+- **Date:** 2026-11-24
+- **Author:** Trương Công Bình (23110184) via AI Assistant
+- **Task:** 
+  1. Điều tra và khắc phục triệt để lỗi khi người dùng chọn màu chủ đề tin nhắn ở Tab 1 (*Thông tin đoạn chat*) thì giao diện tự động nhảy xuống Tab 4 (*Thiết lập Vòng tròn*):
+     - **Nguyên nhân gốc rễ (Root Cause):** Trong `CircleManagementModal.tsx`, hook `useEffect` đồng bộ dữ liệu phụ thuộc vào `[isManageModalOpen, manageActiveTab, activeCircle]`. Khi người dùng click chọn màu, hàm `handleThemeColorChange` gọi `setActiveCircle` để cập nhật theme mới trong store. Do `activeCircle` thay đổi tham chiếu, `useEffect` bị kích hoạt lại và gọi lệnh `setActiveTab(getInitialTab())`. Do tham số `manageActiveTab` trong store lúc mở modal mặc định là `'settings'`, hàm `getInitialTab()` đã trả về `'circleSettings'`, cưỡng ép giao diện nhảy sang Tab 4.
+     - **Giải pháp:** Sử dụng `useRef` ghi nhớ trạng thái mở (`prevModalOpenRef`) và ID vòng tròn (`prevCircleIdRef`). Chỉ kích hoạt `setActiveTab(getInitialTab())` khi modal vừa mới mở ra hoặc khi đổi hẳn sang vòng tròn khác. Khi modal đang mở và chỉ thay đổi thuộc tính (như themeColor, name, v.v.), `activeTab` hoàn toàn được bảo toàn tại tab hiện tại mà người dùng đang thao tác.
+  2. Chuẩn hóa giá trị tab mở mặc định của Cài đặt Vòng tròn: Cập nhật `circle.store.ts` và nút bấm ở `Sidebar.tsx` chuyển giá trị tab mặc định khi click "Cài đặt Vòng tròn" từ `'settings'` sang `'chatInfo'` (Tab 1 - Hồ sơ & Màu chủ đề Vòng tròn).
+- **Components & Files Affected:**
+  - `apps/web/src/components/circle/CircleManagementModal.tsx` (Bảo toàn `activeTab` khi mutate `activeCircle`)
+  - `apps/web/src/stores/circle.store.ts` (Đổi tab mặc định `setManageModalOpen` sang `'chatInfo'`)
+  - `apps/web/src/components/navigation/Sidebar.tsx` (Mở modal với tab mặc định `'chatInfo'`)
+  - `docs/ai-usage/log.md`
+- **Verification Method:**
+  - `cd apps/web && npx tsc --noEmit`: PASS 0 errors.
+  - `cd apps/mobile && npx tsc --noEmit`: PASS 0 errors.
+  - `./scripts/check-agent-map.sh`: PASS 132/132 files.
+  - `./scripts/check-secrets.sh`: PASS 611/611 files (0 leaks).
+  - Brave live visual inspection: Chạy kiểm thử tự động click chọn màu trong Tab 1 và chụp ảnh màn hình `tab-persisted-after-color-change.png`, xác nhận sau khi chọn màu giao diện vẫn giữ nguyên 100% tại Tab 1 "Thông tin đoạn chat", không còn hiện tượng nhảy tab.
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+
+## AI-0212: Unified Location Search, Map Pin Dropping, Mobile Poll Status & Inline Activity Logs
+
+- **Date:** 2026-11-24
+- **Author:** Trương Công Bình (23110184) via AI Assistant
+- **Task:** 
+  1. **Unified Location Search (Web & Mobile Parity):**
+     - Xây dựng module tìm kiếm địa điểm thống nhất `packages/shared/src/utils/location-search.ts` (`searchLocationsUnified`) với pipeline fallback chuẩn mực: Proxy Endpoint -> Mapbox Geocoding v5 -> Photon OSM (tọa độ Việt Nam) -> Nominatim OSM.
+     - Đồng bộ hóa `LocationSearchInput` trên Web và xây dựng `MobileLocationSearchInput` trên Mobile dùng chung hoàn toàn logic tìm kiếm, tự động gợi ý và gán tọa độ.
+     - Tích hợp vào tạo sự kiện lịch (`CircleCalendarView`, `MobileCalendarView`) và thiết lập điểm hẹn (`CircleLocationView`, `MobileLocationView`).
+  2. **Map Right-Click & Mobile Long-Press:**
+     - Web (`CircleLocationView`): Bắt sự kiện `contextmenu` trên bản đồ Leaflet, tự động thả ghim vị trí ngay tại tọa độ được click chuột phải, reverse-geocode địa chỉ ngầm và mở modal thiết lập điểm hẹn với tọa độ đã điền sẵn.
+     - Mobile (`MobileLocationView`): Lắng nghe sự kiện touch long-press (>500ms) và contextmenu trong WebView Leaflet, truyền message `MAP_LONG_PRESS` về React Native kèm haptic feedback rung nhẹ, thả ghim tạm thời và mở modal điểm hẹn với tọa độ chuẩn xác.
+  3. **Mobile Poll Status:**
+     - Trên Mobile (`MobileChatPollCard` và `MobilePollView`), hiển thị rõ ràng huy hiệu trạng thái khi bình chọn đã kết thúc/đóng (`[Đã kết thúc]`), khóa các tùy chọn và hiển thị cảnh báo thân thiện khi chạm vào.
+     - Khi bình chọn bị xóa, hiển thị thẻ cảnh báo tinh tế kèm icon AlertCircle thông báo rõ ràng "Cuộc bình chọn đã kết thúc hoặc bị xóa" (`pollDeletedOrNotFound`).
+  4. **Inline Chat Activity Logs for Polls/Events:**
+     - Trong dòng tin nhắn chat (cả Web và Mobile): Hiển thị dòng nhật ký hệ thống nhỏ, căn giữa, tinh gọn ngay dưới thẻ bình chọn (khi có tương tác bỏ phiếu) và thẻ sự kiện (khi có tương tác cập nhật xác nhận tham gia RSVP).
+     - Mặc định thu gọn khi có nhiều hơn 1 thay đổi, cung cấp nút chuyển đổi "Xem thêm" / "Thu gọn" để xem chi tiết lịch sử tương tác.
+     - Tuân thủ nguyên tắc Zero Hardcoding với đầy đủ từ điển đa ngôn ngữ tiếng Việt và tiếng Anh trong `@circle/shared`.
+- **Components & Files Affected:**
+  - `packages/shared/src/utils/location-search.ts` (Unified location search pipeline)
+  - `packages/shared/src/index.ts`
+  - `packages/shared/src/locales/vi.ts` & `en.ts`
+  - `apps/mobile/src/components/tools/MobileLocationSearchInput.tsx` (Unified mobile location search component)
+  - `apps/mobile/src/components/tools/MobileCalendarView.tsx`
+  - `apps/mobile/src/components/tools/MobileLocationView.tsx`
+  - `apps/mobile/src/components/chat/MobileChatPollCard.tsx`
+  - `apps/mobile/src/components/chat/MobileCalendarEventChatEmbed.tsx`
+  - `apps/web/src/components/tools/LocationSearchInput.tsx`
+  - `apps/web/src/components/tools/CircleLocationView.tsx`
+  - `apps/web/src/components/chat/ChatPollCard.tsx`
+  - `apps/web/src/components/chat/CalendarEventChatEmbed.tsx`
+  - `docs/ai-usage/log.md`
+- **Verification Method:**
+  - `cd packages/shared && npm run build`: PASS.
+  - `cd apps/mobile && npx tsc --noEmit`: PASS 0 errors.
+  - `cd apps/web && npm run build`: PASS (static pages generated, typecheck 0 errors).
+  - `cd apps/backend && npm test`: PASS 12/12 suites, 209/209 tests passed.
+  - `./scripts/check-agent-map.sh`: PASS.
+  - `./scripts/check-secrets.sh`: PASS.
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+
+
+---
+
+### Entry AI-0213: Chat UX, Pinned Modal, Header, Context Menus, Reactions & Message Deletion Parity across Web & Mobile
+- **Date:** 2026-11-24
+- **Branch:** `feat/128-notification-center-and-push`
+- **Author:** Trương Công Bình (23110184) via AI Assistant
+- **Task:** 
+  1. **Pinned messages modal:**
+     - Removed redundant bottom close button in Web `PinnedMessagesModal`, keeping only the top `X` close button and backdrop click. Mobile retains unified clean top `X` dismiss and backdrop touch.
+  2. **Chat Header & 3-dot dropdown menu:**
+     - Removed duplicate Search and Pin options from the 3-dot dropdown menus in both Web (`ChannelChatView`) and Mobile (`CircleChatFullscreenView`), since dedicated Search and Pin action buttons already exist prominently in the chat header.
+  3. **Graphic & system content formatting:**
+     - Excluded special system messages (e.g. `[CALL_SUMMARY]:{...}`, raw system JSON) from search queries in backend (`chat.service.ts`), Web (`ChannelChatView`), and Mobile (`SearchMessagesModal`).
+     - Blocked quote-reply and context menu on non-interactive special system messages. Allowed quote-reply on location pins (`[LOCATION_PIN]:`).
+     - Enhanced quote-reply preview rendering with rich previews (media thumbnails, map/location icons and titles, polls, calendar, planning badges) in both composer and message bubbles across Web and Mobile.
+  4. **Edge detection & outside-click:**
+     - Implemented outside-click/outside-touch backdrop listeners for all 3-dot menus and popovers across Web and Mobile with proper z-index layering.
+     - Implemented edge detection on Web (`menuButtonRef.current.getBoundingClientRect().top < 220`) to flip downwards near top edge (`top-full mt-1.5`) and flip upwards near bottom edge (`bottom-full mb-1.5`). Mobile context menu clamps Y dynamically between screen edges.
+  5. **Message Unsend / Delete flow:**
+     - Unified message deletion into 1 single "Unsend" / "Delete" action button opening a selection modal (`DeleteMessageModal` on Web, `MobileDeleteMessageModal` on Mobile) with clear choices: "Delete for me" vs "Unsend for everyone" (if author within permission window) with confirmation dialog.
+  6. **Reactions:**
+     - Enforced 1 reaction per user per message in backend (`chat.service.ts`): tapping the same emoji removes it; tapping a different emoji updates/replaces it.
+     - Formatted complete reaction items with reactor user profile and avatar.
+     - Tapping reaction badge opens reactor list modal (`ReactionListModal` on Web, `MobileReactionListModal` on Mobile) showing who reacted with which emoji, filterable by emoji tabs.
+     - Added bottom spacing (`mb-2.5` / 10px) to message bubbles with reactions so badges never collide with adjacent messages below.
+  7. **Mobile long-press vs Web hover parity:**
+     - Unified interactions so context menus only trigger on interactable messages/cards and are disabled on non-interactive system notices.
+     - Ensured Apple Liquid Glass design principles and zero hardcoded strings across all components using `@circle/shared` locales (`vi.ts` and `en.ts`).
+- **Components & Files Affected:**
+  - `packages/shared/src/utils/chat-preview.ts`
+  - `packages/shared/src/index.ts`
+  - `packages/shared/src/locales/vi.ts` & `en.ts`
+  - `apps/backend/src/modules/chat/chat.service.ts`
+  - `apps/backend/src/modules/chat/chat.service.spec.ts`
+  - `apps/web/src/components/chat/PinnedMessagesModal.tsx`
+  - `apps/web/src/components/chat/ChannelChatView.tsx`
+  - `apps/web/src/components/chat/ChatComposer.tsx`
+  - `apps/web/src/components/chat/MessageBubble.tsx`
+  - `apps/web/src/components/chat/DeleteMessageModal.tsx`
+  - `apps/web/src/components/chat/ReactionListModal.tsx`
+  - `apps/web/src/hooks/use-chat-queries.ts`
+  - `apps/mobile/src/components/chat/CircleChatFullscreenView.tsx`
+  - `apps/mobile/src/components/chat/SearchMessagesModal.tsx`
+  - `apps/mobile/src/components/chat/MobileDeleteMessageModal.tsx`
+  - `apps/mobile/src/components/chat/MobileReactionListModal.tsx`
+  - `apps/mobile/src/hooks/use-circle-queries.ts`
+  - `docs/ai-usage/log.md`
+- **Verification Method:**
+  - `cd apps/backend && npm test src/modules/chat/chat.service.spec.ts`: PASS (all 23 tests passed).
+  - `cd apps/web && npx tsc --noEmit`: PASS (0 errors).
+  - `cd apps/mobile && npx tsc --noEmit`: PASS (0 errors).
+  - `./scripts/check-agent-map.sh`: PASS.
+  - `./scripts/check-secrets.sh`: PASS.
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+
+---
+
+### Entry AI-0214: Unification of ActionChoiceModal and MobileActionChoiceModal across Web & Mobile (Rule 9 Conformance)
+- **Date:** 2026-11-24
+- **Branch:** `feat/128-notification-center-and-push`
+- **Author:** Trương Công Bình (23110184) via AI Assistant
+- **Task:** 
+  1. **Web Shared ActionChoiceModal (`apps/web/src/components/ui/ActionChoiceModal.tsx`):**
+     - Created unified ActionChoiceModal component accepting dynamic title, description, icon, options (`ActionChoiceOption`), warning banners, error banners, confirm/cancel buttons, and loading states.
+     - Refactored `ClearChatModal.tsx` to reuse `ActionChoiceModal`.
+     - Refactored `DeleteMessageModal.tsx` to reuse `ActionChoiceModal`.
+  2. **Mobile Shared MobileActionChoiceModal (`apps/mobile/src/components/ui/MobileActionChoiceModal.tsx`):**
+     - Created unified MobileActionChoiceModal component with responsive safe-area insets, Apple Liquid Glass theme support, radio buttons, warning/error alerts, and loading spinners.
+     - Refactored `MobileDeleteMessageModal.tsx` to reuse `MobileActionChoiceModal`.
+     - Refactored inline Clear Chat modal in `CircleChatFullscreenView.tsx` to reuse `MobileActionChoiceModal`.
+  3. **Strict Invariant Conformance (Rule 9):**
+     - Zero duplication of action/confirmation choice modals across Web and Mobile.
+     - Zero hardcoded strings using `@circle/shared` locales.
+- **Components & Files Affected:**
+  - `apps/web/src/components/ui/ActionChoiceModal.tsx`
+  - `apps/web/src/components/chat/ClearChatModal.tsx`
+  - `apps/web/src/components/chat/DeleteMessageModal.tsx`
+  - `apps/mobile/src/components/ui/MobileActionChoiceModal.tsx`
+  - `apps/mobile/src/components/chat/MobileDeleteMessageModal.tsx`
+  - `apps/mobile/src/components/chat/CircleChatFullscreenView.tsx`
+  - `docs/ai-usage/log.md`
+- **Verification Method:**
+  - `cd apps/web && npx tsc --noEmit`: PASS (0 errors).
+  - `cd apps/mobile && npx tsc --noEmit`: PASS (0 errors).
+  - `cd apps/backend && npm test src/modules/chat/chat.service.spec.ts`: PASS (23/23 tests passed).
+  - `./scripts/check-agent-map.sh`: PASS (133/133 files OK).
+  - `./scripts/check-secrets.sh`: PASS (611/611 files OK).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md` (Rule 9).
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+
+---
+
+### Entry AI-0215: Unification of ReactionListModal and MobileReactionListModal across Web & Mobile (Rule 9 Conformance)
+- **Date:** 2026-11-24
+- **Branch:** `feat/128-notification-center-and-push`
+- **Author:** Trương Công Bình (23110184) via AI Assistant
+- **Task:** 
+  1. **Web Shared ReactionListModal (`apps/web/src/components/ui/ReactionListModal.tsx`):**
+     - Created unified `ReactionListModal` accepting any normalized reaction format (chat messages, moments, activity cards).
+     - Provides automatic calculation of emoji counts, emoji filtering tabs (All + per-emoji), avatar display, reactor name, and emoji badge pill.
+     - Refactored `apps/web/src/components/chat/ReactionListModal.tsx` to re-export the unified component.
+     - Refactored `apps/web/src/components/moments/MomentReactorsModal.tsx` to reuse `ReactionListModal` 100%, completely removing duplicate modal markup.
+  2. **Mobile Shared MobileReactionListModal (`apps/mobile/src/components/ui/MobileReactionListModal.tsx`):**
+     - Created unified `MobileReactionListModal` with bottom-sheet slide-up animation, safe area insets, grabber, emoji filtering pills, and reactor list items.
+     - Refactored `apps/mobile/src/components/chat/MobileReactionListModal.tsx` to re-export the unified component.
+     - Refactored `apps/mobile/src/components/moment/MomentsView.tsx` to reuse `MobileReactionListModal` 100%, completely removing the inline duplicate modal (~180 lines of duplicated modal markup removed).
+  3. **Strict Invariant Conformance (Rule 9):**
+     - Zero duplicate reaction/reactor modals across Web and Mobile.
+     - Zero hardcoded strings using `@circle/shared` locales.
+- **Components & Files Affected:**
+  - `apps/web/src/components/ui/ReactionListModal.tsx`
+  - `apps/web/src/components/chat/ReactionListModal.tsx`
+  - `apps/web/src/components/moments/MomentReactorsModal.tsx`
+  - `apps/mobile/src/components/ui/MobileReactionListModal.tsx`
+  - `apps/mobile/src/components/chat/MobileReactionListModal.tsx`
+  - `apps/mobile/src/components/moment/MomentsView.tsx`
+  - `docs/ai-usage/log.md`
+- **Verification Method:**
+  - `cd apps/mobile && npx tsc --noEmit`: PASS (0 errors).
+  - `cd apps/backend && npm test src/modules/chat/chat.service.spec.ts`: PASS (23/23 tests passed).
+  - `./scripts/check-agent-map.sh`: PASS (133/133 files OK).
+  - `./scripts/check-secrets.sh`: PASS (611/611 files OK).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md` (Rule 9).
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+
+
+---
+
+### [AI-0216] 2026-11-24: Unified ConfirmModal & MobileConfirmModal (Constitution Rule 9) Across Web and Mobile
+
+- **Engineer:** Trương Công Bình (23110184) & planning-worker (AI Agent)
+- **Feature/Task:** Rule 9 Zero Duplicate Modals: Create shared `ConfirmModal` (Web) and `MobileConfirmModal` (Mobile) and eliminate all duplicate inline confirmation modals and raw `window.confirm` calls.
+- **Detailed Work & Technical Implementation:**
+  1. **Shared Web ConfirmModal (`apps/web/src/components/ui/ConfirmModal.tsx`):**
+     - Built unified Liquid Glass confirmation modal supporting variants (`danger`, `warning`, `primary`), customizable icon, loading states, outside click, and keyboard ESC.
+     - Refactored `CirclePlanningView.tsx` to handle delete sheet, delete column, and delete row confirmations with `ConfirmModal`.
+     - Refactored `CircleManagementModal.tsx` (Web) replacing 4 duplicated inline confirmation modals (kick member, transfer ownership, leave circle, delete circle) with unified `ConfirmModal`.
+     - Refactored `CircleWheelView.tsx` replacing all 4 `window.confirm` calls (reset options, delete all wheels, clear results, delete wheel) with `ConfirmModal`.
+     - Refactored `CircleAlbumsView.tsx` replacing `window.confirm` batch delete photos with `ConfirmModal`.
+     - Refactored `CircleAnonymousView.tsx` replacing raw `confirm(...)` on deleting post with `ConfirmModal`.
+  2. **Shared Mobile MobileConfirmModal (`apps/mobile/src/components/ui/MobileConfirmModal.tsx`):**
+     - Built unified Liquid Glass mobile confirmation modal supporting Safe-Area insets, tactile haptic feedback, variants, and loading spinners.
+     - Refactored `MobilePlanningView.tsx` replacing inline delete sheet card and row delete confirmation toggle with `MobileConfirmModal`.
+     - Refactored `CircleManagementModal.tsx` (Mobile) replacing inline `pendingConfirm` banner with `MobileConfirmModal`.
+  3. **Strict Invariant Conformance (Rule 9):**
+     - Zero duplicate confirmation modals across Web and Mobile.
+     - Zero raw `window.confirm` or `confirm(...)` calls remaining in the entire codebase.
+     - Zero hardcoded strings using `@circle/shared` locales (`useLanguageStore`).
+- **Components & Files Affected:**
+  - `apps/web/src/components/ui/ConfirmModal.tsx`
+  - `apps/mobile/src/components/ui/MobileConfirmModal.tsx`
+  - `apps/web/src/components/tools/CirclePlanningView.tsx`
+  - `apps/mobile/src/components/tools/MobilePlanningView.tsx`
+  - `apps/web/src/components/circle/CircleManagementModal.tsx`
+  - `apps/mobile/src/components/circle/CircleManagementModal.tsx`
+  - `apps/web/src/components/tools/CircleWheelView.tsx`
+  - `apps/web/src/components/tools/CircleAlbumsView.tsx`
+  - `apps/web/src/components/tools/CircleAnonymousView.tsx`
+  - `docs/ai-usage/log.md`
+- **Verification Method:**
+  - `cd apps/mobile && npx tsc --noEmit`: PASS (0 errors).
+  - `cd apps/web && npx tsc --noEmit && npm run build`: PASS (static pages 21/21, 0 errors).
+  - `cd apps/backend && npm test src/modules/circle-tools`: PASS (45/45 tests passed).
+  - `./scripts/check-agent-map.sh`: PASS (133/133 files OK).
+  - `./scripts/check-secrets.sh`: PASS (611/611 files OK).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md` (Rule 9).
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+
+## AI-0213: Fix the Planning Member Picker and Complete Group Poll CRUD
+
+- **Date:** 2026-11-25 20:25:43
+- **Developer:** Trương Công Bình
+- **Tool:** OpenAI Codex
+- **Model:** GPT-6
+- **Related Issue:** #128
+- **Purpose:** Keep the Planning member picker visible outside the grid's scroll boundary and allow eligible Circle members to edit poll content and deadlines.
+- **Prompt Summary:** Fix the selector partially hidden by a Planning sheet and complete poll CRUD.
+- **Files Affected:**
+  - `apps/web/src/components/tools/CirclePlanningView.tsx`
+  - `apps/web/src/components/tools/CirclePollView.tsx`
+  - `apps/mobile/src/components/tools/MobilePollView.tsx`
+  - `apps/backend/src/modules/circle-tools/`
+  - `apps/backend/prisma/migrations/20261125203000_add_poll_deadline_changes/migration.sql`
+  - Poll query, socket, chat-card, shared type, and localization modules
+- **AI-Generated Portion:** Portal placement, poll update endpoint and UI, migration, and regression tests.
+- **Human Modifications:** None during this task.
+- **Verification Method:** Web, Mobile, and Backend typechecks. Web production build (21 pages). All 225 backend unit tests. Poll lifecycle on local PostgreSQL with cleanup. Brave UI checks of the picker at 390, 768, and 1280 px and the poll edit request using intercepted fixture responses.
+- **Official Source Checked:** `agentic/playbooks/07-circle-collaboration.md` (COL-15) and `agentic/playbooks/cross-cutting-gate.md`.
+- **Security & License Check:** Poll mutations check Circle membership and management rights. Anonymous vote identities and viewer-specific fields are excluded from shared poll data. Changes use existing dependencies.
+- **AI Errors / Hallucinations Found:** None in the verified implementation.
+- **Commit:** Pending
+- **PR:** Pending
+
+## AI-0214: Expose Ballot Content and Settings in Poll Edit
+
+- **Date:** 2026-11-25 20:34:10
+- **Developer:** Trương Công Bình
+- **Tool:** OpenAI Codex
+- **Model:** GPT-6
+- **Related Issue:** #128
+- **Purpose:** Allow authorized users to edit a poll's question, options, and selection mode before the first vote, even when the deadline has passed.
+- **Prompt Summary:** Explain why only the deadline was editable and expose the question, options, and settings.
+- **Files Affected:** Poll forms on Web and Mobile, shared update input and translations, and the backend poll service, DTO, and tests.
+- **AI-Generated Portion:** Form behavior, selection mode validation and persistence, and regression tests.
+- **Human Modifications:** None during this task.
+- **Verification Method:** All three application typechecks, 226 backend tests, and Brave fixture checks for editable and locked polls.
+- **Official Source Checked:** `agentic/playbooks/07-circle-collaboration.md` (COL-13 and COL-15).
+- **Security & License Check:** The server checks management rights and the vote lock. The anonymity setting remains fixed at creation. No dependency additions.
+- **AI Errors / Hallucinations Found:** The previous edit form hid all settings and treated expiry as equivalent to receiving votes. This change fixes both behaviors.
+- **Commit:** Pending
+- **PR:** Pending
+
+## AI-0215: Lock Expired Poll Edits and Reload the Local Poll Route
+
+- **Date:** 2026-11-25 20:46:28
+- **Developer:** Trương Công Bình
+- **Tool:** OpenAI Codex
+- **Model:** GPT-6
+- **Related Issue:** #128
+- **Purpose:** Reject all updates to expired polls and restore access to the poll update route on the local API process.
+- **Prompt Summary:** Diagnose the Cannot PUT response and prevent editing after a poll expires.
+- **Files Affected:** Poll service and tests, Web and Mobile poll views, shared deadline functions, and translations.
+- **AI-Generated Portion:** Expiry checks, a deadline timer, disabled editor controls, and regression tests.
+- **Human Modifications:** None during this task.
+- **Verification Method:** Recompiled and restarted the local backend. The exact PUT route returned the expected 401 without credentials. Verified the deadline transition in Brave with fixtures, passed Web and Mobile typecheck, and passed 227 backend tests.
+- **Official Source Checked:** `agentic/playbooks/07-circle-collaboration.md` (COL-15) and the engineer's expiry decision.
+- **Security & License Check:** JWT and Circle management checks are enforced on the update route. No dependency additions.
+- **AI Errors / Hallucinations Found:** The previous verification used fixture HTTP and service tests and missed the stale controller in the live Nest process. The running local route was verified after restart.
+- **Commit:** Pending
+- **PR:** Pending
+
+## AI-0216: Activate Circle Notifications and Scheduled Calendar Reminders
+
+- **Date:** 2026-11-25 21:22:28
+- **Developer:** Trương Công Bình
+- **Tool:** OpenAI Codex
+- **Model:** GPT-6
+- **Related Issue:** #128
+- **Purpose:** Connect Circle activity to the notification inbox and Expo delivery, persist Circle preferences, and send configured event reminders once per RSVP recipient.
+- **Prompt Summary:** Complete the notification feature after confirming that the inbox had no event producers.
+- **Files Affected:** Backend notification, chat, Circle, moment, and collaboration modules, notification migrations, Web and Mobile inbox and Circle settings, shared types and translations, and the notification capability reference.
+- **AI-Generated Portion:** Source integrations, recipient and mute policy, delivery storage and scheduler, client navigation and syncing, documentation, and tests.
+- **Human Modifications:** None during this task.
+- **Verification Method:** Web production build, Mobile typecheck, backend compilation and 232 unit tests. Authenticated HTTP and Socket.IO on local port 4000 with temporary PostgreSQL fixtures. Concurrent reminder scans and deletion deduplication. Open-and-read navigation on Brave at 390, 768, and 1280 px using fixtures.
+- **Official Source Checked:** `agentic/playbooks/08-notification.md` and `agentic/playbooks/cross-cutting-gate.md`.
+- **Security & License Check:** Scoped Circle recipients, member-owned settings, and no chat body in notifications. No dependency additions. Repository secret check passed.
+- **AI Errors / Hallucinations Found:** None in the final verified implementation. Android and iOS physical push delivery was not exercised.
+- **Commit:** Pending
+- **PR:** Pending

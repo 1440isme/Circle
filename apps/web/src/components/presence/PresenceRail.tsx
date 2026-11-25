@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Calendar,
   Clock,
@@ -9,6 +10,8 @@ import {
   Navigation,
   Plus,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   Radio,
   Video,
   Phone,
@@ -27,7 +30,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useLanguageStore } from '../../stores/language.store';
 import { useCircleStore } from '../../stores/circle.store';
 import { useCircleMembersQuery, useCircleJoinRequestsQuery } from '../../hooks/use-circle-queries';
-import { useCalendarEventsQuery, useLiveLocationsQuery, usePollsQuery } from '../../hooks/use-circle-tools';
+import { useCalendarEventsQuery, useLiveLocationsQuery, usePollsQuery, TOOLS_KEYS } from '../../hooks/use-circle-tools';
 import { useCirclePresence } from '../../hooks/use-circle-presence';
 import {
   useActiveCallQuery,
@@ -45,6 +48,7 @@ function getInitials(name: string): string {
 }
 
 export const PresenceRail: React.FC = () => {
+  const router = useRouter();
   const { user } = useAuth();
   const t = useLanguageStore((s) => s.t);
   const locale = useLanguageStore((s) => s.locale);
@@ -79,17 +83,21 @@ export const PresenceRail: React.FC = () => {
     if (!socket) return;
 
     const handlePollUpdate = () => {
-      queryClient.invalidateQueries({ queryKey: ['circle-polls', activeCircle.id] });
+      queryClient.invalidateQueries({ queryKey: TOOLS_KEYS.polls(activeCircle.id) });
     };
 
     socket.on('circle:poll-created', handlePollUpdate);
+    socket.on('circle:poll-updated', handlePollUpdate);
     socket.on('circle:poll-voted', handlePollUpdate);
     socket.on('circle:poll-closed', handlePollUpdate);
+    socket.on('circle:poll-deleted', handlePollUpdate);
 
     return () => {
       socket.off('circle:poll-created', handlePollUpdate);
+      socket.off('circle:poll-updated', handlePollUpdate);
       socket.off('circle:poll-voted', handlePollUpdate);
       socket.off('circle:poll-closed', handlePollUpdate);
+      socket.off('circle:poll-deleted', handlePollUpdate);
     };
   }, [activeCircle?.id, queryClient]);
 
@@ -122,9 +130,8 @@ export const PresenceRail: React.FC = () => {
   };
 
   const handleJumpToPoll = (pollId: string) => {
-    if (activeCircleView !== 'general' && activeCircleView !== 'chat') {
-      setActiveCircleView('chat');
-    }
+    setActiveCircleView('chat');
+    router.push('/chat');
     setTargetPollId(pollId);
 
     // Precise scroll into view with container relative offset
@@ -147,13 +154,45 @@ export const PresenceRail: React.FC = () => {
         el.classList.add('ring-2', 'ring-circle-primary', 'shadow-lg', 'transition-all');
         setTimeout(() => el.classList.remove('ring-2', 'ring-circle-primary', 'shadow-lg'), 2500);
       }
-    }, 120);
+    }, 150);
   };
 
   const activeParticipants = (activeCall?.participants || []).filter((p: any) => !p.leftAt);
 
+  const [isMembersExpanded, setIsMembersExpanded] = React.useState(false);
   const { data: members = [] } = useCircleMembersQuery(activeCircle?.id || null);
   const { isUserOnline, onlineCount } = useCirclePresence(activeCircle?.id || null);
+
+  const effectiveOnlineCount = React.useMemo(() => {
+    const activeMembersOnline = members.filter(
+      (m) => isUserOnline(m.userId) || m.userId === user?.id
+    ).length;
+    return Math.max(onlineCount, activeMembersOnline);
+  }, [members, isUserOnline, user?.id, onlineCount]);
+
+  // Smart member sorting: Current user -> Owner -> Online members -> Alphabetical
+  const sortedMembers = React.useMemo(() => {
+    return [...members].sort((a, b) => {
+      if (a.userId === user?.id) return -1;
+      if (b.userId === user?.id) return 1;
+      if (a.role === MemberRole.OWNER) return -1;
+      if (b.role === MemberRole.OWNER) return 1;
+      const aOnline = isUserOnline(a.userId);
+      const bOnline = isUserOnline(b.userId);
+      if (aOnline && !bOnline) return -1;
+      if (!aOnline && bOnline) return 1;
+      const aName = a.user?.profile?.displayName || a.user?.email || '';
+      const bName = b.user?.profile?.displayName || b.user?.email || '';
+      return aName.localeCompare(bName);
+    });
+  }, [members, user?.id, isUserOnline]);
+
+  const MAX_COMPACT_MEMBERS = 5;
+  const hasMemberOverflow = sortedMembers.length > MAX_COMPACT_MEMBERS;
+  const displayMembers =
+    isMembersExpanded || !hasMemberOverflow
+      ? sortedMembers
+      : sortedMembers.slice(0, MAX_COMPACT_MEMBERS);
 
   // Check caller role in active circle (2-role hierarchy: OWNER and MEMBER)
   const currentMember = members.find((m) => m.userId === user?.id);
@@ -184,7 +223,7 @@ export const PresenceRail: React.FC = () => {
             <div className="flex items-center gap-1.5">
               <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span>{onlineCount} {t.presence.online}</span>
+                <span>{effectiveOnlineCount} {t.presence.online}</span>
               </span>
               <button
                 onClick={() => setManageModalOpen(true, 'members')}
@@ -199,12 +238,14 @@ export const PresenceRail: React.FC = () => {
             </div>
           </div>
 
-          <div className="space-y-0.5 max-h-56 overflow-y-auto pr-1">
-            {members.map((m) => {
-              const memberName =
+          <div className={`space-y-0.5 ${isMembersExpanded ? 'max-h-56 overflow-y-auto pr-1' : ''}`}>
+            {displayMembers.map((m) => {
+              const rawName =
                 m.user?.profile?.displayName || m.user?.email?.split('@')[0] || t.auth.member;
-              const memberInitials = getInitials(memberName);
+              const cleanName = rawName.replace(/\s*\(\(?[^)]*\)?\)\s*$/, '').trim() || rawName;
+              const memberInitials = getInitials(cleanName);
               const isOnline = isUserOnline(m.userId) || m.userId === user?.id;
+              const isMe = m.userId === user?.id;
 
               return (
                 <div
@@ -223,17 +264,52 @@ export const PresenceRail: React.FC = () => {
                       />
                     </div>
                     <span className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text truncate">
-                      {memberName}
+                      {cleanName} {isMe && <span className="text-[10px] text-circle-slate dark:text-circle-dark-muted font-normal">({t.collab.meLabel || 'Bạn'})</span>}
                     </span>
                   </div>
 
                   {m.role === MemberRole.OWNER && (
-                    <Crown className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                    <span title={t.circle.memberRoleOwner} className="shrink-0 flex items-center">
+                      <Crown className="h-3.5 w-3.5 text-amber-500" />
+                    </span>
                   )}
                 </div>
               );
             })}
           </div>
+
+          {/* Smart Member Overflow Toggle */}
+          {hasMemberOverflow && (
+            <div className="pt-1">
+              {isMembersExpanded ? (
+                <button
+                  type="button"
+                  onClick={() => setIsMembersExpanded(false)}
+                  className="w-full flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg bg-circle-canvas/60 dark:bg-circle-dark-canvas/60 hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-[11px] font-semibold text-circle-slate dark:text-circle-dark-muted transition-all active:scale-98"
+                >
+                  <ChevronUp className="h-3 w-3 text-circle-sage dark:text-circle-primary" />
+                  <span>Thu gọn danh sách</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setIsMembersExpanded(true)}
+                  className="w-full flex items-center justify-between py-1.5 px-2 rounded-lg bg-circle-canvas/60 dark:bg-circle-dark-canvas/60 hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-[11px] font-semibold text-circle-slate dark:text-circle-dark-muted transition-all active:scale-98"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span className="flex h-5 items-center justify-center rounded-full bg-circle-primary/20 text-circle-sage dark:text-circle-primary font-bold px-1.5 text-[10px]">
+                      +{sortedMembers.length - MAX_COMPACT_MEMBERS}
+                    </span>
+                    <span>thành viên khác</span>
+                  </div>
+                  <span className="text-[10px] text-circle-sage dark:text-circle-primary font-bold flex items-center gap-0.5">
+                    <span>Xem thêm</span>
+                    <ChevronDown className="h-3 w-3" />
+                  </span>
+                </button>
+              )}
+            </div>
+          )}
 
           {/* Quick Invite / Manage Button (Distinct card border & elevation on both light & dark mode) */}
           <button
@@ -337,11 +413,8 @@ export const PresenceRail: React.FC = () => {
             </button>
           </div>
         ) : (
-          /* Empty Call State with Quick Start Options */
+          /* Empty Call State with Quick Start Options (No redundant negative notice) */
           <div>
-            <h4 className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text mb-2">
-              {t.home.noVoiceStageOpen}
-            </h4>
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
@@ -366,31 +439,32 @@ export const PresenceRail: React.FC = () => {
         )}
       </div>
 
-      {/* Upcoming Circle Events (Issue #101 & #117) */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline">
-        <div className="flex items-center justify-between mb-2 px-1">
-          <div className="flex items-center gap-2">
-            <CalendarDays className="h-4 w-4 text-circle-sage dark:text-circle-primary shrink-0" />
-            <span className="text-[11px] font-bold text-circle-charcoal dark:text-circle-dark-text uppercase tracking-wider">
-              {t.collab.railUpcomingEvents}
-            </span>
-            {upcomingEvents.length > 0 && (
+      {/* Upcoming Circle Events (Only shown when there are active/upcoming events) */}
+      {upcomingEvents.length > 0 && (
+        <div className="flex flex-col gap-2 pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline">
+          <div className="flex items-center justify-between mb-2 px-1">
+            <div className="flex items-center gap-2">
+              <CalendarDays className="h-4 w-4 text-circle-sage dark:text-circle-primary shrink-0" />
+              <span className="text-[11px] font-bold text-circle-charcoal dark:text-circle-dark-text uppercase tracking-wider">
+                {t.collab.railUpcomingEvents}
+              </span>
               <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-circle-primary/15 text-circle-sage dark:text-circle-primary">
                 {upcomingEvents.length}
               </span>
-            )}
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveCircleView('calendar');
+                router.push('/calendar');
+              }}
+              className="text-[11px] font-semibold text-circle-sage dark:text-circle-primary hover:underline flex items-center gap-0.5"
+            >
+              <span>{t.collab.railOpenCalendar}</span>
+              <ChevronRight className="h-3 w-3" />
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={() => setActiveCircleView('calendar')}
-            className="text-[11px] font-semibold text-circle-sage dark:text-circle-primary hover:underline flex items-center gap-0.5"
-          >
-            <span>{t.collab.railOpenCalendar}</span>
-            <ChevronRight className="h-3 w-3" />
-          </button>
-        </div>
 
-        {upcomingEvents.length > 0 ? (
           <div className="space-y-1.5">
             {upcomingEvents.map((ev: any) => {
               const start = new Date(ev.startTime);
@@ -398,7 +472,11 @@ export const PresenceRail: React.FC = () => {
               return (
                 <div
                   key={ev.id}
-                  onClick={() => setActiveCircleView('calendar')}
+                  onClick={() => {
+                    setActiveCircleView('calendar');
+                    setTargetCalendarEvent(start.toISOString(), ev.id);
+                    router.push('/calendar');
+                  }}
                   className="rounded-xl border border-circle-hairline/80 dark:border-circle-dark-hairline/80 bg-circle-canvas/60 dark:bg-circle-dark-canvas/60 p-2.5 hover:border-circle-primary/50 transition-all cursor-pointer group flex items-start gap-2.5"
                 >
                   <CalendarDays className="h-4 w-4 text-circle-sage dark:text-circle-primary shrink-0 mt-0.5" />
@@ -433,49 +511,35 @@ export const PresenceRail: React.FC = () => {
               );
             })}
           </div>
-        ) : (
-          <div className="rounded-xl border border-dashed border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/40 dark:bg-circle-dark-canvas/40 p-3 text-center">
-            <p className="text-xs text-circle-slate dark:text-circle-dark-muted">
-              {t.home.upcomingEventsEmpty}
-            </p>
-            <button
-              type="button"
-              onClick={() => setActiveCircleView('calendar')}
-              className="mt-2 text-[11px] font-semibold text-circle-sage dark:text-circle-primary hover:underline inline-flex items-center gap-1"
-            >
-              <Plus className="h-3 w-3" />
-              <span>{t.collab.railNewEvent}</span>
-            </button>
+        </div>
+      )}
 
-          </div>
-        )}
-      </div>
-
-      {/* Live Locations Broadcasting Status (Realtime Collab Status Column 3) */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline">
-        <div className="flex items-center justify-between mb-2 px-1">
-          <div className="flex items-center gap-2">
-            <Navigation className="h-4 w-4 text-circle-sage dark:text-circle-primary shrink-0" />
-            <span className="text-[11px] font-bold text-circle-charcoal dark:text-circle-dark-text uppercase tracking-wider">
-              {t.collab.railLiveLocations}
-            </span>
-            {activeLocations.length > 0 && (
+      {/* Live Locations Broadcasting Status (Only shown when members are actively sharing) */}
+      {activeLocations.length > 0 && (
+        <div className="flex flex-col gap-2 pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline">
+          <div className="flex items-center justify-between mb-2 px-1">
+            <div className="flex items-center gap-2">
+              <Navigation className="h-4 w-4 text-circle-sage dark:text-circle-primary shrink-0" />
+              <span className="text-[11px] font-bold text-circle-charcoal dark:text-circle-dark-text uppercase tracking-wider">
+                {t.collab.railLiveLocations}
+              </span>
               <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-circle-primary/15 text-circle-sage dark:text-circle-primary">
                 {activeLocations.length}
               </span>
-            )}
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveCircleView('location');
+                router.push('/location');
+              }}
+              className="text-[11px] font-semibold text-circle-sage dark:text-circle-primary hover:underline flex items-center gap-0.5"
+            >
+              <span>{t.collab.railOpenMap}</span>
+              <ChevronRight className="h-3 w-3" />
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={() => setActiveCircleView('location')}
-            className="text-[11px] font-semibold text-circle-sage dark:text-circle-primary hover:underline flex items-center gap-0.5"
-          >
-            <span>{t.collab.railOpenMap}</span>
-            <ChevronRight className="h-3 w-3" />
-          </button>
-        </div>
 
-        {activeLocations.length > 0 ? (
           <div className="space-y-1.5">
             {activeLocations.map((loc) => {
               const isMe = loc.member?.userId === user?.id;
@@ -489,6 +553,7 @@ export const PresenceRail: React.FC = () => {
                   onClick={() => {
                     setActiveCircleView('location');
                     setTargetLocationCoords({ lat: loc.latitude, lng: loc.longitude });
+                    router.push('/location');
                   }}
                   className="rounded-xl border border-circle-hairline/80 dark:border-circle-dark-hairline/80 bg-circle-canvas/60 dark:bg-circle-dark-canvas/60 p-2 hover:border-circle-primary/50 transition-all cursor-pointer group flex items-center justify-between gap-2"
                 >
@@ -514,48 +579,35 @@ export const PresenceRail: React.FC = () => {
               );
             })}
           </div>
-        ) : (
-          <div className="rounded-xl border border-dashed border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/40 dark:bg-circle-dark-canvas/40 p-2.5 text-center">
-            <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted">
-              {t.collab.railNoOneSharing}
-            </p>
-            <button
-              type="button"
-              onClick={() => setActiveCircleView('location')}
-              className="mt-1.5 text-[11px] font-semibold text-circle-sage dark:text-circle-primary hover:underline inline-flex items-center gap-1"
-            >
-              <Radio className="h-3 w-3" />
-              <span>{t.collab.railStartSharing}</span>
-            </button>
-          </div>
-        )}
-      </div>
+        </div>
+      )}
 
-      {/* Active Group Polls (Issue #119 / #123) */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline">
-        <div className="flex items-center justify-between mb-2 px-1">
-          <div className="flex items-center gap-2">
-            <Vote className="h-4 w-4 text-circle-sage dark:text-circle-primary shrink-0" />
-            <span className="text-[11px] font-bold text-circle-charcoal dark:text-circle-dark-text uppercase tracking-wider">
-              {t.collab.railActivePolls}
-            </span>
-            {activePolls.length > 0 && (
+      {/* Active Group Polls (Only shown when there are active/unexpired polls) */}
+      {activePolls.length > 0 && (
+        <div className="flex flex-col gap-2 pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline">
+          <div className="flex items-center justify-between mb-2 px-1">
+            <div className="flex items-center gap-2">
+              <Vote className="h-4 w-4 text-circle-sage dark:text-circle-primary shrink-0" />
+              <span className="text-[11px] font-bold text-circle-charcoal dark:text-circle-dark-text uppercase tracking-wider">
+                {t.collab.railActivePolls}
+              </span>
               <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-circle-primary/15 text-circle-sage dark:text-circle-primary">
                 {activePolls.length}
               </span>
-            )}
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveCircleView('polls');
+                router.push('/polls');
+              }}
+              className="text-[11px] font-semibold text-circle-sage dark:text-circle-primary hover:underline flex items-center gap-0.5"
+            >
+              <span>{t.collab.railOpenPolls}</span>
+              <ChevronRight className="h-3 w-3" />
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={() => setActiveCircleView('polls')}
-            className="text-[11px] font-semibold text-circle-sage dark:text-circle-primary hover:underline flex items-center gap-0.5"
-          >
-            <span>{t.collab.railOpenPolls}</span>
-            <ChevronRight className="h-3 w-3" />
-          </button>
-        </div>
 
-        {activePolls.length > 0 ? (
           <div className="space-y-1.5">
             {activePolls.map((poll) => {
               const hasVoted = Boolean(poll.userVotedOptionId);
@@ -586,22 +638,8 @@ export const PresenceRail: React.FC = () => {
               );
             })}
           </div>
-        ) : (
-          <div className="rounded-xl border border-dashed border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/40 dark:bg-circle-dark-canvas/40 p-2.5 text-center">
-            <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted">
-              {t.collab.railNoActivePolls}
-            </p>
-            <button
-              type="button"
-              onClick={() => setActiveCircleView('polls')}
-              className="mt-1.5 text-[11px] font-semibold text-circle-sage dark:text-circle-primary hover:underline inline-flex items-center gap-1"
-            >
-              <Plus className="h-3 w-3" />
-              <span>{t.collab.railNewPoll}</span>
-            </button>
-          </div>
-        )}
-      </div>
+        </div>
+      )}
     </aside>
   );
 };

@@ -19,6 +19,7 @@ interface MobileChatLocationCardProps {
   address?: string;
   isSenderMe?: boolean;
   senderTextColor?: string;
+  onLongPress?: () => void;
 }
 
 const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN || '';
@@ -38,6 +39,7 @@ function getSlippyTileUrl(lat: number, lng: number, isDark: boolean): string {
 export const MobileChatLocationCard: React.FC<MobileChatLocationCardProps> = ({
   lat,
   lng,
+  onLongPress,
 }) => {
   const { colors, resolvedTheme } = useThemeStore();
   const isDark = resolvedTheme === 'dark';
@@ -59,6 +61,8 @@ export const MobileChatLocationCard: React.FC<MobileChatLocationCardProps> = ({
     <TouchableOpacity
       activeOpacity={0.9}
       onPress={handleOpenMaps}
+      onLongPress={onLongPress}
+      delayLongPress={280}
       style={[
         styles.mapPreviewBox,
         { backgroundColor: isDark ? '#0F172A' : colors.wash },

@@ -1,52 +1,16 @@
-'use client';
+import { redirect } from 'next/navigation';
+import { cookies } from 'next/headers';
 
-import React from 'react';
-import { AuthGuard } from '@/components/auth/AuthGuard';
-import { Header } from '@/components/header/Header';
-import { Sidebar } from '@/components/navigation/Sidebar';
-import { FeedStream } from '@/components/stream/FeedStream';
-import { PresenceRail } from '@/components/presence/PresenceRail';
-import { CreateCircleModal } from '@/components/circle/CreateCircleModal';
-import { JoinCircleModal } from '@/components/circle/JoinCircleModal';
-import { CircleManagementModal } from '@/components/circle/CircleManagementModal';
-import { CallStageModal } from '@/components/call/CallStageModal';
-import { useCircleStore } from '@/stores/circle.store';
+export default async function RootIndexPage() {
+  const cookieStore = await cookies();
+  const hasToken =
+    cookieStore.has('circle_access_token') ||
+    cookieStore.has('circle_refresh_token');
 
-export default function HomePage() {
-  const activeCircle = useCircleStore((s) => s.activeCircle);
-  const activeCallStageSession = useCircleStore((s) => s.activeCallStageSession);
-  const setActiveCallStageSession = useCircleStore((s) => s.setActiveCallStageSession);
+  if (!hasToken) {
+    redirect('/login');
+  }
 
-  return (
-    <AuthGuard mode="require-auth">
-      <div className="h-screen w-full flex flex-col bg-white dark:bg-circle-dark-surface text-circle-charcoal dark:text-circle-dark-text overflow-hidden transition-colors relative">
-        <Header />
-        <div className="flex-1 flex w-full h-full min-h-0 overflow-hidden">
-          {activeCircle ? (
-            /* Active Circle Workspace: 3 columns stick together in the center of the screen */
-            <div className="flex w-full max-w-[1400px] 2xl:max-w-[1600px] h-full min-h-0 justify-center mx-auto overflow-hidden">
-              <Sidebar />
-              <FeedStream />
-              <PresenceRail />
-            </div>
-          ) : (
-            /* Home Hub: Clean Focused Single-Column Layout */
-            <div className="flex-1 flex justify-center px-4 pt-16 xl:pt-6 pb-8 max-w-5xl mx-auto w-full h-full min-h-0 overflow-y-auto">
-              <FeedStream />
-            </div>
-          )}
-        </div>
-        <CreateCircleModal />
-        <JoinCircleModal />
-        <CircleManagementModal />
-        {activeCallStageSession && (
-          <CallStageModal
-            callSession={activeCallStageSession}
-            isOpen={!!activeCallStageSession}
-            onClose={() => setActiveCallStageSession(null)}
-          />
-        )}
-      </div>
-    </AuthGuard>
-  );
+  redirect('/chat');
 }
+

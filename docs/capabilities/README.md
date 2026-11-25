@@ -13,6 +13,7 @@ A code-grounded catalog of what CIRCLE does, organized into **clusters** of rela
 | **Identity & Access** | Authentication, JWT, Refresh Token Rotation, RBAC | [`identity-access.md`](identity-access.md) |
 | **Circles & Membership** | Circle creation, invite codes, roles, channels | [`circles-membership.md`](circles-membership.md) |
 | **Chat & Messaging** | Direct & channel messaging, threads, read receipts | [`chat-messaging.md`](chat-messaging.md) |
+| **Notifications** | In-app inbox, Circle delivery settings, calendar reminders, and mobile push | [`notifications.md`](notifications.md) |
 | **Realtime & Calls** | WebRTC 1-on-1 and group voice/video calling | [`realtime-calls.md`](realtime-calls.md) |
 | **Feed & Posts** | Circle posts, rich media, comments, reactions | [`feed-posts.md`](feed-posts.md) |
 | **Media & Storage** | Cloudflare R2 uploads, presigned URLs, optimizations | [`media-storage.md`](media-storage.md) |

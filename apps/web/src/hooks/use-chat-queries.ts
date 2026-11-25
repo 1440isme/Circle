@@ -131,9 +131,11 @@ export function useChannelMessagesQuery(channelId: string | null) {
       messageId: string;
       memberId: string;
       emoji: string;
-      added: boolean;
+      added?: boolean;
+      action?: 'added' | 'removed';
       userReactions: string[];
       reactionCounts: Record<string, number>;
+      reactions?: any[];
     }) => {
       queryClient.setQueryData<InfiniteData<CursorPaginatedMessages>>(
         CHAT_KEYS.messages(channelId),
@@ -149,6 +151,7 @@ export function useChannelMessagesQuery(channelId: string | null) {
                   ...m,
                   reactionCounts: payload.reactionCounts,
                   userReactions: payload.userReactions,
+                  reactions: payload.reactions || m.reactions,
                 };
               }),
             })),
@@ -524,6 +527,7 @@ export function useReactMessageMutation(channelId: string | null) {
                   ...m,
                   reactionCounts: data.reactionCounts,
                   userReactions: data.userReactions,
+                  reactions: (data as any).reactions || m.reactions,
                 };
               }),
             })),

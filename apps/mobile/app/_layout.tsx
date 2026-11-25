@@ -24,6 +24,8 @@ import {
   isBiometricUnlockEnabled,
   authenticateWithBiometrics,
 } from '../src/services/biometric.service';
+import { initPushNotifications, markNotificationAsReadApi } from '../src/services/notifications.service';
+import { openMobileNotification } from '../src/services/notification-navigation';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -68,6 +70,29 @@ function RootNavigator() {
     initAuth();
     initTheme();
   }, [initAuth, initTheme]);
+
+  // Initialize Push Notifications (NOT-03, NOT-04, NOT-09)
+  useEffect(() => {
+    if (!isAuthenticated || isLoading) return;
+    let cleanup: (() => void) | null = null;
+    let cancelled = false;
+
+    initPushNotifications((data) => {
+      if (cancelled) return;
+      if (typeof data.notificationId === 'string') {
+        void markNotificationAsReadApi(data.notificationId).catch(() => {});
+      }
+      openMobileNotification(router, data);
+    }).then((unsub) => {
+      if (cancelled) unsub?.();
+      else cleanup = unsub;
+    });
+
+    return () => {
+      cancelled = true;
+      cleanup?.();
+    };
+  }, [isAuthenticated, isLoading, router]);
 
   // Global incoming call listener so users receive call alerts from any tab
   useEffect(() => {

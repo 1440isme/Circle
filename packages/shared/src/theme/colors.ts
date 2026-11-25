@@ -279,8 +279,8 @@ export const CircleColors: { light: ColorTokens; dark: ColorTokens } = {
     info: '#3B82F6',
     accent: '#10B981', // Accent matches Circle primary green
     danger: '#DC2626',
-    glass: 'rgba(255, 255, 255, 0.92)',
-    glassBorder: 'rgba(227, 227, 232, 0.85)',
+    glass: 'rgba(255, 255, 255, 0.88)',
+    glassBorder: 'rgba(227, 227, 232, 0.80)',
     sheetBg: 'rgba(255, 255, 255, 0.96)',
   },
   dark: {
@@ -288,26 +288,26 @@ export const CircleColors: { light: ColorTokens; dark: ColorTokens } = {
     primaryDark: '#10B981',
     sage: '#34D399',
     wash: 'rgba(52, 211, 153, 0.12)', // Subtle mint wash for selected state only
-    canvas: '#131316', // Deep neutral obsidian dark canvas (--mk-bg, zero swamp green)
-    surface: '#1D1D21', // Neutral dark surface (--mk-surface, zero swamp green)
-    elevated: '#2A2A30', // Neutral dark elevated surface (--mk-surface-muted)
-    text: '#F2F2F4', // Crisp clean white text (--mk-text)
-    charcoal: '#131316',
-    subtle: '#A1A1AA', // Neutral light zinc/gray secondary text (--mk-muted)
-    slate: '#A1A1AA',
-    hairline: '#2E2E35', // 1px dark hairline border (--mk-border)
-    border: '#2E2E35',
+    canvas: '#0B0C0E', // Clean Instagram-style deep obsidian canvas
+    surface: '#16181B', // Clean modern dark surface
+    elevated: '#22252A', // Neutral dark elevated surface
+    text: '#F9FAFB', // Crisp clean white text
+    charcoal: '#0B0C0E',
+    subtle: '#9CA3AF', // Neutral slate/gray secondary text
+    slate: '#9CA3AF',
+    hairline: '#26292E', // 1px clean dark hairline border
+    border: '#26292E',
     peach: '#F4C7A1',
     coral: '#E98282',
-    onPrimary: '#131316',
+    onPrimary: '#0B0C0E',
     success: '#4ADE80',
     warning: '#FBBF24',
     info: '#60A5FA',
     accent: '#34D399',
     danger: '#F87171',
-    glass: 'rgba(22, 22, 26, 0.90)',
-    glassBorder: 'rgba(255, 255, 255, 0.16)',
-    sheetBg: 'rgba(24, 24, 28, 0.95)',
+    glass: 'rgba(22, 24, 28, 0.85)',
+    glassBorder: 'rgba(255, 255, 255, 0.08)',
+    sheetBg: 'rgba(22, 24, 28, 0.94)',
   },
 };
 

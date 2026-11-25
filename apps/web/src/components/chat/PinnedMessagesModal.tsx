@@ -178,17 +178,6 @@ export const PinnedMessagesModal: React.FC<PinnedMessagesModalProps> = ({
             </div>
           )}
         </div>
-
-        {/* Footer */}
-        <div className="border-t border-circle-hairline dark:border-circle-dark-hairline px-6 py-3 bg-circle-canvas/30 dark:bg-circle-dark-canvas/30 flex justify-end">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full bg-circle-charcoal dark:bg-circle-primary px-4 py-1.5 text-xs font-semibold text-white dark:text-circle-dark-canvas hover:bg-circle-sage dark:hover:bg-circle-sage dark:hover:text-white transition-all"
-          >
-            {t.chat.closePinned}
-          </button>
-        </div>
       </div>
     </div>
   );

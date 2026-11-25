@@ -18,6 +18,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { getSocket } from '../../lib/socket';
 import { Emoji } from '../ui/Emoji';
 import { FullEmojiPickerModal } from '../ui/FullEmojiPickerModal';
+import { ConfirmModal } from '../ui/ConfirmModal';
 import { PROMINENT_QUICK_EMOJIS } from '@circle/shared';
 import {
   useAnonymousPostsQuery,
@@ -154,6 +155,7 @@ export const CircleAnonymousView: React.FC<CircleAnonymousViewProps> = ({ circle
   const [content, setContent] = useState('');
   const [selectedTheme, setSelectedTheme] = useState('sunset');
   const [fullEmojiTargetPostId, setFullEmojiTargetPostId] = useState<string | null>(null);
+  const [deletePostId, setDeletePostId] = useState<string | null>(null);
 
   const { data: posts = [], isLoading } = useAnonymousPostsQuery(circleId);
   const createMutation = useCreateAnonymousPostMutation(circleId);
@@ -222,12 +224,6 @@ export const CircleAnonymousView: React.FC<CircleAnonymousViewProps> = ({ circle
 
     setContent('');
     setIsComposeModalOpen(false);
-  };
-
-  const handleDeletePost = async (postId: string) => {
-    if (confirm(t.collab.anonymousRemoveConfirm)) {
-      await deleteMutation.mutateAsync(postId);
-    }
   };
 
   const handleToggleReaction = (postId: string, emoji: string) => {
@@ -324,7 +320,7 @@ export const CircleAnonymousView: React.FC<CircleAnonymousViewProps> = ({ circle
                         </span>
                         <button
                           type="button"
-                          onClick={() => handleDeletePost(post.id)}
+                          onClick={() => setDeletePostId(post.id)}
                           className="p-1 text-circle-slate dark:text-circle-dark-muted hover:text-red-500 dark:hover:text-red-400 transition-colors opacity-60 hover:opacity-100"
                           title={t.collab.anonymousRemoveTooltip}
                         >
@@ -550,6 +546,23 @@ export const CircleAnonymousView: React.FC<CircleAnonymousViewProps> = ({ circle
             setFullEmojiTargetPostId(null);
           }
         }}
+      />
+
+      {/* Unified Confirm Modal (Rule 9) */}
+      <ConfirmModal
+        isOpen={Boolean(deletePostId)}
+        onClose={() => setDeletePostId(null)}
+        onConfirm={async () => {
+          if (deletePostId) {
+            await deleteMutation.mutateAsync(deletePostId);
+            setDeletePostId(null);
+          }
+        }}
+        title={t.common.delete}
+        description={locale === 'vi' ? 'Gỡ bỏ lời nhắn ẩn danh này khỏi vòng tròn?' : 'Remove this anonymous note from the circle?'}
+        confirmLabel={t.common.delete}
+        variant="danger"
+        isLoading={deleteMutation.isPending}
       />
     </div>
   );

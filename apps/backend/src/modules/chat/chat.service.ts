@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Optional,
   NotFoundException,
   ForbiddenException,
   BadRequestException,
@@ -20,17 +21,21 @@ import { MessageType } from '@prisma/client';
 import {
   ApiResponse,
   MessageEntity,
+  NotificationType,
   CursorPaginatedMessages,
   MessageReaderEntity,
   SearchMessagesResult,
   ClearChatResult,
 } from '@circle/types';
 
+import { NotificationEventsService } from '../notifications/notification-events.service';
+
 @Injectable()
 export class ChatService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly chatGateway: ChatGateway,
+    @Optional() private readonly notificationEvents?: NotificationEventsService,
   ) {}
 
   /**
@@ -161,7 +166,24 @@ export class ChatService {
         messageId: r.messageId,
         memberId: r.memberId,
         emoji: r.emoji,
-        createdAt: r.createdAt.toISOString(),
+        createdAt: r.createdAt ? (r.createdAt instanceof Date ? r.createdAt.toISOString() : new Date(r.createdAt).toISOString()) : new Date().toISOString(),
+        member: r.member
+          ? {
+              id: r.member.id,
+              nickname: r.member.nickname,
+              user: r.member.user
+                ? {
+                    id: r.member.user.id,
+                    profile: r.member.user.profile
+                      ? {
+                          displayName: r.member.user.profile.displayName,
+                          avatarUrl: r.member.user.profile.avatarUrl,
+                        }
+                      : null,
+                  }
+                : undefined,
+            }
+          : undefined,
       })),
       reactionCounts,
       userReactions,
@@ -210,66 +232,69 @@ export class ChatService {
       baseWhere.sentAt = { gt: member.clearedChatAt };
     }
 
-    let rawMessages: any[];
+    const include = {
+      sender: { include: { user: { include: { profile: true } } } },
+      replyTo: { include: { sender: { include: { user: { include: { profile: true } } } } } },
+      reactions: { include: { member: { include: { user: { include: { profile: true } } } } } },
+      pinnedRecord: true,
+      receipts: { include: { user: { include: { profile: true } } } },
+    } as const;
 
-    if (cursor) {
-      if (direction === 'after') {
-        rawMessages = await this.prisma.message.findMany({
-          where: baseWhere,
-          take: limit + 1,
-          skip: 1,
-          cursor: { id: cursor },
-          orderBy: { sentAt: 'asc' },
-          include: {
-            sender: { include: { user: { include: { profile: true } } } },
-            replyTo: { include: { sender: { include: { user: { include: { profile: true } } } } } },
-            reactions: { include: { member: { include: { user: { include: { profile: true } } } } } },
-            pinnedRecord: true,
-            receipts: { include: { user: { include: { profile: true } } } },
-          },
-        });
-      } else {
-        rawMessages = await this.prisma.message.findMany({
-          where: baseWhere,
-          take: limit + 1,
-          skip: 1,
-          cursor: { id: cursor },
-          orderBy: { sentAt: 'desc' },
-          include: {
-            sender: { include: { user: { include: { profile: true } } } },
-            replyTo: { include: { sender: { include: { user: { include: { profile: true } } } } } },
-            reactions: { include: { member: { include: { user: { include: { profile: true } } } } } },
-            pinnedRecord: true,
-            receipts: { include: { user: { include: { profile: true } } } },
-          },
-        });
-      }
-    } else {
-      rawMessages = await this.prisma.message.findMany({
-        where: baseWhere,
-        take: limit + 1,
-        orderBy: { sentAt: 'desc' },
-        include: {
-          sender: { include: { user: { include: { profile: true } } } },
-          replyTo: { include: { sender: { include: { user: { include: { profile: true } } } } } },
-          reactions: { include: { member: { include: { user: { include: { profile: true } } } } } },
-          pinnedRecord: true,
-          receipts: { include: { user: { include: { profile: true } } } },
-        },
+    if (pagination.around) {
+      const anchor = await this.prisma.message.findFirst({
+        where: { ...baseWhere, id: pagination.around },
+        include,
       });
+      if (!anchor) throw new NotFoundException(t.chat.messageNotFound);
+
+      const [older, newer] = await Promise.all([
+        this.prisma.message.findMany({
+          where: baseWhere,
+          cursor: { id: anchor.id },
+          skip: 1,
+          take: limit,
+          orderBy: [{ sentAt: 'desc' }, { id: 'desc' }],
+          include,
+        }),
+        this.prisma.message.findMany({
+          where: baseWhere,
+          cursor: { id: anchor.id },
+          skip: 1,
+          take: limit,
+          orderBy: [{ sentAt: 'asc' }, { id: 'asc' }],
+          include,
+        }),
+      ]);
+      return {
+        success: true,
+        statusCode: 200,
+        data: {
+          messages: [...older.reverse(), anchor, ...newer].map((m) => this.formatMessage(m, member.id)),
+          nextCursor: null,
+          hasMore: false,
+        },
+        timestamp: new Date().toISOString(),
+      };
     }
+
+    const order = cursor && direction === 'after' ? 'asc' : 'desc';
+    const rawMessages = await this.prisma.message.findMany({
+      where: baseWhere,
+      take: limit + 1,
+      ...(cursor && { skip: 1, cursor: { id: cursor } }),
+      orderBy: [{ sentAt: order }, { id: order }],
+      include,
+    });
 
     const hasMore = rawMessages.length > limit;
     if (hasMore) {
       rawMessages.pop();
     }
 
-    const nextCursor = hasMore && rawMessages.length > 0
-      ? rawMessages[rawMessages.length - 1].id
-      : null;
+    const nextCursor = hasMore ? rawMessages.at(-1)?.id ?? null : null;
 
     // For natural reading order top-to-bottom, ensure chronological asc order
-    if (direction === 'before') {
+    if (order === 'desc') {
       rawMessages.reverse();
     }
 
@@ -342,6 +367,13 @@ export class ChatService {
     // Broadcast realtime event to all clients in the channel
     this.chatGateway.broadcastNewMessage(channelId, formatted);
 
+    if (!/^\[(?:GROUP_POLL|PLANNING_SHEET|CALENDAR_EVENT|LIVE_WHEEL|CALL_SUMMARY)\]:/.test(rawMessage.content ?? '')) {
+      await this.notificationEvents?.notifyCircle({
+        circleId: channel.circleId, actorId: userId, type: NotificationType.CHAT_MESSAGE,
+        targetId: rawMessage.id, channelId, message: rawMessage.content ?? undefined,
+      });
+    }
+
     return {
       success: true,
       statusCode: 201,
@@ -372,21 +404,28 @@ export class ChatService {
 
     const member = await this.ensureCircleMembership(userId, message.channel.circleId, locale);
 
-    const existingReaction = await this.prisma.reaction.findFirst({
+    const userExistingReaction = await this.prisma.reaction.findFirst({
       where: {
         messageId,
         memberId: member.id,
-        emoji: dto.emoji,
       },
     });
 
     let action: 'added' | 'removed';
 
-    if (existingReaction) {
-      await this.prisma.reaction.delete({
-        where: { id: existingReaction.id },
-      });
-      action = 'removed';
+    if (userExistingReaction) {
+      if (userExistingReaction.emoji === dto.emoji) {
+        await this.prisma.reaction.delete({
+          where: { id: userExistingReaction.id },
+        });
+        action = 'removed';
+      } else {
+        await this.prisma.reaction.update({
+          where: { id: userExistingReaction.id },
+          data: { emoji: dto.emoji },
+        });
+        action = 'added';
+      }
     } else {
       await this.prisma.reaction.create({
         data: {
@@ -400,10 +439,45 @@ export class ChatService {
 
     const allReactions = await this.prisma.reaction.findMany({
       where: { messageId },
+      include: {
+        member: {
+          include: {
+            user: {
+              include: {
+                profile: true,
+              },
+            },
+          },
+        },
+      },
     });
 
     const reactionCounts: Record<string, number> = {};
     const userReactions: string[] = [];
+    const formattedReactions = allReactions.map((r: any) => ({
+      id: r.id,
+      messageId: r.messageId,
+      memberId: r.memberId,
+      emoji: r.emoji,
+      createdAt: r.createdAt ? (r.createdAt instanceof Date ? r.createdAt.toISOString() : new Date(r.createdAt).toISOString()) : new Date().toISOString(),
+      member: r.member
+        ? {
+            id: r.member.id,
+            nickname: r.member.nickname,
+            user: r.member.user
+              ? {
+                  id: r.member.user.id,
+                  profile: r.member.user.profile
+                    ? {
+                        displayName: r.member.user.profile.displayName,
+                        avatarUrl: r.member.user.profile.avatarUrl,
+                      }
+                    : null,
+                }
+              : undefined,
+          }
+        : undefined,
+    }));
 
     for (const r of allReactions) {
       reactionCounts[r.emoji] = (reactionCounts[r.emoji] || 0) + 1;
@@ -419,6 +493,8 @@ export class ChatService {
       memberId: member.id,
       action,
       reactionCounts,
+      userReactions,
+      reactions: formattedReactions,
     });
 
     return {
@@ -431,7 +507,8 @@ export class ChatService {
         action,
         reactionCounts,
         userReactions,
-      },
+        reactions: formattedReactions,
+      } as any,
       timestamp: new Date().toISOString(),
     };
   }
@@ -805,6 +882,10 @@ export class ChatService {
         contains: query,
         mode: 'insensitive',
       },
+      NOT: [
+        { content: { startsWith: '[CALL_SUMMARY]:' } },
+        { type: 'CALL_SUMMARY' as any },
+      ],
     };
     if (member.clearedChatAt) {
       searchWhere.sentAt = { gt: member.clearedChatAt };
@@ -823,7 +904,17 @@ export class ChatService {
       },
     });
 
-    const messages = rawMessages.map((m) => this.formatMessage(m, member.id));
+    const messages = rawMessages
+      .map((m) => this.formatMessage(m, member.id))
+      .filter((m) => {
+        if (!m.content) return true;
+        if (m.content.startsWith('[CALL_SUMMARY]:')) return false;
+        if ((m.type as string) === 'CALL_SUMMARY') return false;
+        if (m.content.startsWith('{') && (m.content.includes('"callType"') || m.content.includes('"system"'))) {
+          return false;
+        }
+        return true;
+      });
 
     return {
       success: true,

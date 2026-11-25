@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Image as ImageIcon, RefreshCw, X } from 'lucide-react';
+import { Image as ImageIcon, RefreshCw, X, Download } from 'lucide-react';
 import { useLanguageStore } from '../../stores/language.store';
 
 export interface MomentReplyMetadata {
@@ -322,6 +322,17 @@ export const MomentCardChatEmbed: React.FC<MomentCardChatEmbedProps> = ({
                   <RefreshCw className="w-4 h-4" />
                 </button>
               )}
+              <a
+                href={displayMain}
+                download="moment-photo.jpg"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center w-9 h-9 rounded-full bg-white/15 hover:bg-white/25 text-white transition-colors border border-white/20 cursor-pointer"
+                title={t.chat.downloadImage}
+                aria-label={t.chat.downloadImage}
+              >
+                <Download className="w-4 h-4" />
+              </a>
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}

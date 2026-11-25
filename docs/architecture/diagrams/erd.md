@@ -251,6 +251,7 @@ erDiagram
         string createdById FK
         string question
         datetime deadline
+        json deadlineChanges
         boolean isClosed
         datetime createdAt
     }
@@ -295,6 +296,15 @@ erDiagram
         string content
         string cardTheme
         datetime postedAt
+    }
+
+    CalendarEvent ||--o{ CalendarReminderDelivery : "has_deliveries"
+    User ||--o{ CalendarReminderDelivery : "receives_reminders"
+
+    CalendarReminderDelivery {
+        string eventId PK, FK
+        string userId PK, FK
+        datetime reminderAt PK
     }
 
     CalendarEvent {

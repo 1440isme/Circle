@@ -24,7 +24,9 @@ import {
   Locale,
   locales,
 } from '@circle/shared';
-import { SelectableFriendItem } from '@circle/types';
+import { NotificationType, SelectableFriendItem } from '@circle/types';
+
+import { NotificationEventsService } from '../notifications/notification-events.service';
 
 @Injectable()
 export class CirclesService {
@@ -34,6 +36,7 @@ export class CirclesService {
     @Optional()
     @Inject(forwardRef(() => ChatGateway))
     private readonly chatGateway?: ChatGateway,
+    @Optional() private readonly notificationEvents?: NotificationEventsService,
   ) {}
 
   /**
@@ -233,6 +236,12 @@ export class CirclesService {
     });
 
     await this.invalidateMembershipCache(newCircle.id, [userId, ...uniqueMemberIds]);
+    if (uniqueMemberIds.length) {
+      await this.notificationEvents?.notifyCircle({
+        circleId: newCircle.id, actorId: userId, targetId: newCircle.id,
+        userIds: uniqueMemberIds, type: NotificationType.CIRCLE_INVITE,
+      });
+    }
 
     return {
       success: true,
@@ -569,6 +578,11 @@ export class CirclesService {
           });
         }
 
+        await this.notificationEvents?.notifyCircle({
+          circleId: circle.id, actorId: userId, targetId: circle.id, ownerOnly: true,
+          type: NotificationType.CIRCLE_JOIN_REQUEST,
+        });
+
         return {
           success: true,
           statusCode: 202,
@@ -678,6 +692,11 @@ export class CirclesService {
           },
         });
       }
+
+      await this.notificationEvents?.notifyCircle({
+        circleId: circle.id, actorId: userId, targetId: circle.id, ownerOnly: true,
+        type: NotificationType.CIRCLE_JOIN_REQUEST,
+      });
 
       return {
         success: true,
@@ -895,6 +914,9 @@ export class CirclesService {
     );
 
     await this.invalidateMembershipCache(circleId, newMemberIds);
+    await this.notificationEvents?.notifyCircle({
+      circleId, actorId: userId, targetId: circleId, userIds: newMemberIds, type: NotificationType.CIRCLE_INVITE,
+    });
 
     return {
       success: true,
@@ -1206,6 +1228,10 @@ export class CirclesService {
       });
     }
 
+    await this.notificationEvents?.notifyCircle({
+      circleId, actorId: userId, targetId: circleId, ownerOnly: true, type: NotificationType.CIRCLE_JOIN_REQUEST,
+    });
+
     return {
       success: true,
       statusCode: 201,
@@ -1299,6 +1325,9 @@ export class CirclesService {
       ]);
 
       await this.invalidateMembershipCache(circleId, [request.userId]);
+      await this.notificationEvents?.notifyCircle({
+        circleId, actorId: userId, targetId: circleId, userIds: [request.userId], type: NotificationType.CIRCLE_INVITE,
+      });
 
       return {
         success: true,

@@ -41,6 +41,7 @@ import { PROMINENT_QUICK_EMOJIS } from '@circle/shared';
 interface MobileAnonymousViewProps {
   circleId: string;
   onBack?: () => void;
+  onRegisterBack?: (handler: (() => boolean) | null) => void;
 }
 
 interface MobileThemeColors {
@@ -168,7 +169,7 @@ const formatPostDate = (isoString: string) => {
   return `${hours}:${minutes} ${day}/${month}/${year}`;
 };
 
-export const MobileAnonymousView: React.FC<MobileAnonymousViewProps> = ({ circleId, onBack }) => {
+export const MobileAnonymousView: React.FC<MobileAnonymousViewProps> = ({ circleId, onBack, onRegisterBack }) => {
   const { colors, resolvedTheme } = useThemeStore();
   const isDark = resolvedTheme === 'dark';
   const { t } = useLanguageStore();
@@ -250,6 +251,20 @@ export const MobileAnonymousView: React.FC<MobileAnonymousViewProps> = ({ circle
   const [isComposeModalOpen, setIsComposeModalOpen] = useState(false);
   const [content, setContent] = useState('');
   const [selectedTheme, setSelectedTheme] = useState('sunset');
+
+  useEffect(() => {
+    if (onRegisterBack) {
+      if (isComposeModalOpen) {
+        onRegisterBack(() => {
+          setIsComposeModalOpen(false);
+          return true;
+        });
+      } else {
+        onRegisterBack(null);
+      }
+    }
+    return () => onRegisterBack?.(null);
+  }, [isComposeModalOpen, onRegisterBack]);
 
   const loadPosts = async () => {
     try {

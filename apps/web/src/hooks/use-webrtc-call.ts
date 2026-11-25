@@ -6,6 +6,9 @@ import { CallType, IceServerConfig } from '@circle/types';
 
 import { useLanguageStore } from '../stores/language.store';
 
+const RECOVERY_WINDOW_MS = 20_000;
+const ICE_RETRY_MS = 3_000;
+
 interface PeerStream {
   userId: string;
   stream: MediaStream;
@@ -32,13 +35,22 @@ export function useWebRTCCall({
   const [isAudioMuted, setIsAudioMuted] = useState(false);
   const [isVideoDisabled, setIsVideoDisabled] = useState(callType === CallType.AUDIO);
   const [isConnected, setIsConnected] = useState(false);
+  const [reconnectingSince, setReconnectingSince] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const peerConnections = useRef<Map<string, RTCPeerConnection>>(new Map());
   const localStreamRef = useRef<MediaStream | null>(null);
+  const recoveryTimers = useRef(new Map<string, ReturnType<typeof setInterval>>());
+
+  const clearPeerRecovery = useCallback((peerId: string) => {
+    const timer = recoveryTimers.current.get(peerId);
+    if (timer) clearInterval(timer);
+    recoveryTimers.current.delete(peerId);
+    if (recoveryTimers.current.size === 0) setReconnectingSince(null);
+  }, []);
 
   // Initialize local media stream
-  const startLocalMedia = useCallback(async () => {
+  const startLocalMedia = useCallback(async (isCurrent: () => boolean) => {
     try {
       if (typeof window === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
         throw new Error(useLanguageStore.getState().t.calls.mediaDevicesUnsupported);
@@ -69,12 +81,17 @@ export function useWebRTCCall({
         }
         throw err;
       });
+      if (!isCurrent()) {
+        stream.getTracks().forEach((track) => track.stop());
+        return null;
+      }
       localStreamRef.current = stream;
       setLocalStream(stream);
       setIsConnected(true);
       setError(null);
       return stream;
     } catch (err: any) {
+      if (!isCurrent()) return null;
       console.error('[WebRTC] Error acquiring media stream:', err);
       setError(err?.message || useLanguageStore.getState().t.calls.mediaAccessDenied);
       return null;
@@ -107,7 +124,14 @@ export function useWebRTCCall({
 
       // Add local stream tracks to this peer connection
       stream.getTracks().forEach((track) => {
-        pc.addTrack(track, stream);
+        const sender = pc.addTrack(track, stream);
+        if (track.kind === 'video') {
+          const parameters = sender.getParameters();
+          if (parameters.encodings?.length) {
+            parameters.degradationPreference = 'maintain-framerate';
+            void sender.setParameters(parameters).catch(() => undefined);
+          }
+        }
       });
 
       // Handle ICE Candidate generation
@@ -142,20 +166,47 @@ export function useWebRTCCall({
       };
 
       pc.onconnectionstatechange = () => {
-        if (
-          pc.connectionState === 'disconnected' ||
-          pc.connectionState === 'failed' ||
-          pc.connectionState === 'closed'
-        ) {
-          setRemoteStreams((prev) => prev.filter((p) => p.userId !== targetUserId));
-          peerConnections.current.delete(targetUserId);
+        if (pc.connectionState === 'connected' || pc.connectionState === 'closed') {
+          clearPeerRecovery(targetUserId);
+          return;
         }
+        if (pc.connectionState !== 'disconnected' && pc.connectionState !== 'failed') return;
+        if (recoveryTimers.current.has(targetUserId)) return;
+
+        const startedAt = Date.now();
+        setReconnectingSince((current) => current ?? startedAt);
+        const retry = async () => {
+          if (Date.now() - startedAt >= RECOVERY_WINDOW_MS) {
+            clearPeerRecovery(targetUserId);
+            peerConnections.current.delete(targetUserId);
+            pc.close();
+            setRemoteStreams((current) => current.filter((peer) => peer.userId !== targetUserId));
+            setError(useLanguageStore.getState().t.calls.connectionRecoveryFailed);
+            return;
+          }
+          const socket = getSocket();
+          if (!socket?.connected || pc.signalingState !== 'stable' || (pc as any).isMakingOffer) return;
+          // Start from one side first. The other side takes over if it detects the outage alone.
+          if (currentUserId < targetUserId && Date.now() - startedAt < 2 * ICE_RETRY_MS) return;
+          try {
+            (pc as any).isMakingOffer = true;
+            const offer = await pc.createOffer({ iceRestart: true });
+            if (pc.signalingState !== 'stable') return;
+            await pc.setLocalDescription(offer);
+            socket.emit('webrtc:signal', { callSessionId, targetUserId, signal: offer });
+          } catch (error) {
+            console.warn('[WebRTC] ICE restart failed:', error);
+          } finally {
+            (pc as any).isMakingOffer = false;
+          }
+        };
+        recoveryTimers.current.set(targetUserId, setInterval(() => void retry(), ICE_RETRY_MS));
       };
 
       peerConnections.current.set(targetUserId, pc);
       return pc;
     },
-    [callSessionId],
+    [callSessionId, clearPeerRecovery, currentUserId],
   );
 
   // Toggle Microphone
@@ -196,14 +247,12 @@ export function useWebRTCCall({
 
     let isMounted = true;
     let activeStream: MediaStream | null = null;
+    let cleanupSocket: (() => void) | undefined;
     const socket = getSocket();
 
     const initCall = async () => {
-      activeStream = await startLocalMediaRef.current();
+      activeStream = await startLocalMediaRef.current(() => isMounted);
       if (!isMounted || !activeStream || !socket) return;
-
-      // Join socket call room
-      socket.emit('call:join', { callSessionId });
 
       // Signal handler for incoming WebRTC SDP / ICE messages
       const handleSignal = async (payload: any) => {
@@ -292,7 +341,7 @@ export function useWebRTCCall({
 
       // Peer joined -> initiate an offer if in stable state
       const handlePeerJoined = async (payload: any) => {
-        if (!isMounted) return;
+        if (!isMounted || payload.callSessionId !== callSessionId) return;
         const newPeerUserId =
           payload.participant?.member?.userId ||
           payload.participant?.member?.user?.id ||
@@ -300,7 +349,7 @@ export function useWebRTCCall({
         if (!newPeerUserId || newPeerUserId === currentUserId || !activeStream) return;
 
         const pc = getOrCreatePeerConnection(newPeerUserId, activeStream);
-        if (pc.signalingState !== 'stable') return;
+        if (pc.signalingState !== 'stable' || (pc as any).isMakingOffer || pc.connectionState === 'connected') return;
 
         try {
           (pc as any).isMakingOffer = true;
@@ -322,6 +371,7 @@ export function useWebRTCCall({
       const handlePeerLeft = (payload: any) => {
         if (!isMounted) return;
         if (payload.callSessionId === callSessionId && payload.userId) {
+          clearPeerRecovery(payload.userId);
           const pc = peerConnections.current.get(payload.userId);
           if (pc) {
             pc.close();
@@ -343,8 +393,20 @@ export function useWebRTCCall({
       socket.on('call:participant-left', handlePeerLeft);
       socket.on('call:ended', handleCallEnded);
 
-      // Announce self presence to mesh in room
-      socket.emit('call:mesh-ready', { callSessionId, userId: currentUserId });
+      const joinRoom = () => socket.emit('call:join', { callSessionId }, (result: { success: boolean } | undefined) => {
+        if (isMounted && result && !result.success) {
+          setError(useLanguageStore.getState().t.calls.connectionRecoveryFailed);
+        }
+      });
+      socket.on('connect', joinRoom);
+      if (socket.connected) joinRoom();
+      cleanupSocket = () => {
+        socket.off('connect', joinRoom);
+        socket.off('webrtc:signal', handleSignal);
+        socket.off('call:participant-joined', handlePeerJoined);
+        socket.off('call:participant-left', handlePeerLeft);
+        socket.off('call:ended', handleCallEnded);
+      };
     };
 
     initCall();
@@ -355,23 +417,26 @@ export function useWebRTCCall({
       if (activeStream) {
         activeStream.getTracks().forEach((track) => track.stop());
       }
-      peerConnections.current.forEach((pc) => pc.close());
+      recoveryTimers.current.forEach((timer) => clearInterval(timer));
+      recoveryTimers.current.clear();
+      setReconnectingSince(null);
+      peerConnections.current.forEach((pc) => {
+        pc.onconnectionstatechange = null;
+        pc.close();
+      });
       peerConnections.current.clear();
       setRemoteStreams([]);
       setLocalStream(null);
       localStreamRef.current = null;
 
-      if (socket) {
-        socket.off('webrtc:signal');
-        socket.off('call:participant-joined');
-        socket.off('call:participant-left');
-        socket.off('call:ended');
-      }
+      setIsConnected(false);
+      cleanupSocket?.();
     };
   }, [
     callSessionId,
     currentUserId,
     getOrCreatePeerConnection,
+    clearPeerRecovery,
   ]);
 
   return {
@@ -380,6 +445,7 @@ export function useWebRTCCall({
     isAudioMuted,
     isVideoDisabled,
     isConnected,
+    reconnectingSince,
     error,
     toggleAudio,
     toggleVideo,

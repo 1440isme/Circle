@@ -63,6 +63,7 @@ export function createChatSchemas(locale: Locale = 'vi') {
 
   const messagePaginationSchema = z.object({
     cursor: z.string().trim().optional(),
+    around: z.string().trim().min(1).max(100).optional(),
     limit: z.coerce.number().int().min(1).max(100).optional().default(30),
     direction: z.enum(['before', 'after']).optional().default('before'),
   });

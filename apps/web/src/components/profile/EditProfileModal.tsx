@@ -241,7 +241,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
                   setMode('view');
                   setErrorMessage(null);
                 }}
-                className="flex h-8 w-8 items-center justify-center rounded-lg bg-circle-canvas dark:bg-circle-dark-elevated text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-hairline/60 dark:hover:bg-circle-dark-wash transition-colors"
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-circle-canvas dark:bg-circle-dark-elevated text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors"
                 title={t.common.cancel}
               >
                 <ArrowLeft className="h-4 w-4" />
@@ -253,15 +253,17 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
               {mode === 'avatar' && t.auth.changeAvatarTitle}
             </h3>
           </div>
-          <button
-            type="button"
-            onClick={handleClose}
-            aria-label={t.common.close}
-            title={t.common.close}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-circle-canvas dark:bg-circle-dark-canvas text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash hover:text-circle-charcoal dark:hover:text-circle-dark-text dark:hover:bg-circle-dark-wash transition-colors"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          {mode === 'view' && (
+            <button
+              type="button"
+              onClick={handleClose}
+              aria-label={t.common.close}
+              title={t.common.close}
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-circle-canvas dark:bg-circle-dark-canvas text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash hover:text-circle-charcoal dark:hover:text-circle-dark-text dark:hover:bg-circle-dark-wash transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
 
         {/* Success / Error Notification */}

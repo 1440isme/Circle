@@ -29,3 +29,12 @@ export * from "./theme/colors";
 // Full Comprehensive Emoji Catalog
 export * from "./constants/emojis";
 
+// Collaborative Planning Engine & Templates (UC18)
+export * from "./planning";
+
+// Geo & Distance Utilities (UC19)
+export * from "./utils/distance";
+export * from "./utils/location-search";
+export * from "./utils/chat-preview";
+export * from './utils/poll-deadline';
+export * from './utils/notifications';

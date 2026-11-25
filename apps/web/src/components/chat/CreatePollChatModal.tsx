@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Vote, Plus, Trash2, Clock, Loader2 } from 'lucide-react';
+import { X, Vote, Plus, Trash2, Clock, Loader2, Lock } from 'lucide-react';
 import { useLanguageStore } from '../../stores/language.store';
 import { useCreatePollMutation } from '../../hooks/use-circle-tools';
 import { playMessageSentSound } from '../../utils/sound-effects';
@@ -25,6 +25,8 @@ export const CreatePollChatModal: React.FC<CreatePollChatModalProps> = ({
   const [question, setQuestion] = useState('');
   const [options, setOptions] = useState<string[]>(['', '']);
   const [deadline, setDeadline] = useState('');
+  const [isMultipleChoice, setIsMultipleChoice] = useState(false);
+  const [isAnonymous, setIsAnonymous] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -37,6 +39,8 @@ export const CreatePollChatModal: React.FC<CreatePollChatModalProps> = ({
       setQuestion('');
       setOptions(['', '']);
       setDeadline('');
+      setIsMultipleChoice(false);
+      setIsAnonymous(false);
       setErrorMsg(null);
     }
   }, [isOpen]);
@@ -96,6 +100,8 @@ export const CreatePollChatModal: React.FC<CreatePollChatModalProps> = ({
         question: trimmedQuestion,
         options: validOptions,
         deadline: deadline ? new Date(deadline).toISOString() : undefined,
+        isMultipleChoice,
+        isAnonymous,
       });
 
       playMessageSentSound();
@@ -153,6 +159,44 @@ export const CreatePollChatModal: React.FC<CreatePollChatModalProps> = ({
           onSubmit={handleSubmit}
           className="flex flex-col flex-1 min-h-0 overflow-y-auto custom-scrollbar space-y-4 pr-1 pb-2"
         >
+          {/* Quick Template Chips */}
+          <div>
+            <label className="block text-[11px] font-semibold text-circle-slate dark:text-circle-dark-muted mb-1.5">
+              {t.collab.pollQuickTemplates || 'Mẫu bình chọn nhanh'}
+            </label>
+            <div className="flex flex-wrap gap-1.5">
+              {[
+                {
+                  label: t.collab.pollTemplateFood || '🍜 Trưa nay ăn gì?',
+                  question: 'Trưa nay ăn gì cả nhà?',
+                  options: ['Cơm tấm', 'Bún bò Huế', 'Phở bò', 'Trà sữa'],
+                },
+                {
+                  label: t.collab.pollTemplateOuting || '🏖️ Cuối tuần đi đâu?',
+                  question: 'Cuối tuần này đi đâu chơi?',
+                  options: ['Cà phê chill', 'Dã ngoại cắm trại', 'Đi xem phim', 'Ở nhà ngủ'],
+                },
+                {
+                  label: t.collab.pollTemplateTime || '⏰ Giờ hẹn?',
+                  question: 'Mấy giờ hẹn gặp nhau?',
+                  options: ['08:00 sáng', '10:30 sáng', '14:00 chiều', '18:30 tối'],
+                },
+              ].map((tpl, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => {
+                    setQuestion(tpl.question);
+                    setOptions([...tpl.options]);
+                  }}
+                  className="px-2.5 py-1 rounded-full text-[11px] font-medium border border-circle-hairline dark:border-circle-dark-hairline bg-black/5 dark:bg-white/5 hover:bg-circle-primary/10 hover:border-circle-primary/30 hover:text-circle-primary transition-all active:scale-95"
+                >
+                  {tpl.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Question */}
           <div>
             <label className="block text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text mb-1.5">
@@ -222,6 +266,39 @@ export const CreatePollChatModal: React.FC<CreatePollChatModalProps> = ({
                 className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-wash dark:bg-circle-dark-canvas px-3.5 py-2 text-xs text-circle-charcoal dark:text-circle-dark-text [color-scheme:light] dark:[color-scheme:dark] focus:outline-none focus:border-circle-primary transition-all"
               />
             </div>
+          </div>
+
+          {/* Advanced Poll Options */}
+          <div className="space-y-2.5 pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline">
+            <label className="flex items-center gap-2.5 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={isMultipleChoice}
+                onChange={(e) => setIsMultipleChoice(e.target.checked)}
+                className="w-4 h-4 rounded text-circle-primary focus:ring-circle-primary accent-circle-primary cursor-pointer"
+              />
+              <span className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text">
+                {t.collab.pollIsMultipleChoice || 'Cho phép chọn nhiều phương án'}
+              </span>
+            </label>
+
+            <label className="flex items-start gap-2.5 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={isAnonymous}
+                onChange={(e) => setIsAnonymous(e.target.checked)}
+                className="w-4 h-4 rounded text-circle-primary focus:ring-circle-primary accent-circle-primary mt-0.5 cursor-pointer"
+              />
+              <div>
+                <span className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text flex items-center gap-1.5">
+                  <Lock className="w-3 h-3 text-emerald-500" />
+                  {t.collab.pollIsAnonymous || 'Bình chọn ẩn danh'}
+                </span>
+                <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted mt-0.5">
+                  {t.collab.pollAnonymousNotice || 'Danh tính người bỏ phiếu được giữ kín.'}
+                </p>
+              </div>
+            </label>
           </div>
         </form>
 

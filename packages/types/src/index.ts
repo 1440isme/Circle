@@ -1088,6 +1088,8 @@ export interface SheetColumnEntity {
   sheetId: string;
   columnIndex: number;
   columnTitle: string;
+  columnType?: string;
+  columnConfig?: Record<string, unknown> | null;
   createdAt: string;
 }
 
@@ -1104,6 +1106,8 @@ export interface PlanningSheetEntity {
   circleId: string;
   createdById: string;
   title: string;
+  templateType?: string;
+  metadata?: Record<string, unknown> | null;
   createdAt: string;
   updatedAt: string;
   columns: SheetColumnEntity[];
@@ -1124,12 +1128,28 @@ export interface PlanningSheetEntity {
 
 export interface CreatePlanningSheetInput {
   title: string;
-  columns?: string[];
+  templateType?: string;
+  columns?: Array<string | { columnTitle: string; columnType?: string; columnConfig?: Record<string, unknown> }>;
+  initialRows?: Array<Record<string | number, string>>;
   initialRowCount?: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface UpdatePlanningSheetInput {
+  title?: string;
+  metadata?: Record<string, unknown>;
 }
 
 export interface AddSheetColumnInput {
   columnTitle: string;
+  columnType?: string;
+  columnConfig?: Record<string, unknown>;
+}
+
+export interface UpdateSheetColumnInput {
+  columnTitle?: string;
+  columnType?: string;
+  columnConfig?: Record<string, unknown>;
 }
 
 export interface AddSheetRowInput {
@@ -1138,6 +1158,19 @@ export interface AddSheetRowInput {
 
 export interface UpdateSheetCellInput {
   cellValue: string;
+}
+
+export interface PlanningSheetMessagePayload {
+  type: 'PLANNING_SHEET';
+  sheetId: string;
+  title: string;
+  templateType: string;
+  summaryText: string;
+  completionPercent?: number;
+  totalVnd?: number;
+  splitPerPerson?: number;
+  completedItems?: number;
+  totalItems?: number;
 }
 
 // ======================================================================// 8. LIVE LOCATION SHARING CONTRACTS (UC19)
@@ -1214,12 +1247,17 @@ export interface GroupPollEntity {
   circleId: string;
   createdById?: string | null;
   question: string;
+  isMultipleChoice?: boolean;
+  isAnonymous?: boolean;
   deadline?: string | null;
   isClosed: boolean;
   createdAt: string;
   options: PollOptionEntity[];
   totalVotes: number;
+  canManage?: boolean;
+  deadlineChanges?: { changedAt: string; deadline: string | null }[] | null;
   userVotedOptionId?: string | null;
+  userVotedOptionIds?: string[];
   creator?: {
     id: string;
     userId: string;
@@ -1238,10 +1276,39 @@ export interface CreatePollInput {
   question: string;
   options: string[];
   deadline?: string;
+  isMultipleChoice?: boolean;
+  isAnonymous?: boolean;
+}
+
+export interface UpdatePollInput {
+  isMultipleChoice?: boolean;
+  question?: string;
+  options?: string[];
+  deadline?: string | null;
 }
 
 export interface VotePollInput {
-  optionId: string;
+  optionId?: string;
+  optionIds?: string[];
+}
+
+export interface CircleMeetingPointEntity {
+  id: string;
+  circleId: string;
+  title: string;
+  latitude: number;
+  longitude: number;
+  address?: string | null;
+  updatedById?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+
+export interface SetMeetingPointInput {
+  title: string;
+  latitude: number;
+  longitude: number;
+  address?: string;
 }
 
 export type ClearChatMode = 'FOR_ME' | 'EVERYONE';
@@ -1251,4 +1318,86 @@ export interface ClearChatResult {
   mode: ClearChatMode;
   clearedAt: string;
 }
+
+// =============================================================================
+// NOTIFICATION & DEVICE TOKENS DOMAIN
+// =============================================================================
+
+export enum NotificationType {
+  CIRCLE_INVITE = 'CIRCLE_INVITE',
+  CIRCLE_JOIN_REQUEST = 'CIRCLE_JOIN_REQUEST',
+  CHAT_MESSAGE = 'CHAT_MESSAGE',
+  CALENDAR_EVENT = 'CALENDAR_EVENT',
+  CALENDAR_CHANGED = 'CALENDAR_CHANGED',
+  CALENDAR_CANCELLED = 'CALENDAR_CANCELLED',
+  CALENDAR_REMINDER = 'CALENDAR_REMINDER',
+  POLL_NEW = 'POLL_NEW',
+  POLL_CLOSED = 'POLL_CLOSED',
+  MOMENT_NEW = 'MOMENT_NEW',
+  CALL_MISSED = 'CALL_MISSED',
+  SYSTEM = 'SYSTEM',
+}
+
+export type CircleNotificationLevel = 'ALL' | 'MENTIONS' | 'NONE';
+export type CircleMuteDuration = '15m' | '1h' | '8h' | '24h' | 'forever';
+
+export interface CircleNotificationSettings {
+  notificationLevel: CircleNotificationLevel;
+  mutedUntil: string | null;
+}
+
+export interface UpdateCircleNotificationSettingsInput {
+  notificationLevel?: CircleNotificationLevel;
+  mute?: CircleMuteDuration | null;
+}
+
+export type DevicePlatform = 'IOS' | 'ANDROID' | 'WEB';
+export type DeviceTokenStatus = 'ACTIVE' | 'INVALID';
+
+export interface NotificationEntity {
+  id: string;
+  userId: string;
+  title: string;
+  content: string;
+  type: NotificationType | string;
+  targetType?: string | null;
+  targetId?: string | null;
+  deepLink?: string | null;
+  metadata?: Record<string, any> | null;
+  isRead: boolean;
+  readAt?: string | null;
+  createdAt: string;
+}
+
+export interface NotificationUnreadCountResponse {
+  unreadCount: number;
+}
+
+export interface RegisterDeviceTokenInput {
+  token: string;
+  deviceId: string;
+  platform: DevicePlatform;
+}
+
+export interface DeviceTokenEntity {
+  id: string;
+  userId: string;
+  deviceId: string;
+  platform: DevicePlatform;
+  token: string;
+  status: DeviceTokenStatus;
+  lastSeenAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NotificationSocketNewPayload {
+  notification: NotificationEntity;
+  unreadCount: number;
+}
+
+export interface NotificationSocketCountPayload {
+  unreadCount: number;
+}
+
 

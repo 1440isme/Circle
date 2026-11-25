@@ -15,6 +15,18 @@ interface ChatLocationCardProps {
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
 
+function getSlippyTileUrl(lat: number, lng: number, isDark: boolean): string {
+  const zoom = 15;
+  const x = Math.floor(((lng + 180) / 360) * Math.pow(2, zoom));
+  const latRad = (lat * Math.PI) / 180;
+  const y = Math.floor(
+    ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) *
+      Math.pow(2, zoom),
+  );
+  const styleName = isDark ? 'dark_all' : 'light_all';
+  return `https://a.basemaps.cartocdn.com/${styleName}/${zoom}/${x}/${y}@2x.png`;
+}
+
 export const ChatLocationCard: React.FC<ChatLocationCardProps> = ({
   lat,
   lng,
@@ -32,7 +44,10 @@ export const ChatLocationCard: React.FC<ChatLocationCardProps> = ({
   const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
 
   const mapboxStyle = isDark ? 'dark-v11' : 'streets-v12';
-  const staticMapUrl = `https://api.mapbox.com/styles/v1/mapbox/${mapboxStyle}/static/pin-s-heart+10b981(${lng},${lat})/${lng},${lat},14,0/400x180@2x?access_token=${MAPBOX_TOKEN}`;
+  const hasMapbox = Boolean(MAPBOX_TOKEN && MAPBOX_TOKEN.trim().length > 0);
+  const staticMapUrl = hasMapbox
+    ? `https://api.mapbox.com/styles/v1/mapbox/${mapboxStyle}/static/pin-s-heart+10b981(${lng},${lat})/${lng},${lat},14,0/400x180@2x?access_token=${MAPBOX_TOKEN}`
+    : getSlippyTileUrl(lat, lng, isDark);
 
   return (
     <a
@@ -42,14 +57,23 @@ export const ChatLocationCard: React.FC<ChatLocationCardProps> = ({
       className="relative block w-full min-w-[240px] max-w-[320px] h-36 rounded-2xl overflow-hidden border border-black/10 dark:border-white/15 bg-circle-canvas dark:bg-slate-900 group shadow-sm select-none cursor-pointer transition-transform active:scale-[0.99]"
       title={t.collab.openInGoogleMaps}
     >
-      {!imageError && MAPBOX_TOKEN ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={staticMapUrl}
-          alt={displayTitle}
-          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-          onError={() => setImageError(true)}
-        />
+      {!imageError ? (
+        <>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={staticMapUrl}
+            alt={displayTitle}
+            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+            onError={() => setImageError(true)}
+          />
+          {!hasMapbox && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="w-8 h-8 rounded-full bg-circle-primary text-circle-charcoal dark:text-circle-dark-canvas flex items-center justify-center shadow-lg">
+                <Navigation className="w-4 h-4 fill-current rotate-45" />
+              </div>
+            </div>
+          )}
+        </>
       ) : (
         <>
           {/* Fallback Grid lines */}

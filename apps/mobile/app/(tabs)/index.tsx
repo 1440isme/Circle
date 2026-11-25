@@ -1,32 +1,49 @@
-import React from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
+  AppState,
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  TextInput,
   Platform,
-  Modal,
+  RefreshControl,
   ActivityIndicator,
+  Image as RNImage,
 } from 'react-native';
 import {
   Plus,
-  KeyRound,
-  Radio,
-  UserCheck,
-  Camera,
-  MessageSquare,
+  Search,
   X,
+  Bell,
+  Calendar,
+  Users,
+  MessageSquare,
+  Camera,
+  Vote,
+  Sparkles,
+  KeyRound,
+  ChevronRight,
+  Clock,
+  MapPin,
 } from 'lucide-react-native';
-import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeStore } from '../../src/stores/theme.store';
 import { getGlassTheme } from '../../src/constants/glass-theme';
 import { useLanguageStore } from '../../src/stores/language.store';
 import { useAuthStore } from '../../src/stores/auth.store';
 import { useCircleStore } from '../../src/stores/circle.store';
-import { useMyCirclesQuery } from '../../src/hooks/use-circle-queries';
+import { useMyCirclesQuery, CircleListItem } from '../../src/hooks/use-circle-queries';
 import { useRouter } from 'expo-router';
+import { MobileNotificationCenterModal } from '../../src/components/notifications/MobileNotificationCenterModal';
+import { CreateCircleModal } from '../../src/components/circle/CreateCircleModal';
+import { JoinCircleModal } from '../../src/components/circle/JoinCircleModal';
+import { getUnreadCountApi } from '../../src/services/notifications.service';
+import { getMobileSocket } from '../../src/services/socket';
+import { getUpcomingCalendarEventsApi } from '../../src/services/circle-tools.service';
+import { CalendarEventEntity } from '@circle/types';
+import * as Haptics from 'expo-haptics';
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -34,45 +51,221 @@ function getInitials(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
+function formatEventTime(dateStr: string, locale: string): string {
+  const d = new Date(dateStr);
+  const now = new Date();
+  const isToday = d.toDateString() === now.toDateString();
+  const tomorrow = new Date(now);
+  tomorrow.setDate(now.getDate() + 1);
+  const isTomorrow = d.toDateString() === tomorrow.toDateString();
+
+  const time = d.toLocaleTimeString(locale === 'vi' ? 'vi-VN' : 'en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+
+  if (isToday) return locale === 'vi' ? `Hôm nay, ${time}` : `Today, ${time}`;
+  if (isTomorrow) return locale === 'vi' ? `Ngày mai, ${time}` : `Tomorrow, ${time}`;
+
+  const dayMonth = d.toLocaleDateString(locale === 'vi' ? 'vi-VN' : 'en-US', {
+    day: 'numeric',
+    month: 'short',
+  });
+  return `${dayMonth}, ${time}`;
+}
+
+function formatRelativeTime(dateStr: string, locale: string): string {
+  const diffSec = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+  if (diffSec < 60) return locale === 'vi' ? 'Vừa xong' : 'Just now';
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin} ${locale === 'vi' ? 'phút trước' : 'm ago'}`;
+  const diffHour = Math.floor(diffMin / 60);
+  if (diffHour < 24) return `${diffHour} ${locale === 'vi' ? 'giờ trước' : 'h ago'}`;
+  const diffDay = Math.floor(diffHour / 24);
+  if (diffDay < 7) return `${diffDay} ${locale === 'vi' ? 'ngày trước' : 'd ago'}`;
+  return new Date(dateStr).toLocaleDateString(locale === 'vi' ? 'vi-VN' : 'en-US', {
+    day: 'numeric',
+    month: 'short',
+  });
+}
+
 export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { colors, resolvedTheme, uiStyle } = useThemeStore();
   const t = useLanguageStore((s) => s.t);
+  const locale = useLanguageStore((s) => s.locale);
   const { user } = useAuthStore();
 
   const isDark = resolvedTheme === 'dark';
   const isGlass = uiStyle === 'glass';
   const glassTheme = getGlassTheme(isDark, uiStyle);
   const displayName = user?.profile?.displayName || user?.email?.split('@')[0] || t.auth.guest;
-  const roleLabel = user?.globalRole === 'ADMIN' ? t.auth.admin : t.auth.member;
 
-  const { data: myCircles = [], isLoading: isLoadingCircles } = useMyCirclesQuery();
+  const {
+    data: myCircles = [],
+    isLoading: isLoadingCircles,
+    isRefetching,
+    refetch,
+  } = useMyCirclesQuery();
+
   const setCreateModalVisible = useCircleStore((s) => s.setCreateModalVisible);
   const setJoinModalVisible = useCircleStore((s) => s.setJoinModalVisible);
-  const activeCircle = useCircleStore((s) => s.activeCircle);
   const setActiveCircle = useCircleStore((s) => s.setActiveCircle);
 
-  const currentCircle = activeCircle || (myCircles.length > 0 ? myCircles[0] : null);
-  const hasCircles = myCircles.length > 0;
+  // Search state
+  const [isSearchActive, setIsSearchActive] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
-  const handleOpenCircleWorkspace = (circle: any) => {
+  // Notifications state
+  const [notificationModalVisible, setNotificationModalVisible] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // Multi-circle upcoming events
+  const [upcomingEvents, setUpcomingEvents] = useState<
+    Array<CalendarEventEntity & { circleName?: string; circleId: string }>
+  >([]);
+  const [isLoadingEvents, setIsLoadingEvents] = useState(false);
+
+  // Fetch upcoming events across user's circles
+  const fetchUpcomingEvents = useCallback(async () => {
+    if (!myCircles || myCircles.length === 0) {
+      setUpcomingEvents([]);
+      return;
+    }
+    setIsLoadingEvents(true);
+    try {
+      const topCircles = myCircles.slice(0, 8);
+      const results = await Promise.allSettled(
+        topCircles.map((c) => getUpcomingCalendarEventsApi(c.id)),
+      );
+      const collected: Array<CalendarEventEntity & { circleName?: string; circleId: string }> = [];
+      results.forEach((res, idx) => {
+        if (res.status === 'fulfilled' && Array.isArray(res.value)) {
+          const c = topCircles[idx];
+          res.value.forEach((ev) => {
+            collected.push({
+              ...ev,
+              circleId: ev.circleId || c.id,
+              circleName: c.name,
+            });
+          });
+        }
+      });
+      collected.sort(
+        (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
+      );
+      setUpcomingEvents(collected.slice(0, 6));
+    } catch {
+      setUpcomingEvents([]);
+    } finally {
+      setIsLoadingEvents(false);
+    }
+  }, [myCircles]);
+
+  useEffect(() => {
+    fetchUpcomingEvents();
+  }, [fetchUpcomingEvents]);
+
+  // Notifications socket & initial count
+  useEffect(() => {
+    let isMounted = true;
+    const refreshUnreadCount = () => {
+      getUnreadCountApi()
+        .then((res) => {
+          if (isMounted && res.success && res.data) {
+            setUnreadCount(res.data.unreadCount);
+          }
+        })
+        .catch(() => {});
+    };
+    refreshUnreadCount();
+    const foreground = AppState.addEventListener('change', (state) => {
+      if (state === 'active') refreshUnreadCount();
+    });
+
+    let detach: (() => void) | undefined;
+    getMobileSocket().then((socket) => {
+      if (!isMounted || !socket) return;
+
+      const handleUnread = (payload: { unreadCount: number }) => {
+        if (isMounted && typeof payload?.unreadCount === 'number') {
+          setUnreadCount(payload.unreadCount);
+        }
+      };
+      socket.on('notification:unread_count', handleUnread);
+      socket.on('notification:new', handleUnread);
+      socket.on('connect', refreshUnreadCount);
+      detach = () => {
+        socket.off('notification:unread_count', handleUnread);
+        socket.off('notification:new', handleUnread);
+        socket.off('connect', refreshUnreadCount);
+      };
+    });
+
+    return () => {
+      isMounted = false;
+      detach?.();
+      foreground.remove();
+    };
+  }, []);
+
+  // Filtered and sorted circles
+  const filteredCircles = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    let list = [...myCircles];
+    if (q) {
+      const cleanQ = q.replace(/^@/, '');
+      list = list.filter(
+        (c) =>
+          c.name.toLowerCase().includes(q) ||
+          (c.handle && c.handle.toLowerCase().includes(cleanQ)),
+      );
+    }
+    // Sort by most recent activity (updatedAt desc)
+    list.sort((a, b) => {
+      const timeA = new Date(a.updatedAt || a.createdAt || 0).getTime();
+      const timeB = new Date(b.updatedAt || b.createdAt || 0).getTime();
+      return timeB - timeA;
+    });
+    return list;
+  }, [myCircles, searchQuery]);
+
+  // Open Circle Workspace: always enters at Home hub per Brief Mục 4.3 & 9
+  const handleOpenCircle = (circle: CircleListItem) => {
+    Haptics.selectionAsync();
     setActiveCircle(circle);
     router.push({
       pathname: '/circle/[id]' as any,
-      params: { id: circle.id },
+      params: { id: circle.id, tab: 'home' },
     });
   };
 
-  const [circleSwitcherVisible, setCircleSwitcherVisible] = React.useState(false);
+  // Open Event context directly in circle calendar
+  const handleOpenEventContext = (circleId: string, eventId: string) => {
+    Haptics.selectionAsync();
+    const target = myCircles.find((c) => c.id === circleId);
+    if (target) {
+      setActiveCircle(target);
+    }
+    router.push({
+      pathname: '/circle/[id]' as any,
+      params: { id: circleId, tab: 'tools', tool: 'calendar', eventId },
+    });
+  };
+
+  const onRefresh = async () => {
+    Haptics.selectionAsync();
+    await Promise.allSettled([refetch(), fetchUpcomingEvents()]);
+  };
+
+  const topClearance = Math.max(insets.top + 8, Platform.OS === 'ios' ? 52 : 36);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.canvas }]}>
-      {/* Top Floating Glass Header (Floating glass controls with scroll-under content) */}
-      <View
-        style={[styles.headerBar, { paddingTop: insets.top + 8 }]}
-        pointerEvents="box-none"
-      >
+      {/* 4.2 Header: Brand, Search, New Group, Notifications */}
+      <View style={[styles.headerBar, { paddingTop: topClearance }]} pointerEvents="box-none">
         <View
           style={[
             styles.brandCapsule,
@@ -97,263 +290,466 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Header Right: Floating Button for Active Circle Avatar */}
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={() => setCircleSwitcherVisible(true)}
-          hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
-          style={[
-            styles.headerCircleAvatarBtn,
-            {
-              backgroundColor: colors.primary,
-              borderColor: isGlass ? glassTheme.colors.glassBorder : colors.hairline,
-            },
-          ]}
-          accessibilityLabel={t.nav.yourCircles}
-        >
-          {currentCircle ? (
-            <Text style={[styles.headerCircleAvatarText, { color: colors.onPrimary }]}>
-              {getInitials(currentCircle.name)}
-            </Text>
-          ) : (
-            <Plus size={18} color={colors.onPrimary} strokeWidth={2.5} />
-          )}
-        </TouchableOpacity>
+        {/* Action Controls: Search, New Circle, Notifications */}
+        <View style={styles.headerRightGroup} pointerEvents="auto">
+          {/* Search Toggle */}
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => {
+              Haptics.selectionAsync();
+              setIsSearchActive((prev) => !prev);
+              if (isSearchActive) setSearchQuery('');
+            }}
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            style={[
+              styles.headerActionBtn,
+              {
+                backgroundColor: isSearchActive
+                  ? `${colors.primary}20`
+                  : isGlass
+                  ? glassTheme.colors.glassBg
+                  : colors.surface,
+                borderColor: isSearchActive ? colors.primary : isGlass ? glassTheme.colors.glassBorder : colors.hairline,
+              },
+            ]}
+            accessibilityLabel={t.common.search}
+          >
+            <Search size={17} color={isSearchActive ? colors.sage : colors.text} />
+          </TouchableOpacity>
+
+          {/* Create Circle Entry on Home Header (Brief Mục 4.2 & 4.4) */}
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => {
+              Haptics.selectionAsync();
+              setCreateModalVisible(true);
+            }}
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            style={[
+              styles.headerActionBtn,
+              {
+                backgroundColor: isGlass ? glassTheme.colors.glassBg : colors.surface,
+                borderColor: isGlass ? glassTheme.colors.glassBorder : colors.hairline,
+              },
+            ]}
+            accessibilityLabel={t.home.createCircleBtn}
+          >
+            <Plus size={18} color={colors.text} strokeWidth={2.4} />
+          </TouchableOpacity>
+
+          {/* Notifications Bell with Unread Coral Dot */}
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => {
+              Haptics.selectionAsync();
+              setNotificationModalVisible(true);
+            }}
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            style={[
+              styles.headerActionBtn,
+              {
+                backgroundColor: isGlass ? glassTheme.colors.glassBg : colors.surface,
+                borderColor: isGlass ? glassTheme.colors.glassBorder : colors.hairline,
+              },
+            ]}
+            accessibilityLabel={t.nav.notifications}
+          >
+            <Bell size={17} color={colors.text} />
+            {unreadCount > 0 && (
+              <View style={[styles.headerCoralDot, { backgroundColor: colors.coral }]} />
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingTop: insets.top + 68 },
+          { paddingTop: topClearance + 62 },
         ]}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefetching}
+            onRefresh={onRefresh}
+            tintColor={colors.sage}
+          />
+        }
       >
-        {/* Loading Indicator while fetching circles */}
-        {isLoadingCircles && (
-          <View style={{ paddingVertical: 24, alignItems: 'center' }}>
-            <ActivityIndicator size="small" color={colors.sage} />
-          </View>
-        )}
-
-        {/* When user has circles, show active circle quick card */}
-        {hasCircles && currentCircle && (
-          <TouchableOpacity
-            activeOpacity={0.85}
-            onPress={() => handleOpenCircleWorkspace(currentCircle)}
+        {/* Search Bar when expanded */}
+        {isSearchActive && (
+          <View
             style={[
-              styles.activeCircleSpotlightCard,
+              styles.searchBarContainer,
               {
-                backgroundColor: colors.surface,
+                backgroundColor: isGlass ? glassTheme.colors.glassBg : colors.surface,
                 borderColor: colors.hairline,
               },
             ]}
           >
-            <View style={styles.spotlightHeader}>
-              <View style={[styles.spotlightAvatar, { backgroundColor: colors.primary }]}>
-                <Text style={[styles.spotlightAvatarText, { color: colors.onPrimary }]}>
-                  {getInitials(currentCircle.name)}
-                </Text>
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.spotlightTitle, { color: colors.text }]}>
-                  {currentCircle.name}
-                </Text>
-                <Text style={[styles.spotlightSubtitle, { color: colors.subtle }]}>
-                  {t.home.circleFeedSubtitle}
-                </Text>
-              </View>
-            </View>
-
-            <View style={[styles.spotlightDivider, { backgroundColor: colors.hairline }]} />
-
-            <View style={styles.spotlightActions}>
-              <View style={styles.spotlightActionItem}>
-                <MessageSquare size={14} color={colors.sage} />
-                <Text style={[styles.spotlightActionText, { color: colors.text }]}>
-                  {t.chat.title}
-                </Text>
-              </View>
-              <View style={styles.spotlightActionItem}>
-                <Camera size={14} color={colors.sage} />
-                <Text style={[styles.spotlightActionText, { color: colors.text }]}>
-                  {t.composer.momentTitle}
-                </Text>
-              </View>
-              <View style={styles.spotlightActionItem}>
-                <Radio size={14} color={colors.sage} />
-                <Text style={[styles.spotlightActionText, { color: colors.text }]}>
-                  {t.nav.groupCall}
-                </Text>
-              </View>
-            </View>
-          </TouchableOpacity>
+            <Search size={16} color={colors.subtle} />
+            <TextInput
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder={t.home.searchCirclesPlaceholder || 'Tìm kiếm nhóm...'}
+              placeholderTextColor={colors.subtle}
+              autoFocus
+              style={[styles.searchInput, { color: colors.text }]}
+            />
+            {Boolean(searchQuery) && (
+              <TouchableOpacity
+                onPress={() => setSearchQuery('')}
+                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              >
+                <X size={15} color={colors.subtle} />
+              </TouchableOpacity>
+            )}
+          </View>
         )}
 
-        {/* Circle Switcher Modal (Gated Glass vs Flat) */}
-        <Modal
-          visible={circleSwitcherVisible}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setCircleSwitcherVisible(false)}
-        >
-          <TouchableOpacity
-            style={[
-              styles.modalBackdrop,
-              { paddingBottom: Math.max(insets.bottom + 12, 24) },
-            ]}
-            activeOpacity={1}
-            onPress={() => setCircleSwitcherVisible(false)}
-          >
+        {/* 4.2 Khu vực sự kiện sắp diễn ra (LIÊN NHÓM, ẨN HOÀN TOÀN KHI RỖNG) */}
+        {upcomingEvents.length > 0 && (
+          <View style={styles.upcomingSection}>
+            <View style={styles.sectionHeaderRow}>
+              <View style={styles.sectionTitleWithIcon}>
+                <Calendar size={15} color={colors.sage} />
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                  {t.home.upcomingSectionTitle || 'Sự kiện sắp diễn ra'}
+                </Text>
+              </View>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  router.push('/(tabs)/calendar' as any);
+                }}
+                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              >
+                <Text style={{ fontSize: 13, fontWeight: '600', color: colors.sage }}>
+                  {locale === 'vi' ? 'Lịch chung' : 'All Events'} ›
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.upcomingCardsRail}
+            >
+              {upcomingEvents.map((ev) => {
+                const timeStr = formatEventTime(ev.startTime, locale);
+                const rsvpCount = ev.rsvps?.length || 0;
+                return (
+                  <TouchableOpacity
+                    key={ev.id}
+                    activeOpacity={0.82}
+                    onPress={() => handleOpenEventContext(ev.circleId, ev.id)}
+                    style={[
+                      styles.upcomingCard,
+                      {
+                        backgroundColor: colors.surface,
+                        borderColor: colors.hairline,
+                      },
+                    ]}
+                  >
+                    <View style={styles.upcomingCardTop}>
+                      <View
+                        style={[
+                          styles.upcomingTimePill,
+                          {
+                            backgroundColor: `${colors.primary}18`,
+                            borderColor: `${colors.primary}35`,
+                          },
+                        ]}
+                      >
+                        <Clock size={11} color={colors.sage} />
+                        <Text style={[styles.upcomingTimeText, { color: colors.sage }]}>
+                          {timeStr}
+                        </Text>
+                      </View>
+
+                      {ev.circleName ? (
+                        <View style={[styles.eventCircleTag, { backgroundColor: colors.wash }]}>
+                          <Text
+                            style={[styles.eventCircleTagText, { color: colors.subtle }]}
+                            numberOfLines={1}
+                          >
+                            {ev.circleName}
+                          </Text>
+                        </View>
+                      ) : null}
+                    </View>
+
+                    <Text style={[styles.upcomingCardTitle, { color: colors.text }]} numberOfLines={2}>
+                      {(ev as any).title || ev.eventTitle}
+                    </Text>
+
+                    <View style={styles.upcomingCardFooter}>
+                      {ev.location ? (
+                        <View style={styles.eventFooterItem}>
+                          <MapPin size={11} color={colors.subtle} />
+                          <Text
+                            style={[styles.eventFooterText, { color: colors.subtle }]}
+                            numberOfLines={1}
+                          >
+                            {ev.location}
+                          </Text>
+                        </View>
+                      ) : (
+                        <View style={styles.eventFooterItem}>
+                          <Users size={11} color={colors.subtle} />
+                          <Text style={[styles.eventFooterText, { color: colors.subtle }]}>
+                            {rsvpCount} {locale === 'vi' ? 'người tham gia' : 'participants'}
+                          </Text>
+                        </View>
+                      )}
+                      <ChevronRight size={13} color={colors.subtle} />
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        )}
+
+        {/* 4.3 Danh sách nhóm (Thẻ nhóm & Tóm tắt hoạt động gộp) */}
+        <View style={styles.circlesSection}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              {t.home.myCirclesHeading || 'Nhóm của bạn'}
+            </Text>
             <TouchableOpacity
-              activeOpacity={1}
-              onPress={(e) => e.stopPropagation()}
+              activeOpacity={0.7}
+              onPress={() => {
+                Haptics.selectionAsync();
+                setCreateModalVisible(true);
+              }}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            >
+              <Text style={{ fontSize: 13, fontWeight: '600', color: colors.sage }}>
+                {locale === 'vi' ? 'Tạo nhóm' : 'New Circle'} ›
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {isLoadingCircles ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color={colors.sage} />
+            </View>
+          ) : filteredCircles.length === 0 ? (
+            /* Trạng thái trống khi chưa có nhóm hoặc không tìm thấy */
+            <View
               style={[
-                styles.switcherSheet,
+                styles.emptyCirclesCard,
                 {
-                  backgroundColor: isGlass
-                    ? glassTheme.colors.glassBgSheet
-                    : colors.surface,
-                  borderColor: isGlass
-                    ? glassTheme.colors.glassBorder
-                    : colors.hairline,
+                  backgroundColor: colors.surface,
+                  borderColor: colors.hairline,
                 },
               ]}
             >
-              {isGlass ? (
-                <BlurView
-                  intensity={glassTheme.blur.intensity}
-                  tint={glassTheme.blur.tint}
-                  style={StyleSheet.absoluteFill}
-                />
-              ) : null}
-
-              <View style={[styles.sheetHandle, { backgroundColor: colors.hairline }]} />
-              <View style={styles.switcherHeader}>
-                <Text style={[styles.switcherTitle, { color: colors.text }]}>
-                  {t.nav.yourCircles}
-                </Text>
-                <TouchableOpacity
-                  onPress={() => setCircleSwitcherVisible(false)}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  style={[styles.closeBtn, { backgroundColor: colors.wash }]}
-                  accessibilityLabel={t.common.close}
-                >
-                  <X size={16} color={colors.subtle} />
-                </TouchableOpacity>
+              <View
+                style={[
+                  styles.emptyIconContainer,
+                  { backgroundColor: `${colors.primary}15` },
+                ]}
+              >
+                <Users size={32} color={colors.sage} />
               </View>
+              <Text style={[styles.emptyTitle, { color: colors.text }]}>
+                {searchQuery
+                  ? locale === 'vi'
+                    ? 'Không tìm thấy nhóm phù hợp'
+                    : 'No matching groups found'
+                  : locale === 'vi'
+                  ? 'Chưa tham gia nhóm nào'
+                  : 'No circles joined yet'}
+              </Text>
+              <Text style={[styles.emptySubtitle, { color: colors.subtle }]}>
+                {searchQuery
+                  ? locale === 'vi'
+                    ? 'Thử tìm kiếm với tên hoặc handle khác'
+                    : 'Try searching with another name or handle'
+                  : locale === 'vi'
+                  ? 'Tạo không gian kết nối riêng tư cho nhóm bạn hoặc gia đình ngay hôm nay.'
+                  : 'Create a private space for your friends or family today.'}
+              </Text>
 
-              <ScrollView style={{ maxHeight: 280 }} showsVerticalScrollIndicator={false}>
-                {myCircles.map((circle) => {
-                  const isSelected = currentCircle?.id === circle.id;
-                  return (
-                    <TouchableOpacity
-                      key={circle.id}
-                      activeOpacity={0.75}
-                      onPress={() => {
-                        setActiveCircle(circle);
-                        setCircleSwitcherVisible(false);
-                      }}
-                      style={[
-                        styles.circleSwitcherItem,
-                        {
-                          backgroundColor: isSelected ? `${colors.primary}15` : colors.wash,
-                          borderColor: isSelected ? colors.primary : colors.hairline,
-                        },
-                      ]}
-                    >
-                      <View style={[styles.switcherAvatar, { backgroundColor: colors.primary }]}>
-                        <Text style={[styles.switcherAvatarText, { color: colors.onPrimary }]}>
-                          {getInitials(circle.name)}
-                        </Text>
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={[styles.switcherCircleName, { color: colors.text }]}>
-                          {circle.name}
-                        </Text>
-                        <Text style={[styles.switcherCircleHandle, { color: colors.subtle }]}>
-                          @{circle.handle}
-                        </Text>
-                      </View>
-                      {isSelected && (
-                        <View style={[styles.checkDot, { backgroundColor: colors.primary }]} />
+              {!searchQuery && (
+                <View style={styles.emptyActionRow}>
+                  <TouchableOpacity
+                    activeOpacity={0.82}
+                    onPress={() => setCreateModalVisible(true)}
+                    style={[styles.emptyCreateBtn, { backgroundColor: colors.primary }]}
+                  >
+                    <Plus size={16} color={colors.onPrimary} strokeWidth={2.4} />
+                    <Text style={[styles.emptyCreateBtnText, { color: colors.onPrimary }]}>
+                      {t.home.createCircleBtn}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    activeOpacity={0.82}
+                    onPress={() => setJoinModalVisible(true)}
+                    style={[
+                      styles.emptyJoinBtn,
+                      { backgroundColor: colors.wash, borderColor: colors.hairline },
+                    ]}
+                  >
+                    <KeyRound size={15} color={colors.text} />
+                    <Text style={[styles.emptyJoinBtnText, { color: colors.text }]}>
+                      {t.home.joinWithCodeBtn}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          ) : (
+            /* Danh sách các nhóm với hoạt động tổng hợp */
+            <View style={styles.circlesListStack}>
+              {filteredCircles.map((circle) => {
+                const memberCount = circle.memberCount || (circle as any)._count?.members || 1;
+                const activityTime = formatRelativeTime(
+                  circle.updatedAt || circle.createdAt || new Date().toISOString(),
+                  locale,
+                );
+
+                return (
+                  <TouchableOpacity
+                    key={circle.id}
+                    activeOpacity={0.85}
+                    onPress={() => handleOpenCircle(circle)}
+                    style={[
+                      styles.circleCard,
+                      {
+                        backgroundColor: colors.surface,
+                        borderColor: colors.hairline,
+                      },
+                    ]}
+                  >
+                    <View style={styles.circleCardTopRow}>
+                      {/* Avatar nhóm */}
+                      {circle.avatarUrl ? (
+                        <RNImage
+                          source={{ uri: circle.avatarUrl }}
+                          style={styles.circleAvatarImg}
+                        />
+                      ) : (
+                        <View
+                          style={[
+                            styles.circleAvatarFallback,
+                            { backgroundColor: colors.primary },
+                          ]}
+                        >
+                          <Text style={[styles.circleAvatarInitial, { color: colors.onPrimary }]}>
+                            {getInitials(circle.name)}
+                          </Text>
+                        </View>
                       )}
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
 
-              <View style={styles.switcherActions}>
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  onPress={() => {
-                    setCircleSwitcherVisible(false);
-                    setCreateModalVisible(true);
-                  }}
-                  style={[styles.switcherActionBtn, { backgroundColor: colors.primary }]}
-                >
-                  <Plus size={16} color={colors.onPrimary} strokeWidth={2.4} />
-                  <Text style={[styles.switcherActionBtnText, { color: colors.onPrimary }]}>
-                    {t.home.createCircleBtn}
-                  </Text>
-                </TouchableOpacity>
+                      {/* Tên nhóm & Thông tin thành viên */}
+                      <View style={styles.circleMainInfo}>
+                        <View style={styles.circleNameLine}>
+                          <Text
+                            style={[styles.circleNameText, { color: colors.text }]}
+                            numberOfLines={1}
+                          >
+                            {circle.name}
+                          </Text>
+                        </View>
 
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  onPress={() => {
-                    setCircleSwitcherVisible(false);
-                    setJoinModalVisible(true);
-                  }}
-                  style={[styles.switcherActionBtnSecondary, { borderColor: colors.hairline, backgroundColor: colors.wash }]}
-                >
-                  <KeyRound size={15} color={colors.text} />
-                  <Text style={[styles.switcherActionBtnSecondaryText, { color: colors.text }]}>
-                    {t.home.joinWithCodeBtn}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </TouchableOpacity>
-          </TouchableOpacity>
-        </Modal>
+                        <Text style={[styles.circleSubText, { color: colors.subtle }]}>
+                          {t.home.membersCountShort
+                            ? t.home.membersCountShort.replace('{count}', String(memberCount))
+                            : `${memberCount} ${locale === 'vi' ? 'thành viên' : 'members'}`}{' '}
+                          · {activityTime}
+                        </Text>
+                      </View>
 
-        {/* Voice Stage Status Banner - Seamless Wash Pill */}
-        <View
-          style={[
-            styles.stageCard,
-            {
-              backgroundColor: colors.wash,
-              borderColor: colors.hairline,
-            },
-          ]}
-        >
-          <View style={styles.stageHeader}>
-            <Radio size={14} color={colors.sage} />
-            <Text style={[styles.stageHeaderText, { color: colors.sage }]}>
-              {t.home.realtimeVoiceStage}
-            </Text>
-          </View>
-          <Text style={[styles.stageTitle, { color: colors.text }]}>
-            {t.home.noVoiceStageOpen}
-          </Text>
-        </View>
+                      {/* Mũi tên điều hướng */}
+                      <ChevronRight size={17} color={colors.subtle} style={{ opacity: 0.6 }} />
+                    </View>
 
-        {/* Account Info Pill */}
-        <View
-          style={[
-            styles.accountPill,
-            {
-              backgroundColor: colors.wash,
-              borderColor: colors.hairline,
-            },
-          ]}
-        >
-          <View style={styles.accountLeft}>
-            <UserCheck size={16} color={colors.sage} />
-            <Text style={[styles.roleText, { color: colors.text }]}>
-              {roleLabel} · {user?.email}
-            </Text>
-          </View>
+                    {/* Tóm tắt hoạt động mới nhất của nhóm (Brief Mục 4.3 - Interactive Action Chips) */}
+                    <View style={[styles.activityPillsRow, { borderColor: colors.hairline }]}>
+                      {/* Pill Khoảnh khắc */}
+                      <TouchableOpacity
+                        activeOpacity={0.7}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          Haptics.selectionAsync();
+                          setActiveCircle(circle);
+                          router.push({
+                            pathname: '/circle/[id]' as any,
+                            params: { id: circle.id, tab: 'moments' },
+                          });
+                        }}
+                        style={[styles.activityPill, { backgroundColor: colors.wash }]}
+                      >
+                        <Camera size={12} color={colors.sage} />
+                        <Text style={[styles.activityPillText, { color: colors.text }]}>
+                          {locale === 'vi' ? 'Khoảnh khắc' : 'Moments'}
+                        </Text>
+                      </TouchableOpacity>
+
+                      {/* Pill Trò chuyện */}
+                      <TouchableOpacity
+                        activeOpacity={0.7}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          Haptics.selectionAsync();
+                          setActiveCircle(circle);
+                          router.push({
+                            pathname: '/circle/[id]' as any,
+                            params: { id: circle.id, tab: 'chat' },
+                          });
+                        }}
+                        style={[styles.activityPill, { backgroundColor: colors.wash }]}
+                      >
+                        <MessageSquare size={12} color={colors.sage} />
+                        <Text style={[styles.activityPillText, { color: colors.text }]}>
+                          {locale === 'vi' ? 'Trò chuyện' : 'Chat'}
+                        </Text>
+                      </TouchableOpacity>
+
+                      {/* Pill Tiện ích */}
+                      <TouchableOpacity
+                        activeOpacity={0.7}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          Haptics.selectionAsync();
+                          setActiveCircle(circle);
+                          router.push({
+                            pathname: '/circle/[id]' as any,
+                            params: { id: circle.id, tab: 'tools' },
+                          });
+                        }}
+                        style={[styles.activityPill, { backgroundColor: colors.wash }]}
+                      >
+                        <Sparkles size={12} color={colors.warning} />
+                        <Text style={[styles.activityPillText, { color: colors.text }]}>
+                          {locale === 'vi' ? 'Tiện ích' : 'Tools'}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
         </View>
       </ScrollView>
+
+      {/* Floating Glass Notification Center Modal */}
+      <MobileNotificationCenterModal
+        visible={notificationModalVisible}
+        onClose={() => setNotificationModalVisible(false)}
+        unreadCount={unreadCount}
+        onUnreadCountChange={setUnreadCount}
+      />
+
+      {/* Modals tạo nhóm và tham gia nhóm */}
+      <CreateCircleModal />
+      <JoinCircleModal />
     </View>
   );
 }
@@ -369,7 +765,6 @@ const styles = StyleSheet.create({
     right: 0,
     zIndex: 30,
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'ios' ? 52 : 36,
     paddingBottom: 8,
     flexDirection: 'row',
     alignItems: 'center',
@@ -388,11 +783,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 3,
-  },
-  brandGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
   },
   logoPill: {
     width: 32,
@@ -424,426 +814,280 @@ const styles = StyleSheet.create({
   subBrandText: {
     fontSize: 11,
     fontWeight: '500',
+    maxWidth: 120,
+  },
+  headerRightGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerActionBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  headerCoralDot: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
   },
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'ios' ? 104 : 88,
+    paddingHorizontal: 16,
     paddingBottom: 110,
-    gap: 18,
+    gap: 20,
   },
-  circlesRailSection: {
-    marginHorizontal: -20,
-    paddingBottom: 4,
-  },
-  circlesRailContent: {
-    paddingHorizontal: 20,
-    gap: 14,
-    alignItems: 'center',
-  },
-  circleRailItem: {
-    alignItems: 'center',
-    width: 64,
-  },
-  addCircleRing: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    borderWidth: 1.5,
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  circleAvatarRing: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    borderWidth: 1.5,
-    padding: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  circleAvatarInner: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 25,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  circleAvatarText: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  circleRailName: {
-    fontSize: 11,
-    fontWeight: '600',
-    marginTop: 6,
-    textAlign: 'center',
-  },
-  composerBar: {
+  searchBarContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 26,
     paddingHorizontal: 14,
     paddingVertical: 10,
+    borderRadius: 18,
     borderWidth: 1,
+    gap: 10,
+    marginBottom: 4,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    padding: 0,
+  },
+  upcomingSection: {
+    gap: 10,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 2,
+  },
+  sectionTitleWithIcon: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+  },
+  sectionCountBadge: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  upcomingCardsRail: {
+    gap: 12,
+    paddingVertical: 2,
+  },
+  upcomingCard: {
+    width: 230,
+    padding: 14,
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 8,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  upcomingCardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 6,
+  },
+  upcomingTimePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  upcomingTimeText: {
+    fontSize: 10.5,
+    fontWeight: '700',
+  },
+  eventCircleTag: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+    maxWidth: 90,
+  },
+  eventCircleTagText: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  upcomingCardTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    lineHeight: 18,
+    minHeight: 36,
+  },
+  upcomingCardFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 2,
+  },
+  eventFooterItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    flex: 1,
+  },
+  eventFooterText: {
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  circlesSection: {
     gap: 12,
   },
-  composerAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+  loadingContainer: {
+    paddingVertical: 36,
+    alignItems: 'center',
+  },
+  circlesListStack: {
+    gap: 12,
+  },
+  circleCard: {
+    padding: 16,
+    borderRadius: 22,
+    borderWidth: 1,
+    gap: 12,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  circleCardTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  circleAvatarImg: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+  },
+  circleAvatarFallback: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  composerAvatarText: {
-    fontSize: 12,
-    fontWeight: '700',
+  circleAvatarInitial: {
+    fontSize: 17,
+    fontWeight: '800',
   },
-  composerPlaceholder: {
+  circleMainInfo: {
     flex: 1,
-    fontSize: 13,
-    fontWeight: '500',
+    gap: 2,
   },
-  composerIcons: {
+  circleNameLine: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-  },
-  welcomeSection: {
-    paddingVertical: 8,
     gap: 6,
   },
-  tagPill: {
+  circleNameText: {
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+  },
+  circleSubText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  activityPillsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingTop: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  activityPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 14,
-    alignSelf: 'flex-start',
-    marginBottom: 4,
+    borderRadius: 12,
   },
-  tagText: {
+  activityPillText: {
     fontSize: 11,
-    fontWeight: '700',
-  },
-  welcomeTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-    letterSpacing: -0.6,
-    lineHeight: 30,
-  },
-  welcomeSubtitle: {
-    fontSize: 14,
-    lineHeight: 20,
-    marginBottom: 8,
-  },
-  actionsRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 6,
-  },
-  primaryActionBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: 48,
-    borderRadius: 24,
-    gap: 8,
-  },
-  primaryActionText: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  secondaryActionBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: 48,
-    borderRadius: 24,
-    borderWidth: 1,
-    gap: 8,
-  },
-  secondaryActionText: {
-    fontSize: 14,
     fontWeight: '600',
   },
-  feedEmptySection: {
+  emptyCirclesCard: {
+    padding: 24,
+    borderRadius: 24,
+    borderWidth: 1,
     alignItems: 'center',
-    paddingVertical: 20,
-    paddingHorizontal: 16,
+    gap: 8,
+    marginTop: 8,
   },
-  feedIconBox: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+  emptyIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 6,
+  },
+  emptyTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  emptySubtitle: {
+    fontSize: 13,
+    fontWeight: '500',
+    textAlign: 'center',
+    lineHeight: 18,
+    maxWidth: 260,
     marginBottom: 12,
   },
-  feedTitle: {
-    fontSize: 17,
-    fontWeight: '800',
-    letterSpacing: -0.3,
-    marginBottom: 6,
-    textAlign: 'center',
-  },
-  feedDesc: {
-    fontSize: 13,
-    lineHeight: 19,
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  shieldBadge: {
+  emptyActionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
-  shieldText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  accountPill: {
-    borderRadius: 18,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderWidth: 1,
-  },
-  accountLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  roleText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  stageCard: {
-    borderRadius: 20,
-    padding: 16,
-    borderWidth: 1,
-  },
-  stageHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 4,
-  },
-  stageHeaderText: {
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  stageTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    marginBottom: 2,
-  },
-  stageSubtitle: {
-    fontSize: 12,
-  },
-  activeCircleHeaderPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    borderWidth: 1,
-    gap: 8,
-    maxWidth: 160,
-  },
-  activeCircleDot: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  activeCircleInitials: {
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  activeCircleHeaderName: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  activeCircleSpotlightCard: {
-    borderRadius: 22,
-    padding: 16,
-    borderWidth: 1,
-    gap: 12,
-  },
-  spotlightHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  spotlightAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  spotlightAvatarText: {
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  spotlightTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    letterSpacing: -0.3,
-  },
-  spotlightSubtitle: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-  spotlightDivider: {
-    height: 1,
+    gap: 10,
     width: '100%',
   },
-  spotlightActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-  },
-  spotlightActionItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  spotlightActionText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  headerCircleAvatarBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1.5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  headerCircleAvatarText: {
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  modalBackdrop: {
+  emptyCreateBtn: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
-    justifyContent: 'flex-end',
-    padding: 16,
-    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
-  },
-  switcherSheet: {
-    borderRadius: 32,
-    padding: 20,
-    borderWidth: 1.2,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 24,
-    elevation: 20,
-    gap: 12,
-  },
-  sheetHandle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    alignSelf: 'center',
-    marginBottom: 8,
-  },
-  switcherHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  switcherTitle: {
-    fontSize: 17,
-    fontWeight: '800',
-    letterSpacing: -0.3,
-  },
-  closeBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  circleSwitcherItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
-    borderRadius: 18,
-    borderWidth: 1,
-    marginBottom: 8,
-    gap: 12,
-  },
-  switcherAvatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 15,
-    alignItems: 'center',
     justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    borderRadius: 16,
   },
-  switcherAvatarText: {
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  switcherCircleName: {
+  emptyCreateBtnText: {
     fontSize: 14,
     fontWeight: '700',
   },
-  switcherCircleHandle: {
-    fontSize: 11,
-    marginTop: 1,
-  },
-  checkDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  switcherActions: {
-    gap: 8,
-    marginTop: 4,
-  },
-  switcherActionBtn: {
+  emptyJoinBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    height: 46,
-    borderRadius: 23,
-    gap: 8,
-  },
-  switcherActionBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  switcherActionBtnSecondary: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: 46,
-    borderRadius: 23,
+    gap: 6,
+    paddingVertical: 12,
+    borderRadius: 16,
     borderWidth: 1,
-    gap: 8,
   },
-  switcherActionBtnSecondaryText: {
-    fontSize: 13,
+  emptyJoinBtnText: {
+    fontSize: 14,
     fontWeight: '600',
   },
 });

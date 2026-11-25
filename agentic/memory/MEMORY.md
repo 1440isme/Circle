@@ -19,7 +19,8 @@
 - Mọi tương tác AI đáng kể phải có entry `AI-XXXX` trong `docs/ai-usage/log.md` (tự động; hỏng tự động thì báo trong PR, không bịa entry). — theo AGENTS.md, 2026-10-25
 - Trước khi implement tính năng: đọc playbook của module + cross-cutting gate trong `agentic/playbooks/`; báo cáo cuối có mục "Playbook conformance". — chốt 2026-10-25
 - Ý tưởng tính năng mới → `agentic/playbooks/innovation-pool.md`, chờ duyệt; không tự implement. — chốt 2026-10-25
-- **Mặc định đa nền tảng song hành (Web + Mobile parity):** Khi implement bất kỳ tính năng nào, mặc định BẮT BUỘC triển khai song song và hoàn thiện đồng bộ trên cả 2 nền tảng: Web (`apps/web`) và Mobile (`apps/mobile` - React Native Expo). Cấm chỉ làm trên một nền tảng rồi coi là xong; tránh mất trace và không bao giờ để xảy ra tình trạng "làm rồi nhưng thiếu trên Web hoặc Mobile". — chốt bởi Bình, 2026-10-25
+- **Mặc định đa nền tảng song hành & Dùng chung Component (Web + Mobile Parity & Shared Components Invariant):** Tuyệt đối cấm mất đồng bộ tính năng giữa Web và Mobile khi thực hiện bất kỳ chỉnh sửa nào. Ưu tiên tối đa dùng chung component/shared logic/layout nếu có thể; nếu khác biệt về layout thì phải giữ trọn vẹn ngôn ngữ thiết kế (Apple Liquid Glass) và hành vi chức năng tương đương (Web hover song song Mobile long-press). Không bao giờ làm riêng một bên. — chốt bởi Bình, 2026-10-25, tái khẳng định 2026-11-24.
+- **Quy tắc Tuyệt Đối Không Tạo Modal Mới Nếu Đã Có Cái Tương Tự (Zero Duplicate Modals Invariant):** Tuyệt đối cấm tạo modal, dialog, action sheet hoặc popup mới nếu trong hệ sinh thái đã có component tương tự. Bắt buộc kế thừa, tham số hóa và dùng chung một component duy nhất (ví dụ `ActionChoiceModal`, `ConfirmModal`), chỉ truyền props/text/icon/hành động. Áp dụng cho toàn bộ tính năng và mọi ngóc ngách của nền tảng (Web & Mobile) nhằm tối ưu bundle load và đảm bảo độ nhất quán UI/UX 100%. — chốt bởi Bình, 2026-11-24.
 - **Tự động kích hoạt Memory Protocol:** Tự nhận diện và lập tức ghi nhận mọi chỉ đạo, sửa lỗi, sở thích hoặc quy tắc làm việc của kỹ sư vào Layer 2/Layer 1 ngay trong lượt tương tác, không được bỏ sót và không chờ nhắc. — chốt bởi Bình, 2026-10-25
 - **Tư duy sản phẩm & Trải nghiệm thực tế (Product & UX-First):** Không bao giờ làm tính năng theo kiểu "chạy được là xong" hay liệt kê checklist cho có. Đặt mình vào vị trí người dùng thực tế: tính năng có thực sự hữu ích không, có gây cảm hứng muốn dùng không; UI/UX phải chỉn chu và được kiểm chứng trực quan bằng công cụ. — chốt bởi Bình, 2026-10-27
 - **Thẩm mỹ chuyên nghiệp, chống "AI Slop":** Không lạm dụng emoji sến súa (👋, ☕, 🍕...), icon lòe loẹt hay hiệu ứng hào quang tạo cảm giác rẻ tiền. UI phải chuẩn mực, sang trọng, tinh tế (typography sắc nét, khoảng trắng cân đối, viền hairline tinh xảo) mang lại độ legit cao như các sản phẩm hàng đầu. — chốt bởi Bình, 2026-10-27
@@ -49,6 +50,8 @@
 - [correction] Độ Mờ Kính Cân Bằng & Rõ Ràng (Legible Balanced Glass Invariant): Chất liệu kính (Liquid Glass) phải có độ mờ và độ đục vừa phải (Light: 90-94%, Dark: 88-92%, blur cao), tuyệt đối không để quá trong suốt (như 8% hay 50%) khiến chữ, icon bị chìm vào nội dung trượt bên dưới gây khó nhìn thấy và khó thao tác. — theo Bình, 2026-11-02.
 - [correction] Kiểm thử toàn diện & Khắc phục Dark theme và Layout Tạo Poll trong Chat: Phải lập kế hoạch kiểm thử chi tiết từng click người dùng trên trình duyệt thực tế (Brave DevTools 127.0.0.1:9222). Khắc phục triệt để lỗi hiển thị dark theme ở mọi nơi, sửa lỗi layout modal tạo poll khi nhấn nút (+) trong khung chat composer. — theo Bình, 2026-11-09.
 - [correction] Trải nghiệm Chỉnh sửa Tin nhắn & Tương tác Inline (Messenger Style): Tin nhắn sau khi edit phải hiển thị nhãn "đã chỉnh sửa" (hoặc "edited") ở phía trên. Khi người dùng bấm vào chữ đó, hiển thị nội dung tin nhắn trước khi sửa ngay trong cùng box/bubble đó với độ mờ hơn (opacity thấp hơn) nằm ở phía trên nội dung mới (giống Messenger), KHÔNG mở popup hay modal. Mọi thao tác nhỏ trong ứng dụng phải triển khai inline tiện lợi nhất, cấm điều hướng sang màn hình khác chỉ để thực hiện hành động nhỏ. — theo Bình, 2026-11-09.
+- [correction] **Unified Frosted-Flat UI & Clean Obsidian Dark Theme:** Hợp nhất Flat UI và Liquid Glass thành một ngôn ngữ thiết kế duy nhất (bỏ tùy chọn chọn giao diện khỏi System Settings trên cả Web và Mobile; bỏ bóng đổ nặng và viền bóng loáng; giữ cấu trúc phẳng trung tính + kính mờ nhẹ cho thanh nổi/popover). Dark theme dùng bảng màu Obsidian Clean (`#0B0C0E` canvas, `#16181B` surface, `#26292E` hairline). — chốt bởi Bình, 2026-11-24.
+- [correction] **Menu mở rộng & Cài đặt Circle chuẩn mực:** Menu `(+)` thanh chat phải đồng bộ 1:1 giữa Web và Mobile (Đính kèm tệp, Bình chọn, Vị trí) và dùng icon đơn sắc đồng nhất (cấm mỗi nút một màu). Cài đặt Vòng tròn tổ chức theo cụm Card giống System Settings; hành động nguy hiểm (Giải tán/Rời nhóm) chỉ đặt trong Vùng nguy hiểm ở Tab 4; chọn màu chủ đề ở Tab 1 giữ nguyên tab, thông báo inline tại chỗ; nút Back/Close trong `EditProfileModal` tách biệt theo mode và bo tròn `rounded-full`. — chốt bởi Bình, 2026-11-24.
 
 ## Decisions (chỉ mục — chi tiết ở ADR/topic)
 
@@ -60,14 +63,14 @@
 - D-006: Khắc cốt ghi tâm Radical Minimalism: Cắt giảm mọi text/chú thích thừa, ghim lên header icon, gom sound settings, emoji chuẩn hóa — 2026-10-28
 - D-007: Tự kiểm toán Usability theo 5 trụ cột trước khi chuyển tính năng mới — 2026-10-29
 - D-008: Hard Gate Zero Secret Leaks với pre-commit git guard và CI check; cấm lộ token/credentials trong source code — 2026-10-29
+- D-009: Hợp nhất UI thành Unified Frosted-Flat + Obsidian Clean Dark; bỏ UI Style switcher — 2026-11-24
 - Mô hình quản trị: toàn hệ thống chỉ 2 vai trò User / Admin — Admin gộp toàn quyền (không tách Super Admin/Admin thường) vì CIRCLE là MXH nhóm, không phải e-commerce. — chốt bởi Bình, 2026-10-25
 
 ## Open loops
 
-- Tái cấu trúc và nâng cấp trải nghiệm cụm tính năng Cộng tác nhóm (Collab Module 7) trước khi sang Module 8:
-  - Issue #119 (Bình): Tích hợp Unified Interactive Map Engine toàn hệ thống (Leaflet Web + MapView Mobile), đưa Group Poll vào luồng Chat và cải thiện Planning Sheet.
-  - Issue #120 (Hạnh): Hệ thống Event RSVP (3 trạng thái), Thẻ Lịch hẹn trong Chat, Lightbox Album và Realtime Wheel Sync.
-  - Issue #125 (Bình): US-UX-002 — Kiến trúc Floating Glass Controls with Scroll-Under Content toàn diện hệ thống (Web & Mobile).
+- Khởi động Giai đoạn Tuần 11 – 12 (Module 8 & Module 9):
+  - Issue #128 (Bình): US-NOTIF-001 — Realtime In-App Notification Center & Mobile Push Notification Service (Web & Mobile Parity, đã bổ sung các nâng cấp UI/UX Command Center, Unified UI, Circle Settings & Composer Parity trong working tree, chờ review & commit).
+  - Issue #120 (Hạnh) & #125 (Bình): Đã hoàn tất và merge vào develop (PR #126, #127).
 
 ## Core Reference Topics (Lớp 3 — bối cảnh sâu)
 
