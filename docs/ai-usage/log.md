@@ -6206,5 +6206,39 @@
 - **Official Source Checked:** `agentic/playbooks/05-chat.md`, `agentic/playbooks/cross-cutting-gate.md`.
 - **Security & License Check:** An toàn tuyệt đối, zero secrets.
 - **AI Errors / Hallucinations Found:** None.
-- **Commit:** db1d430
+- **Commit:** dc03eb1
+- **PR:** #127
+
+---
+
+## AI-0172: Live Wheel Modal Text Parity & Chat Embed Streamlined Design (Web + Mobile) (#120)
+
+- **Date:** 2026-11-25 15:50:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210) & Trương Công Bình (MSSV: 23110184)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120 (Event RSVP & Realtime Delights)
+- **Purpose:** 
+  1. Đồng bộ câu văn xác nhận rời/đóng phòng trong Modal trên Web `LiveWheelOverlay.tsx` chuẩn theo app Mobile: "Bạn muốn đóng phòng quay hay vẫn mở và chuyển chủ phòng cho người khác?".
+  2. Tinh giản thiết kế thẻ tin nhắn Live Wheel trong chat (`LiveWheelChatEmbed.tsx` trên Web và `MobileLiveWheelChatEmbed.tsx` trên Mobile):
+     - Loại bỏ hoàn toàn dòng chữ phụ "Tương tác trực tiếp" (`Live Interactive`).
+     - Loại bỏ hoàn toàn huy hiệu "Hoạt động nhóm" (`Group Fun`).
+     - Giữ lại cấu trúc tinh tế, hiện đại: Icon Compass + Tiêu đề "Vòng quay ngẫu nhiên", huy hiệu LIVE/Đã kết thúc nhỏ gọn, thông tin người mở phiên "đã mở phiên vòng quay ngẫu nhiên" và danh sách người đang tham gia.
+- **Prompt Summary:** Đồng bộ câu hỏi rời phòng của web với app mobile ("Bạn muốn đóng phòng quay hay vẫn mở và chuyển chủ phòng cho người khác?"). Tinh giản khung Vòng quay ngẫu nhiên trong chat: bỏ chữ "Tương tác trực tiếp" và "Hoạt động nhóm" trên cả web và app mobile.
+- **Files Affected:**
+  - `apps/web/src/components/chat/LiveWheelOverlay.tsx`
+  - `apps/web/src/components/chat/LiveWheelChatEmbed.tsx`
+  - `apps/mobile/src/components/chat/MobileLiveWheelChatEmbed.tsx`
+  - `docs/ai-usage/log.md`
+  - `agentic/memory/2026-11-25.md`
+- **AI-Generated Portion:** 100% text alignment and streamlined UI styling for chat embed cards.
+- **Human Modifications:** Trực tiếp yêu cầu lược bỏ các nhãn text thừa ("Tương tác trực tiếp", "Hoạt động nhóm") để giao diện khung chat gọn gàng, chuyên nghiệp.
+- **Verification Method:**
+  - `npx tsc -p apps/web/tsconfig.json --noEmit`: 0 errors.
+  - `npx tsc -p apps/mobile/tsconfig.json --noEmit`: 0 errors.
+  - `bash scripts/check-secrets.sh`: 0 secret leaks.
+- **Official Source Checked:** `agentic/playbooks/05-chat.md`, `agentic/playbooks/cross-cutting-gate.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secrets.
+- **AI Errors / Hallucinations Found:** None.
+- **Commit:** e915c14
 - **PR:** #127

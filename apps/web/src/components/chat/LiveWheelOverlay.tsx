@@ -2410,28 +2410,19 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
               </div>
               <div className="min-w-0">
                 <h3 className="text-base font-bold text-circle-charcoal dark:text-circle-dark-text">
-                  {locale === 'vi' ? 'Rời phòng quay trực tiếp' : 'Leave live stage'}
+                  {locale === 'vi' ? 'Rời phòng quay' : 'Leave stage'}
                 </h3>
-                <p className="text-xs text-circle-slate dark:text-circle-dark-muted">
-                  {isHost
-                    ? (locale === 'vi'
-                        ? 'Bạn hiện là chủ phòng quay này.'
-                        : 'You are the host of this live stage.')
-                    : (locale === 'vi'
-                        ? 'Xác nhận rời khỏi phòng quay trực tiếp.'
-                        : 'Confirm leaving the live stage.')}
-                </p>
               </div>
             </div>
 
             <p className="text-xs sm:text-sm text-circle-charcoal dark:text-circle-dark-text/90 leading-relaxed">
               {isHost
                 ? (locale === 'vi'
-                    ? 'Bạn muốn đóng luôn phòng quay (kết quả sẽ được chia sẻ vào khung chat nhóm), hay vẫn giữ phòng mở và chuyển quyền chủ phòng cho người khác?'
-                    : 'Do you want to close the stage (results will be shared in group chat), or keep it open and transfer host to another member?')
+                    ? 'Bạn muốn đóng phòng quay hay vẫn mở và chuyển chủ phòng cho người khác?'
+                    : 'Do you want to close the wheel stage or keep it open and transfer host?')
                 : (locale === 'vi'
-                    ? 'Bạn có chắc chắn muốn rời khỏi phòng quay không? Các thành viên khác vẫn sẽ tiếp tục tham gia bình thường.'
-                    : 'Are you sure you want to leave the live stage? Other members will continue.')}
+                    ? 'Bạn có chắc chắn muốn rời khỏi phòng quay không?'
+                    : 'Are you sure you want to leave the live stage?')}
             </p>
 
             <div className="flex flex-col sm:flex-row-reverse items-stretch sm:items-center gap-2.5 pt-2">

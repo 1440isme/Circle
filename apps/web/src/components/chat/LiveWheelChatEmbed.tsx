@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Compass, Users, Sparkles, ArrowRight } from 'lucide-react';
+import { Compass, Users, ArrowRight } from 'lucide-react';
 import { LiveWheelMessagePayload, LiveWheelSession } from '@circle/types';
 import { useLanguageStore } from '../../stores/language.store';
 import { useJoinLiveWheelMutation } from '../../hooks/use-circle-tools';
@@ -46,34 +46,25 @@ export const LiveWheelChatEmbed: React.FC<LiveWheelChatEmbedProps> = ({
     <div className="w-full max-w-sm rounded-3xl border border-teal-500/30 bg-gradient-to-br from-white via-teal-50/30 to-amber-50/20 dark:from-circle-dark-surface dark:via-circle-dark-card dark:to-teal-950/20 p-4 shadow-lg shadow-teal-500/5 transition-all hover:border-teal-500/50">
       {/* Top Header Card */}
       <div className="flex items-center justify-between pb-3 border-b border-circle-hairline/80 dark:border-circle-dark-hairline">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-teal-500/15 text-teal-600 dark:text-teal-400 flex items-center justify-center">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-full bg-teal-500/15 text-teal-600 dark:text-teal-400 flex items-center justify-center shrink-0">
             <Compass className="w-4.5 h-4.5 animate-spin-slow" />
           </div>
-          <div>
-            <h4 className="text-sm font-black text-circle-charcoal dark:text-circle-dark-text tracking-tight">
-              {payload.wheelTitle || (locale === 'vi' ? 'Vòng quay ngẫu nhiên' : 'Random Wheel')}
-            </h4>
-            <span className="text-[10px] text-teal-600 dark:text-teal-400 font-semibold uppercase tracking-wider">
-              {isFinished
-                ? (locale === 'vi' ? 'Đã kết thúc' : 'Ended')
-                : (locale === 'vi' ? 'Tương tác trực tiếp' : 'Live Interactive')}
-            </span>
-          </div>
+          <h4 className="text-sm font-black text-circle-charcoal dark:text-circle-dark-text tracking-tight">
+            {payload.wheelTitle || (locale === 'vi' ? 'Vòng quay ngẫu nhiên' : 'Random Wheel')}
+          </h4>
         </div>
 
-        <span
-          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${
-            isFinished
-              ? 'bg-circle-wash dark:bg-circle-dark-wash text-circle-slate dark:text-circle-dark-muted border-circle-hairline/60'
-              : 'bg-teal-500/10 text-teal-700 dark:text-teal-300 border-teal-500/20'
-          }`}
-        >
-          <Sparkles className="w-3 h-3 text-teal-500" />
-          {isFinished
-            ? (locale === 'vi' ? 'Đã hoàn thành' : 'Finished')
-            : (locale === 'vi' ? 'Hoạt động nhóm' : 'Group Fun')}
-        </span>
+        {isFinished ? (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-circle-wash dark:bg-circle-dark-wash text-circle-slate dark:text-circle-dark-muted border border-circle-hairline/60">
+            {locale === 'vi' ? 'Đã kết thúc' : 'Ended'}
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-teal-500/10 text-teal-700 dark:text-teal-300 border border-teal-500/20">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span>LIVE</span>
+          </span>
+        )}
       </div>
 
       {/* Creator Info */}

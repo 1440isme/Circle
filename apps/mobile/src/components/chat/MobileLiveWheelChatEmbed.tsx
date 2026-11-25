@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, DeviceEventEmitter } from 'react-native';
-import { Compass, Users, Sparkles, ArrowRight } from 'lucide-react-native';
+import { Compass, Users, ArrowRight } from 'lucide-react-native';
 import { LiveWheelMessagePayload, LiveWheelSession } from '@circle/types';
 import { useLanguageStore } from '../../stores/language.store';
 import { useThemeStore } from '../../stores/theme.store';
@@ -89,48 +89,57 @@ export const MobileLiveWheelChatEmbed: React.FC<MobileLiveWheelChatEmbedProps> =
               color={isFinished ? (isDark ? '#64748B' : '#94A3B8') : colors.primary}
             />
           </View>
-          <View>
-            <Text style={[styles.headerTitle, { color: colors.text }]}>
-              {payload.wheelTitle || (locale === 'vi' ? 'Vòng quay ngẫu nhiên' : 'Random Wheel')}
-            </Text>
-            <Text
-              style={[
-                styles.headerSubtitle,
-                { color: isFinished ? (isDark ? '#64748B' : '#94A3B8') : colors.primary },
-              ]}
-            >
-              {isFinished
-                ? (locale === 'vi' ? 'Đã kết thúc' : 'Ended')
-                : (locale === 'vi' ? 'Tương tác trực tiếp' : 'Live Interactive')}
-            </Text>
-          </View>
-        </View>
-
-        <View
-          style={[
-            styles.tagBadge,
-            {
-              backgroundColor: isFinished
-                ? (isDark ? '#334155' : '#F1F5F9')
-                : `${colors.primary}15`,
-            },
-          ]}
-        >
-          <Sparkles
-            size={11}
-            color={isFinished ? (isDark ? '#64748B' : '#94A3B8') : colors.primary}
-          />
-          <Text
-            style={[
-              styles.tagBadgeText,
-              { color: isFinished ? (isDark ? '#94A3B8' : '#64748B') : colors.primary },
-            ]}
-          >
-            {isFinished
-              ? (locale === 'vi' ? 'Đã hoàn thành' : 'Finished')
-              : (locale === 'vi' ? 'Hoạt động nhóm' : 'Group Fun')}
+          <Text style={[styles.headerTitle, { color: colors.text }]}>
+            {payload.wheelTitle || (locale === 'vi' ? 'Vòng quay ngẫu nhiên' : 'Random Wheel')}
           </Text>
         </View>
+
+        {isFinished ? (
+          <View
+            style={[
+              styles.tagBadge,
+              {
+                backgroundColor: isDark ? '#334155' : '#F1F5F9',
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.tagBadgeText,
+                { color: isDark ? '#94A3B8' : '#64748B' },
+              ]}
+            >
+              {locale === 'vi' ? 'Đã kết thúc' : 'Ended'}
+            </Text>
+          </View>
+        ) : (
+          <View
+            style={[
+              styles.tagBadge,
+              {
+                backgroundColor: `${colors.primary}15`,
+              },
+            ]}
+          >
+            <View
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: 3,
+                backgroundColor: '#10B981',
+                marginRight: 4,
+              }}
+            />
+            <Text
+              style={[
+                styles.tagBadgeText,
+                { color: colors.primary },
+              ]}
+            >
+              LIVE
+            </Text>
+          </View>
+        )}
       </View>
 
       {/* Creator Info */}
@@ -147,7 +156,7 @@ export const MobileLiveWheelChatEmbed: React.FC<MobileLiveWheelChatEmbedProps> =
         <View style={styles.creatorTextCol}>
           <Text style={[styles.creatorText, { color: colors.text }]}>
             <Text style={styles.creatorNameBold}>{payload.creatorName}</Text>{' '}
-            {locale === 'vi' ? 'đã mở phiên vòng quay' : 'started lucky wheel'}
+            {locale === 'vi' ? 'đã mở phiên vòng quay ngẫu nhiên' : 'started a random wheel session'}
           </Text>
           <View style={styles.participantsRow}>
             <Users size={12} color={colors.primary} />
