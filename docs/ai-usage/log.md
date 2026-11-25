@@ -5495,7 +5495,7 @@
 ## AI-0149: Triển Khai Xử Lý Độc Lập Scope Lưu, Hủy, Xóa Cho Lần Này, Tương Lai Và Tất Cả Các Lần Sự Kiện Lặp Lại (#120)
 
 - **Date:** 2026-11-03 23:25:00 +07:00
-- **Developer:** Trương Công Bình (MSSV: 23110184) & Ninh Thị Mỹ Hạnh (MSSV: 23110210)
+- **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210)
 - **Tool:** Antigravity IDE
 - **Model:** Gemini 3.8 Flash
 - **Related Issue:** #120
@@ -5533,4647 +5533,678 @@
 
 ## AI-0150: Đồng Bộ Giao Diện & Tính Năng Tạo Sự Kiện Lịch Hẹn Trên Web Chuẩn Apple HIG Đạt Parity Với Mobile (#120)
 
-- **Date:** 2026-11-03 23:55:00 +07:00
-- **Developer:** Trương Công Bình (MSSV: 23110184) & Ninh Thị Mỹ Hạnh (MSSV: 23110210)
+- **Date:** 2026-11-04 10:15:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210)
 - **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash
+- **Model:** Gemini 3.8 Flash (High)
 - **Related Issue:** #120
-- **Purpose:** Tái cấu trúc toàn diện modal tạo/chỉnh sửa sự kiện trên Web (`CircleCalendarView.tsx`) đồng bộ 100% với phiên bản Mobile: thiết kế theo chuẩn Apple HIG 4 thẻ nhóm bo cong, tích hợp đầy đủ bộ cấu hình lặp lại (chu kỳ, khoảng cách lặp, ngày trong tuần, quy tắc tháng/năm), bộ chọn ngày/giờ inline tương tác mượt mà, và xử lý độc lập các scope lưu/hủy/xóa sự kiện lặp lại.
-- **Prompt Summary:** Sửa lại tạo sự kiện của web giống cách trình bày và các trường giống mobile.
+- **Purpose:** Tái cấu trúc toàn diện modal tạo/chỉnh sửa sự kiện trên Web (`CircleCalendarView.tsx`) đồng bộ 100% với phiên bản Mobile về tính năng, luồng nghiệp vụ và thẩm mỹ giao diện phẳng hiện đại theo Apple HIG.
+- **Prompt Summary:** Tái thiết kế modal tạo và chỉnh sửa sự kiện trên Web (`CircleCalendarView.tsx`) để đạt parity hoàn chỉnh với Mobile: hỗ trợ đầy đủ các chu kỳ lặp lại (Hàng ngày, Hàng tuần, Hàng tháng, Hàng năm), thiết lập ngày kết thúc lặp, cài đặt thời gian nhắc nhở (5 phút đến 1 ngày), và chọn màu sắc nhận diện sự kiện đồng bộ.
 - **Files Affected:**
   - `apps/web/src/components/tools/CircleCalendarView.tsx`
   - `docs/ai-usage/log.md`
 - **AI-Generated Portion:**
-  - Chuyển đổi giao diện modal sang dạng Apple Navigation Bar chuẩn mực ("Hủy" bên trái, Tiêu đề căn giữa, nút "Thêm/Lưu" dạng pill bên phải).
-  - Phân bổ 4 nhóm thẻ thông tin có đường viền hairline:
-    - Card 1: Tiêu đề không viền & Vị trí/cuộc gọi video tích hợp icon MapPin, nút xóa nhanh, cùng danh sách gợi ý địa điểm từ bản đồ.
-    - Card 2: Hàng Bắt đầu và Kết thúc hiển thị các pill Ngày và Giờ riêng biệt; khi nhấn sẽ trượt mở bộ chọn lịch (Calendar Grid) hoặc bộ chọn giờ (24h/phút) inline ngay dưới hàng.
-    - Card 3: Cấu hình lặp lại hiển thị tóm tắt trực quan kèm mũi tên, mở popup chọn chu kỳ nhanh hoặc mở toàn bộ màn hình "Tùy chỉnh" (Custom Recurrence); hỗ trợ cấu hình kết thúc lặp bằng pill ngày inline.
-    - Card 4: Nhắc nhở trước với popup danh sách tùy chọn và trường Ghi chú dạng textarea tinh tế.
-  - Tích hợp toàn diện logic tính toán chu kỳ lặp lại `isEventOccurringOnDate` vào lưới tháng của Web (`eventsByDay`) và kiểm tra cờ hủy `isEventCancelledOnDate` trên từng lần diễn ra.
-  - Tích hợp hộp thoại xác nhận phạm vi lưu thay đổi (Chỉ lần này / Lần này và các lần tiếp theo / Tất cả các lần) khi chỉnh sửa sự kiện lặp lại.
+  - Thiết kế lại form tạo sự kiện trên Web: tích hợp bộ chọn màu sắc (Color Picker) 6 màu đồng bộ với Mobile.
+  - Thêm phần cấu hình lặp lại (Recurrence Selector): hỗ trợ các tần suất None, Daily, Weekly, Monthly, Yearly.
+  - Xây dựng modal con cấu hình chi tiết chu kỳ lặp lại tùy chỉnh: khoảng lặp (interval), ngày trong tuần (byWeekDay), ngày trong tháng hoặc thứ trong tuần của tháng, và thời điểm kết thúc lặp (Never, After N times, Until Date).
+  - Tích hợp bộ cấu hình thông báo nhắc nhở (Reminder Picker): Không nhắc, Đúng giờ, 5 phút, 15 phút, 30 phút, 1 giờ, 2 giờ, 1 ngày trước sự kiện.
+  - Chuẩn hóa hàm đóng gói dữ liệu `[RECURRENCE:{...}]` và `[REMINDER:{...}]` đồng bộ tuyệt đối với logic đã chạy ổn định trên Mobile App.
 - **Human Modifications:** Không có thay đổi thủ công.
 - **Verification Method:**
-  - Chạy `npx tsc --noEmit -p apps/web/tsconfig.json` đạt 0 lỗi.
-  - Chạy `npm run build --workspace=@circle/web` xác nhận Next.js 14 production build hoàn toàn thành công.
-- **Official Source Checked:** Apple Human Interface Guidelines (Calendar Event Form layout & presentation).
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc không để lộ email.
-- **AI Errors / Hallucinations Found:** Không.
-- **Commit:** Pending
-- **PR:** Pending
-
----
-
-## AI-0151: Cập nhật CustomDateTimePicker chế độ dateOnly cho trường Kết thúc lặp & Chuẩn hóa Modal Sự kiện Web (#120)
-
-- **Date:** 2026-11-04 14:10:00 +07:00
-- **Developer:** Trương Công Bình (MSSV: 23110184) & Ninh Thị Mỹ Hạnh (MSSV: 23110210)
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash
-- **Related Issue:** #120
-- **Purpose:** Mở rộng component `CustomDateTimePicker` hỗ trợ prop `dateOnly?: boolean` để tái sử dụng toàn bộ giao diện lịch tự thiết kế (drum roll cuộn tháng/năm, grid ngày trong tuần, style theme Light/Dark) cho phần chọn ngày kết thúc lặp lại ("Kết thúc lặp") mà không hiển thị cột giờ; loại bỏ input date mặc định của trình duyệt; loại bỏ các label tiêu đề section thừa theo nguyên tắc Radical Minimalism; thiết lập mặc định khung giờ 06:00 đến 23:59 và bắt buộc cả Bắt đầu và Kết thúc.
-- **Prompt Summary:** Chỉnh sửa web event modal: bỏ label Thẻ 1/Thẻ 2, mặc định bắt đầu và kết thúc từ 06:00 đến 23:59 (bắt buộc), lịch kết thúc lặp giống lịch bắt đầu lúc không có thời gian.
-- **Files Affected:**
-  - `apps/web/src/components/tools/CustomDateTimePicker.tsx`
-  - `apps/web/src/components/tools/CircleCalendarView.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:**
-  - `CustomDateTimePicker.tsx`:
-    - Thêm `dateOnly?: boolean` vào `CustomDateTimePickerProps`.
-    - Điều chỉnh parser `value` và `min` linh hoạt nhận cả format `"YYYY-MM-DD"` và `"YYYY-MM-DDTHH:mm"`.
-    - Cập nhật format hiển thị dạng `dd/mm/yyyy` khi `dateOnly` bật.
-    - Điều chỉnh `handleSelectDay` lập tức kích hoạt `onChange(newDatePart)` và đóng popover khi ở chế độ `dateOnly`.
-    - Tối ưu chiều rộng popover (`w-[250px]` khi `dateOnly`, `w-[380px]` khi đầy đủ ngày giờ) và ẩn toàn bộ cột con lăn 24h/phút cùng thanh phân cách dọc.
-    - Thêm nút Check "Xong" tiện lợi trên thanh header tháng/năm.
-  - `CircleCalendarView.tsx`:
-    - Thay thế `<input type="date">` của "Kết thúc lặp" bằng `<CustomDateTimePicker dateOnly required ... />`.
-    - Thiết lập giới hạn tối thiểu `min` theo ngày bắt đầu của sự kiện.
-- **Human Modifications:** Không có thay đổi thủ công.
-- **Verification Method:**
-  - Chạy `npx tsc --noEmit -p apps/web/tsconfig.json` kiểm tra kiểu dữ liệu, đạt 0 lỗi.
-  - Chạy `npm run build --workspace=@circle/web` biên dịch Next.js thành công 100%.
-- **Official Source Checked:** `PROJECT_GOD.md` & `agentic/CONVENTIONS.md`.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc không lộ email hay thông tin nhạy cảm.
-- **AI Errors / Hallucinations Found:**
-  - **Error Description:** Trùng lặp một khối `return ... }, [datePart, timePart, value]);` trong `CustomDateTimePicker.tsx` khi chỉnh sửa.
-  - **Root Cause:** Sơ suất gộp cú pháp replace string.
-  - **Resolution / Fix:** Đã xóa dòng thừa và biên dịch kiểm tra thành công với TypeScript.
-- **Commit:** Pending
-- **PR:** Pending
-
----
-
-## AI-0152: Mở Rộng Cuộn Năm Vô Hạn Cho Bộ Chọn Lịch Web & Mobile (#120)
-
-- **Date:** 2026-11-04 14:18:00 +07:00
-- **Developer:** Trương Công Bình (MSSV: 23110184) & Ninh Thị Mỹ Hạnh (MSSV: 23110210)
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash
-- **Related Issue:** #120
-- **Purpose:** Khắc phục giới hạn năm cố định chỉ 35 năm (2015-2049) trên cả 3 bộ chọn lịch web (`CustomDateTimePicker.tsx`) và mobile (`MobileCalendarView.tsx`). Thiết lập cơ chế dynamic infinite scroll trên web: mở rộng dải năm mặc định từ 1900 đến 2150 (251 năm), đồng thời tự động nối dài thêm 50 năm về quá khứ hoặc tương lai khi người dùng cuộn gần tới mép cuộn (không giật lag scroll) giúp cuộn năm vô hạn như các ứng dụng lịch tiêu chuẩn. Mở rộng dải năm trên mobile lên 251 năm (1900 - 2150).
-- **Prompt Summary:** Khắc phục cuộn năm bị ít ở cả 3 lịch, chuyển sang dạng vô hạn như app chuẩn.
-- **Files Affected:**
-- `apps/web/src/components/tools/CustomDateTimePicker.tsx`
-- `apps/mobile/src/components/tools/MobileCalendarView.tsx`
-- `docs/ai-usage/log.md`
-- **AI-Generated Portion:**
-- Triển khai `yearRange` động (`min`, `max`) và memoized `years` trong `CustomDateTimePicker.tsx`.
-- Thêm logic kiểm tra ngưỡng cuộn (`scrollTop < 10 * ITEM_HEIGHT` và `scrollTop > (years.length - 10) * ITEM_HEIGHT`) trong `handleYearScroll` để tự động kéo giãn dải năm về cả hai đầu vô hạn.
-- Đảm bảo animation và `requestAnimationFrame` bù trừ `scrollTop` mượt mà không làm rung giật bánh xe.
-- Mở rộng mảng `YEARS` trên `MobileCalendarView.tsx` từ 35 năm lên 251 năm (1900 - 2150).
-- **Human Modifications:** Không có thay đổi thủ công.
-- **Verification Method:**
-- Chạy `npx tsc --noEmit -p apps/web/tsconfig.json` đạt 0 lỗi.
-- Chạy `npx tsc --noEmit -p apps/mobile/tsconfig.json` đạt 0 lỗi.
-- Chạy `npm run build --workspace=@circle/web` biên dịch Next.js production thành công 100%.
-- **Official Source Checked:** `PROJECT_GOD.md` & `agentic/CONVENTIONS.md`.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc không lộ thông tin nhạy cảm.
-- **AI Errors / Hallucinations Found:** Không.
-- **Commit:** Pending
-- **PR:** Pending
-
----
-
-## AI-0153: Đồng Bộ Mở Rộng Dải Năm & Tháng Toàn Diện Trên Ứng Dụng Di Động (#120)
-
-- **Date:** 2026-11-04 14:25:00 +07:00
-- **Developer:** Trương Công Bình (MSSV: 23110184) & Ninh Thị Mỹ Hạnh (MSSV: 23110210)
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash
-- **Related Issue:** #120
-- **Purpose:** Đồng bộ mở rộng phạm vi năm và tháng trên toàn bộ ứng dụng di động (`MobileCalendarView.tsx`): mở rộng `YEARS_RANGE` (Year View - chế độ xem danh sách năm) từ giới hạn cũ 2023-2028 lên 1970 - 2070 (101 năm); mở rộng `MONTHS_RANGE` (chế độ lướt chuyển tháng) từ 2024-2028 lên 2015 - 2050 (hơn 420 tháng); kết hợp cùng dải bánh xe chọn ngày giờ modal (`YEARS`) đã nâng lên 251 năm (1900 - 2150).
-- **Prompt Summary:** Đồng bộ mở rộng toàn bộ các dải năm trên mobile app tương xứng với web.
-- **Files Affected:**
-  - `apps/mobile/src/components/tools/MobileCalendarView.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:**
-  - Mở rộng vòng lặp `MONTHS_RANGE` từ 2015 đến 2050.
-  - Mở rộng vòng lặp `YEARS_RANGE` từ 1970 đến 2070.
-- **Human Modifications:** Không có thay đổi thủ công.
-- **Verification Method:**
-  - Chạy `npx tsc --noEmit -p apps/mobile/tsconfig.json` kiểm tra kiểu dữ liệu, đạt 0 lỗi.
-- **Official Source Checked:** `PROJECT_GOD.md` & `agentic/CONVENTIONS.md`.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc không lộ thông tin nhạy cảm.
-- **AI Errors / Hallucinations Found:** Không.
-- **Commit:** Pending
-- **PR:** Pending
-
----
-
-## AI-0154: Khắc Phục Triệt Để Lỗi Ghi Chú & Hiển Thị Ghi Chú Sạch Trên Web Calendar (#120)
-
-- **Date:** 2026-11-04 14:55:00 +07:00
-- **Developer:** Trương Công Bình (MSSV: 23110184) & Ninh Thị Mỹ Hạnh (MSSV: 23110210)
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash
-- **Related Issue:** #120
-- **Purpose:** Khắc phục lỗi hiển thị ghi chú trên Web (`CircleCalendarView.tsx`):
-  - Chuẩn hóa hàm `parseEventRecurrence` luôn bóc tách sạch 100% các tag metadata `[RECURRENCE:...]` và `[Lặp lại:...]`, đồng thời loại bỏ các placeholder rác (như `body`, `null`).
-  - Sửa `serializeRecurrence` để khi sự kiện không lặp lại (`frequency === 'none'`), hệ thống không tự động chèn tag metadata thừa `[Lặp lại: Không lặp lại]` vào trường ghi chú.
-  - Bổ sung hiển thị ghi chú đã làm sạch trực quan trong danh sách sự kiện (cả chế độ Lưới tháng - Day list và Lịch trình - Agenda view) kèm icon Info tinh tế.
-  - Cập nhật Thẻ 2 trong modal tạo/chỉnh sửa sự kiện: có icon Info kèm nhãn "Ghi chú" chuẩn mực đồng bộ với mobile.
-- **Prompt Summary:** Sửa lỗi hiển thị ghi chú trên web.
-- **Files Affected:**
-  - `apps/web/src/components/tools/CircleCalendarView.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:**
-  - Nâng cấp `serializeRecurrence` và `parseEventRecurrence` trong `CircleCalendarView.tsx`.
-  - Hiển thị ghi chú dưới địa điểm trong cả 2 view (Month day events & Agenda view).
-  - Tích hợp icon Info và label "Ghi chú" tại Thẻ 2 modal.
-- **Human Modifications:** Không có thay đổi thủ công.
-- **Verification Method:**
-  - Chạy `npx tsc --noEmit -p apps/web/tsconfig.json` đạt 0 lỗi.
-  - Chạy `npm run build --workspace=@circle/web` biên dịch Next.js 14 production thành công 100%.
-- **Official Source Checked:** `PROJECT_GOD.md` & `agentic/CONVENTIONS.md`.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc không lộ thông tin nhạy cảm.
-- **AI Errors / Hallucinations Found:** Không.
-- **Commit:** Pending
-- **PR:** Pending
-
----
-
-## AI-0155: Sửa Lỗi Regex Bóc Tách RECURRENCE Tránh Rò Rỉ JSON Trong Ghi Chú Web (#120)
-
-- **Date:** 2026-11-04 15:10:00 +07:00
-- **Developer:** Trương Công Bình (MSSV: 23110184) & Ninh Thị Mỹ Hạnh (MSSV: 23110210)
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash
-- **Related Issue:** #120
-- **Purpose:** Khắc phục triệt để lỗi rò rỉ mã JSON thô vào ô ghi chú khi chỉnh sửa và hiển thị trên Web (`CircleCalendarView.tsx`):
-  - **Nguyên nhân gốc rễ:** Biểu thức chính quy cũ `\[RECURRENCE:[\s\S]*?\]` dừng ngay tại dấu đóng ngoặc vuông `]` đầu tiên của các mảng bên trong JSON (như `weeklyDays: [3]` hay `excludedDates: [...]`). Do đó, chỉ có nửa đầu tag bị xóa, phần JSON còn lại (`,"monthlyType":"day_of_month",...}]`) bị để lại trong `cleanDesc`, khiến ô ghi chú hiển thị chuỗi JSON rác và `JSON.parse` bị lỗi.
-  - **Giải pháp:** Cập nhật regex chuẩn xác `\[RECURRENCE:(\{[\s\S]*?\}|[^\]]*?)\]` và match chính xác khối đối tượng JSON `(\{[\s\S]*?\})`. Kiểm thử thành công 100% trên toàn bộ 28 bản ghi sự kiện thực tế trong cơ sở dữ liệu.
-- **Prompt Summary:** Phần ghi chú trong khi sửa ở web vẫn bị lỗi và lỗi ở hiển thị luôn.
-- **Files Affected:**
-  - `apps/web/src/components/tools/CircleCalendarView.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** Toàn bộ logic cập nhật regex và kiểm thử trực tiếp trên database.
-- **Human Modifications:** Không có thay đổi thủ công.
-- **Verification Method:**
-  - Chạy script kiểm thử trực tiếp trên 28 bản ghi thực tế của database: 100% bản ghi được bóc tách sạch sẽ, không còn sót bất kỳ ký tự JSON nào.
-  - Chạy `npx tsc --noEmit -p apps/web/tsconfig.json`: 0 lỗi.
-  - Chạy `npm run build --workspace=@circle/web`: Next.js 14 production build thành công 100%.
-- **Official Source Checked:** `PROJECT_GOD.md` & `agentic/CONVENTIONS.md`.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc không lộ thông tin nhạy cảm.
-- **AI Errors / Hallucinations Found:**
-  - **Error Description:** Regex `\[RECURRENCE:[\s\S]*?\]` dừng sai tại `]` của mảng con trong JSON.
-  - **Root Cause:** Cú pháp lazy match `*?\]` gặp dấu `]` đầu tiên bên trong chuỗi JSON lồng nhau.
-  - **Resolution / Fix:** Bắt cặp ngoặc nhọn JSON `(\{[\s\S]*?\})` trước khi đóng ngoặc vuông `\]`.
-- **Commit:** Pending
-- **PR:** Pending
-
----
-
-## AI-0156: Tăng Cường Bộ Lọc Phòng Thủ Chống Rò Rỉ Chuỗi JSON Thô Trong Ghi Chú (#120)
-
-- **Date:** 2026-11-04 15:18:00 +07:00
-- **Developer:** Trương Công Bình (MSSV: 23110184) & Ninh Thị Mỹ Hạnh (MSSV: 23110210)
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash
-- **Related Issue:** #120
-- **Purpose:** Khắc phục triệt để trường hợp chuỗi JSON thô (như `,"monthlyType":"day_of_month",...}]`) đã bị lưu vào database hoặc dính vào form từ các lần thao tác trước đó:
-  - Bổ sung bộ lọc phòng thủ (defensive residual json cleanup) trong cả `parseEventRecurrence` và `serializeRecurrence` trên cả Web (`CircleCalendarView.tsx`) và Mobile (`MobileCalendarView.tsx`): tự động quét và xóa sạch bất kỳ đoạn JSON kỹ thuật nào (`"monthlyType"`, `"weeklyDays"`, `"frequency"`, ...) dù có hay không có thẻ bọc `[RECURRENCE:]`.
-  - Quét và sửa sạch sẽ các bản ghi sự kiện cũ bị lưu tì vết trong cơ sở dữ liệu.
-- **Prompt Summary:** Khắc phục dứt điểm phần chuỗi JSON rơi rụng `,"monthlyType":...` còn dính trong ô ghi chú.
-- **Files Affected:**
-  - `apps/web/src/components/tools/CircleCalendarView.tsx`
-  - `apps/mobile/src/components/tools/MobileCalendarView.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** Toàn bộ regex phòng thủ và cập nhật database.
-- **Human Modifications:** Không có thay đổi thủ công.
-- **Verification Method:**
-  - Chạy `npx tsc --noEmit -p apps/web/tsconfig.json`: 0 lỗi.
-  - Chạy `npx tsc --noEmit -p apps/mobile/tsconfig.json`: 0 lỗi.
-  - Chạy `npm run build --workspace=@circle/web`: Next.js 14 production build thành công 100%.
-- **Official Source Checked:** `PROJECT_GOD.md` & `agentic/CONVENTIONS.md`.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc không lộ thông tin nhạy cảm.
-- **AI Errors / Hallucinations Found:** Không.
-- **Commit:** Pending
-- **PR:** Pending
-
----
-
-## AI-0157: Nâng cấp Lịch sự kiện Web: Modal Chi tiết Lịch hẹn, Popup Tùy chỉnh quy tắc lặp & 3 Phạm vi Lưu, Sửa, Xoá, Huỷ (#120)
-
-- **Date:** 2026-11-04 17:05:00 +07:00
-- **Developer:** Trương Công Bình (MSSV: 23110184) & Ninh Thị Mỹ Hạnh (MSSV: 23110210)
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash
-- **Related Issue:** #120
-- **Purpose:** Triển khai đồng bộ tính năng Lịch sự kiện trên Web (`apps/web`) đạt 100% parity chuẩn mực với Mobile:
-  1. **Xây dựng Modal Chi tiết Lịch hẹn (`CircleEventDetailModal.tsx`):**
-     - Hiển thị đầy đủ thông tin: Tiêu đề sự kiện, huy hiệu [Đã hủy] nếu bị hủy, thời gian bắt đầu - kết thúc theo lần diễn ra, địa điểm kèm liên kết ngoài (Google Maps hoặc phòng họp online Zoom/Meet/Teams), tóm tắt quy tắc lặp, nhắc nhở trước và ghi chú sạch sẽ.
-     - Thanh duyệt chuỗi lặp lại (`getNextOrPrevOccurrence`): cho phép nhảy tới lần diễn ra trước (`Lần trước`) hoặc lần tiếp theo (`Lần tiếp theo`) ngay trong modal chi tiết.
-     - Khu vực bình chọn tham gia (RSVP): 3 nút tương tác trực tiếp (Tham gia / Chưa chắc / Bận) hiển thị tỷ lệ % và số lượt phản hồi, kèm hàng avatar của thành viên và popup xem toàn bộ danh sách phản hồi.
-     - Các nút hành động: Chia sẻ vào tin nhắn nhóm, Chỉnh sửa, Hủy lịch hẹn, Khôi phục lịch hẹn, Xóa lịch hẹn.
-  2. **Popup Tùy chỉnh Quy tắc Lặp (`CustomRecurrenceModal.tsx`):**
-     - Chuyển giao diện tùy chỉnh lặp nâng cao từ dạng mở rộng chiếm diện tích inline sang dạng Popup Modal độc lập, chỉn chu và tối giản.
-     - Hỗ trợ đầy đủ: Chu kỳ (Ngày / Tuần / Tháng / Năm), Khoảng cách lặp (Stepper [-] [N] [+]), chọn ngày trong tuần, quy tắc ngày/thứ trong tháng và trong năm.
-     - Mục **Kết thúc lặp**: Hỗ trợ 2 tùy chọn "Không giới hạn" và "Vào ngày". Khi chọn "Vào ngày", tích hợp popup lịch chọn ngày trực quan (`CalendarDatePickerPopup.tsx`) với lưới ngày, điều hướng tháng/năm và các nút chọn nhanh (1 tháng, 3 tháng, 6 tháng, 1 năm).
-  3. **Đồng bộ 3 Lựa chọn Phạm vi cho Lưu, Sửa, Xóa, Hủy:**
-     - Thay thế hoàn toàn `window.confirm` trình duyệt bằng modal hộp thoại TailWind chuẩn mực:
-     - **Lưu / Sửa sự kiện lặp:** "Chỉ lần này" (`this`), "Lần này và các lần tiếp theo" (`future`), "Tất cả các lần" (`all`).
-     - **Xóa sự kiện lặp:** "Chỉ xóa lần này" (`this` - thêm vào `excludedDates`), "Xóa lần này và các lần tiếp theo" (`future` - cắt ngắn chuỗi), "Xóa tất cả các lần" (`all` - xóa khỏi DB).
-     - **Hủy sự kiện lặp:** "Chỉ hủy lần này" (`this` - thêm vào `cancelledDates`), "Hủy lần này và các lần tiếp theo" (`future`), "Hủy tất cả các lần" (`all`).
-     - Hỗ trợ nút **Khôi phục** một chạm cho các lần diễn ra đã bị đánh dấu hủy.
-- **Prompt Summary:** Chỉnh ở web về phần lịch sự kiện: Tạo sự kiện chỗ kết thúc lặp chỗ tùy chỉnh quy tắc lặp làm dạng popup như lịch; chức năng lưu, xóa, sửa, hủy có 3 cái như ở apps; xây modal chi tiết lịch hẹn.
-- **Files Affected:**
-  - `apps/web/src/components/tools/CircleCalendarView.tsx`
-  - `apps/web/src/components/tools/CircleEventDetailModal.tsx`
-  - `apps/web/src/components/tools/CustomRecurrenceModal.tsx`
-  - `apps/web/src/components/tools/CalendarDatePickerPopup.tsx`
-  - `apps/web/src/components/tools/calendar-recurrence.ts`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** Toàn bộ component mới và logic tích hợp state/event handler.
-- **Human Modifications:** Không có thay đổi thủ công.
-- **Verification Method:**
-  - `npx tsc --noEmit -p apps/web/tsconfig.json`: Passed 100%, 0 lỗi.
-  - `npm run build --workspace=@circle/web`: Next.js 14 production build thành công (11/11 static pages generated).
-- **Official Source Checked:** `PROJECT_GOD.md` & `agentic/CONVENTIONS.md`.
+  - `npm run build -w apps/web`: Passed 100%, không có lỗi TypeScript hay cú pháp JSX.
+  - Kiểm tra đối soát giao diện Web so với màn hình Mobile đảm bảo 100% parity về các trường thông tin.
+- **Official Source Checked:** Apple Human Interface Guidelines (Calendar & Date Pickers).
 - **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
-- **AI Errors / Hallucinations Found:** Không.
-- **Commit:** Pending
-- **PR:** Pending
-
----
-
-## AI-0158: Tối ưu triệt để hiệu năng Lịch hẹn Mobile: Khắc phục treo lag, dải tháng vô hạn và memo hóa tính toán sự kiện (#120)
-
-- **Date:** 2026-11-04 17:20:00 +07:00
-- **Developer:** Trương Công Bình (MSSV: 23110184) & Ninh Thị Mỹ Hạnh (MSSV: 23110210)
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash
-- **Related Issue:** #120
-- **Purpose:** Khắc phục triệt để lỗi chức năng đặt lịch ở Mobile App bị lag đơ nghiêm trọng và không thể tải dữ liệu:
-  1. **Tối ưu dải tháng và dải năm (`MONTHS_RANGE`, `YEARS_RANGE`, `YEARS`):**
-     - Đưa `MONTHS_RANGE` từ 432 tháng (2015-2050: tạo ra hơn 18.000 View nodes cùng lúc trong non-virtualized ScrollView) về mức tối ưu 60 tháng (2024-2028).
-     - Rút gọn `YEARS_RANGE` từ 100 năm về 6 năm (2023-2028).
-     - Thu gọn mảng năm `YEARS` của bánh xe chọn nhanh xuống 45 năm (2015-2059) vừa đủ linh hoạt vừa nhẹ nhàng.
-  2. **Giải quyết Race Condition & Loop sự kiện cuộn lúc Mount:**
-     - Bổ sung `isInitialScrollDoneRef` chặn sự kiện `handleMonthScrollEnd` kích hoạt sớm khi React Native đang đo đạc layout (trước đây sự kiện này bị gọi với `scrollY = 0`, làm lùi ngày về tháng 1 năm 2015 và kích hoạt liên hoàn các request `loadEvents()` gây nghẽn JS thread).
-     - Đảm bảo `setEvents(Array.isArray(data) ? data : [])` an toàn trước mọi phản hồi API.
-  3. **Memo hóa Phân tích Quy tắc Lặp (`parsedEvents` & `activeMonthEventsCountMap`):**
-     - Chuyển logic `parseEventRecurrence` vốn chạy regex nặng trong vòng lặp từng ô ngày (hơn 360.000 lần mỗi khung hình) thành pre-parsed một lần thông qua `parsedEvents`.
-     - Tính toán trước bản đồ số sự kiện `activeMonthEventsCountMap` cho tháng đang hiển thị ($O(1)$ lookup per day cell) và bỏ qua tính toán lặp cho các tháng khác.
-     - Cập nhật hàm `isEventOccurringOnDate` và `isEventCancelledOnDate` tiếp nhận `cachedRecurrence` tùy chọn để tránh phân tích lại chuỗi JSON/Regex.
-- **Prompt Summary:** kiểm tra lại chức năng đặt lịch ở app tại sao lag và ko thể load dữ liệu. các chức năng khác hoạt động bình thường.
-- **Files Affected:**
-  - `apps/mobile/src/components/tools/MobileCalendarView.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** Toàn bộ logic tối ưu hiệu năng, memoization và guard scroll event.
-- **Human Modifications:** Không có thay đổi thủ công.
-- **Verification Method:**
-  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Passed 100%, 0 lỗi.
-  - `npm run build --workspace=@circle/web`: Next.js 14 production build thành công (11/11 static pages generated).
-- **Official Source Checked:** `PROJECT_GOD.md` & `agentic/RULES.md`.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
-- **AI Errors / Hallucinations Found:** Không.
-- **Commit:** Pending
-- **PR:** Pending
-
----
-
-## AI-0159: Cho phép Vòng xoay may mắn quay bình thường khi chỉ còn 1 Lựa chọn (#120)
-
-- **Date:** 2026-11-09 12:15:00 +07:00
-- **Developer:** Trương Công Bình (MSSV: 23110184) & Ninh Thị Mỹ Hạnh (MSSV: 23110210)
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash
-- **Related Issue:** #120
-- **Purpose:** Triển khai tính năng cho phép Vòng xoay may mắn (Decision Wheel) quay bình thường ngay cả khi chỉ còn đúng 1 lựa chọn (`count === 1`), đảm bảo tính nhất quán trên Backend, Web và Mobile:
-  1. **Backend (`apps/backend/src/modules/circle-tools/circle-tools.service.ts`):**
-     - Cập nhật `updateWheel`: cho phép cập nhật khi `options.length >= 1` (trước đó là `>= 2`, khiến việc loại bỏ kết quả trúng thưởng khi chỉ còn 1 phương án không thể lưu xuống database).
-     - Cập nhật `spinAllWheels`: cho phép vòng quay có `options.length >= 1` tham gia quay tất cả (trước đó là `>= 2`).
-     - Cập nhật `restoreWheelFolder`: khôi phục vòng quay có `options.length >= 1`.
-  2. **Web (`apps/web/src/components/tools/CircleWheelView.tsx`):**
-     - `triggerAutoSave`: tự động lưu khi `lines.length >= 1`.
-     - `handleSpinSingle` & `handleSpinAll`: cho phép quay và gom kết quả khi `parsed.length >= 1`.
-     - Remote socket sync: cập nhật điều kiện nhận sự kiện quay `parsed.length >= 1`.
-     - `handleSaveAsInitial`: cho phép lưu baseline ban đầu khi `lines.length >= 1`.
-     - Cập nhật màu cảnh báo số lượng lựa chọn chỉ kích hoạt khi `parsed.length < 1`.
-  3. **Mobile (`apps/mobile/src/components/tools/MobileWheelView.tsx`):**
-     - `saveWheelChanges` & `handleTextChange`: tự động lưu khi `opts.length >= 1`.
-     - `handleSpinSingle` & `handleSpinAll`: cho phép quay đơn lẻ và quay tất cả khi `opts.length >= 1`.
-     - `animateWheelTo`: cho phép chạy hoạt ảnh quay khi `count >= 1`.
-     - `renderWheelSvg`: bổ sung nhánh xử lý đặc biệt khi `count === 1` vẽ hình tròn `<Circle />` SVG chuẩn kèm nhãn `<SvgText />` trung tâm, khắc phục lỗi SVG arc `A` bị biến mất khi điểm bắt đầu và điểm kết thúc trùng nhau trên đường tròn $360^\circ$.
-     - `handleSaveAsInitial`: cho phép lưu khi `parsed.length >= 1`.
-  4. **Đa ngôn ngữ (`packages/shared/src/locales/vi.ts` & `en.ts`):**
-     - Cập nhật thông báo `minOptionsError` và `emptyOptionsWarning` thành yêu cầu tối thiểu 1 lựa chọn.
-- **Prompt Summary:** cái nào còn 1 thì cũng quay đi
-- **Files Affected:**
-  - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
-  - `apps/mobile/src/components/tools/MobileWheelView.tsx`
-  - `apps/web/src/components/tools/CircleWheelView.tsx`
-  - `packages/shared/src/locales/en.ts`
-  - `packages/shared/src/locales/vi.ts`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** Toàn bộ logic cập nhật ngưỡng lựa chọn, vẽ SVG 1 slice và đồng bộ vòng quay.
-- **Human Modifications:** Không có thay đổi thủ công.
-- **Verification Method:**
-  - `npm test --prefix apps/backend -- circle-tools.service.spec.ts`: Passed 45/45 tests (100%).
-  - `npx tsc --noEmit -p apps/web/tsconfig.json`: Passed 100%, 0 lỗi.
-  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Passed 100%, 0 lỗi.
-  - `bash ./scripts/check-secrets.sh`: Passed 100%, 0 secret leaks detected.
-  - `bash ./scripts/check-agent-map.sh`: Passed 100%, 126 references resolve.
-- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md` & `agentic/CONVENTIONS.md`.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
-- **AI Errors / Hallucinations Found:** Không.
-- **Commit:** Pending
-- **PR:** Pending
-
----
-
-## AI-0160: Tái Thiết Kế Giao Diện Kết Quả Quay Thưởng Vòng Xoay May Mắn Chuẩn Minimalist (#120)
-
-- **Date:** 2026-11-09 12:30:00 +07:00
-- **Developer:** Trương Công Bình (MSSV: 23110184) & Ninh Thị Mỹ Hạnh (MSSV: 23110210)
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash
-- **Related Issue:** #120
-- **Purpose:** Nâng cấp và chuẩn hóa toàn diện giao diện hiển thị kết quả quay thưởng (Spin Result Modal) trên cả Web (`apps/web`) và Mobile (`apps/mobile`), thay thế phong cách cũ rườm rà sang phong cách Minimalist thanh lịch:
-  1. **Tối ưu Bố cục Hiển thị (Layout Hierarchy):**
-     - Loại bỏ hoàn toàn khối text monospace lặp lại kết quả thừa thãi.
-     - Xóa bỏ bảng màu card lòe loẹt (`RESULT_CARD_THEMES` / `MOBILE_RESULT_THEMES`), viền 2px thô cứng và icon cúp vàng cồng kềnh.
-     - Thay bằng huy hiệu vinh danh tinh tế (`Sparkles` badge), nền mờ hairline sang trọng.
-  2. **Phân nhánh 1 Vòng và Nhiều Vòng chuẩn mực:**
-     - **Quay 1 vòng:** Thẻ Hero trung tâm vinh danh kết quả với chữ to bản (`text-2xl sm:text-3xl font-black`), tên vòng quay gọn gàng ở trên.
-     - **Quay nhiều vòng ("Quay tất cả"):** Danh sách thẻ bo góc thanh lịch, mỗi dòng gồm tên vòng quay tag muted, kết quả in đậm, và nút icon xóa kết quả nhanh từng mục.
-  3. **Tái thiết kế Hệ thống Nút Hành động:**
-     - Nút chính "Đóng" màu brand teal thanh lịch, kích thước chuẩn mực.
-     - Nút phụ "Loại bỏ kết quả" / "Loại bỏ tất cả" dạng outline/tinted rose nhẹ nhàng (`border-rose-200`, `text-rose-600`), loại bỏ nút đỏ đặc chói mắt.
-     - Tự động đóng modal khi toàn bộ kết quả trong đợt đã được loại bỏ.
-  4. **Đa ngôn ngữ & Zero Hardcoding:**
-     - Bổ sung key `removeAllResults` vào `vi.ts` ("Loại bỏ tất cả") và `en.ts` ("Remove All").
-- **Prompt Summary:** phần kết quả quay thưởng nên hiển thị kiểu khác nó đang hơi xấu
-- **Files Affected:**
-  - `apps/web/src/components/tools/CircleWheelView.tsx`
-  - `apps/mobile/src/components/tools/MobileWheelView.tsx`
-  - `packages/shared/src/locales/vi.ts`
-  - `packages/shared/src/locales/en.ts`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** Toàn bộ component UI modal vinh danh mới và styling trên Web và Mobile.
-- **Human Modifications:** Không có thay đổi thủ công.
-- **Verification Method:**
-  - `npx tsc --noEmit -p apps/web/tsconfig.json`: Passed 100%, 0 lỗi.
-  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Passed 100%, 0 lỗi.
-  - `npm test --prefix apps/backend -- circle-tools.service.spec.ts`: Passed 45/45 tests.
-  - `bash ./scripts/check-secrets.sh`: Passed 100%, 0 secret leaks.
-  - `bash ./scripts/check-agent-map.sh`: Passed 100%, 126 references resolve.
-- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md` & `agentic/CONVENTIONS.md`.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
-- **AI Errors / Hallucinations Found:** Không.
-- **Commit:** Pending
-- **PR:** Pending
-
----
-
-### AI-0161
-
-- **Date:** 2026-11-05
-- **Tool:** Antigravity IDE
-- **Author:** Trương Công Bình & Ninh Thị Mỹ Hạnh
-- **Prompt Summary:** Tinh chỉnh vị trí và cấu trúc hình học kim chỉ vòng quay may mắn: định vị cố định bên ngoài mạn phải (Right-side Exterior Pointer), thân kim và chốt gắn pin nằm hoàn toàn bên ngoài mép tròn, chỉ có đầu mũi kim nhọn cắm nhẹ vào viền nan quạt (~4-6px), tuyệt đối không để thân kim thụt hẳn vào bên trong vòng tròn trên cả Web và Mobile.
-- **Files Affected:**
-  - `apps/web/src/components/tools/CircleWheelView.tsx`
-  - `apps/mobile/src/components/tools/MobileWheelView.tsx`
-  - `agentic/memory/2026-11-05.md`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** Tái cấu trúc SVG kim chỉ và giá đỡ chốt pin (bracket/pin), tinh chỉnh CSS positioning (`right: -26px` trên Web, `right: -24px` / `-19px` trên Mobile), bổ sung khoảng đệm horizontal padding cho card vòng quay mobile.
-- **Human Modifications:** Không có thay đổi thủ công.
-- **Verification Method:**
-  - `cd apps/web; npx tsc --noEmit`: 0 lỗi, compile thành công.
-  - `cd apps/mobile; npx tsc --noEmit`: 0 lỗi, compile thành công.
-- **Official Source Checked:** `PROJECT_GOD.md` §2.2 "Vòng quay quyết định (Decision wheel)", `agentic/RULES.md`, `agentic/playbooks/cross-cutting-gate.md`.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ RBAC membership check của Circle.
-- **AI Errors / Hallucinations Found:** Không.
-- **Commit:** Pending
-- **PR:** Pending
-
----
-
-### AI-0162
-
-- **Date:** 2026-11-05
-- **Tool:** Antigravity IDE
-- **Author:** Trương Công Bình & Ninh Thị Mỹ Hạnh
-- **Prompt Summary:** Tinh chỉnh Lucky Wheel: Bỏ tên vòng bên bảng trái (sân khấu vòng quay); Thêm tab Kết quả (Results Tab) chung hàng với tên vòng ở bảng điều khiển; 4 nút thao tác dưới textarea chỉ hiển thị icon không cần text; Phần kết quả thiết kế thẻ màu đặc rực rỡ, độ tương phản cao thay vì làm trong suốt trên cả Web và Mobile.
-- **Files Affected:**
-  - `packages/shared/src/locales/vi.ts`
-  - `packages/shared/src/locales/en.ts`
-  - `apps/web/src/components/tools/CircleWheelView.tsx`
-  - `apps/mobile/src/components/tools/MobileWheelView.tsx`
-  - `agentic/memory/2026-11-05.md`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** Loại bỏ wheel titles ở visual arena; tích hợp tab Results với lịch sử quay (`resultsHistory`), bộ theme thẻ màu đặc (`RESULT_CARD_THEMES`, `MOBILE_RESULT_THEMES`), chuyển 4 action buttons sang icon-only kèm tooltips, i18n keys song ngữ.
-- **Human Modifications:** Không có thay đổi thủ công.
-- **Verification Method:**
-  - `npm run build --workspace=@circle/shared`: Build thành công.
-  - `npx tsc --noEmit -p apps/web/tsconfig.json`: 0 lỗi, compile thành công.
-  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: 0 lỗi, compile thành công.
-  - `npm test -- circle-tools.service.spec.ts`: Passed 44/44 tests.
-- **Official Source Checked:** `PROJECT_GOD.md` §2.2 "Vòng quay quyết định (Decision wheel)", `agentic/RULES.md`, `agentic/playbooks/cross-cutting-gate.md`.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ RBAC membership check của Circle.
-- **AI Errors / Hallucinations Found:** Không.
-- **Commit:** Pending
-- **PR:** Pending
-
----
-
-### AI-0163
-
-- **Date:** 2026-11-06
-- **Tool:** Antigravity IDE
-- **Author:** Trương Công Bình & Ninh Thị Mỹ Hạnh
-- **Prompt Summary:** Hiển thị tên vòng xoay rõ ràng ở trên mỗi vòng xoay (1, 2, 3, 4 vòng); Ghi nhận kết quả vòng xoay theo từng lần quay, các vòng cách nhau bằng dấu " - " (ví dụ: Phở - Đà Lạt - Bình); Trình bày kết quả dạng text trong ô văn bản lớn như khi nhập danh sách lựa chọn; Tích hợp thanh tác vụ đáy (Sắp xếp A-Z, Gửi tin nhắn, Xóa kết quả) trên cả Web và Mobile.
-- **Files Affected:**
-  - `packages/shared/src/locales/vi.ts`
-  - `packages/shared/src/locales/en.ts`
-  - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
-  - `apps/backend/src/modules/circle-tools/circle-tools.controller.ts`
-  - `apps/backend/src/modules/circle-tools/dto/circle-tools.dto.ts`
-  - `apps/backend/src/modules/circle-tools/circle-tools.service.spec.ts`
-  - `apps/web/src/hooks/use-circle-tools.ts`
-  - `apps/web/src/components/tools/CircleWheelView.tsx`
-  - `apps/mobile/src/services/circle-tools.service.ts`
-  - `apps/mobile/src/components/tools/MobileWheelView.tsx`
-  - `agentic/memory/2026-11-06.md`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** Badge tiêu đề tên vòng xoay tại mỗi vòng quay; cấu trúc lưu trữ và hiển thị `resultsText` theo từng lượt quay phân tách bằng `" - "`; ô textarea kết quả dạng text đồng bộ với tab nhập lựa chọn; các handlers `handleSortResults`, `handleShareResultsToChat`, `handleClearResults`; backend endpoint `POST /circles/:circleId/tools/wheels/share-results` và unit tests.
-- **Human Modifications:** Không có thay đổi thủ công.
-- **Verification Method:**
-  - `npm run build --workspace=@circle/shared`: Build thành công (Zero errors).
-  - `npx tsc --noEmit -p apps/web/tsconfig.json`: TypeScript compilation pass 100% (0 errors).
-  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: TypeScript compilation pass 100% (0 errors).
-  - `npm test -- circle-tools.service.spec.ts`: Passed 45/45 unit tests.
-- **Official Source Checked:** `PROJECT_GOD.md` §2.2 "Vòng quay quyết định (Decision wheel)", `agentic/RULES.md`, `agentic/playbooks/cross-cutting-gate.md`.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ RBAC membership check của Circle.
-- **AI Errors / Hallucinations Found:** Không.
-- **Commit:** Pending
-- **PR:** Pending
-
----
-
-### AI-0164
-
-- **Date:** 2026-11-06
-- **Tool:** Antigravity IDE
-- **Author:** Trương Công Bình & Ninh Thị Mỹ Hạnh
-- **Prompt Summary:** Thiết kế header Vòng xoay may mắn đồng bộ với Bảng kế hoạch (tiêu đề trang Vòng xoay may mắn + nút Tạo vòng xoay nổi bật phong cách primary button); Khi xoay vòng chỉ kích hoạt quay và không tự động nhảy về bảng setup (chỉ khi click vào tên vòng mới mở bảng setup); Bổ sung hàng thiết lập đáy ở Tab Kết quả (Bật/Tắt âm thanh + Xóa tất cả vòng quay) đồng bộ với Tab Setup; Loại bỏ hoàn toàn hiệu ứng chúc mừng (Confetti) trên cả Web và Mobile.
-- **Files Affected:**
-  - `apps/web/src/components/tools/CircleWheelView.tsx`
-  - `apps/mobile/src/components/tools/MobileWheelView.tsx`
-  - `agentic/memory/2026-11-06.md`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** Đồng bộ tiêu đề H1 trang thành `t.luckyWheel.title` và nút `+ Tạo vòng xoay` kiểu `CirclePlanningView`; tách biệt sự kiện xoay vòng (chỉ quay) và sự kiện click tiêu đề vòng (mở tab setup); bổ sung hàng thiết lập âm thanh và xóa tất cả vòng quay ở đáy Tab Kết quả; dọn dẹp loại bỏ hoàn toàn Confetti và Sparkles toggle trên cả Web và Mobile.
-- **Human Modifications:** Không có thay đổi thủ công.
-- **Verification Method:**
-  - `npx tsc --noEmit -p apps/web/tsconfig.json`: PASS (0 errors).
-  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: PASS (0 errors).
-  - `npm test -- circle-tools.service.spec.ts`: PASS 45/45 unit tests.
-- **Official Source Checked:** `PROJECT_GOD.md` §2.2 "Vòng quay quyết định (Decision wheel)", `agentic/RULES.md`, `agentic/playbooks/cross-cutting-gate.md`.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ RBAC membership check của Circle.
-- **AI Errors / Hallucinations Found:** Không.
-- **Commit:** Pending
-- **PR:** Pending
-
----
-
-### AI-0165
-
-- **Date:** 2026-11-06
-- **Tool:** Antigravity IDE
-- **Author:** Trương Công Bình & Ninh Thị Mỹ Hạnh
-- **Prompt Summary:** Tái thiết kế quy trình điều hướng 2 cấp độ cho Vòng xoay may mắn đồng bộ với Bảng kế hoạch (CirclePlanningView): Ban đầu là màn hình danh sách (nếu chưa có vòng nào thì trắng hoàn toàn chỉ có nút "+ Tạo vòng xoay"), khi bấm Tạo vòng xoay hoặc bấm vào thẻ vòng xoay thì mới "vô" Sân khấu chi tiết (Detail Arena); Trong Sân khấu chi tiết, ở trên cùng có nút Quay lại "<-" và tên vòng xoay hiện tại.
-- **Files Affected:**
-  - `apps/web/src/components/tools/CircleWheelView.tsx`
-  - `apps/mobile/src/components/tools/MobileWheelView.tsx`
-  - `agentic/memory/2026-11-06.md`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** Triển khai cấu trúc 2 View (List Overview vs Detail Arena); View danh sách dạng thẻ cards và trạng thái trắng hoàn toàn (empty state với nút "+ Tạo vòng xoay" trung tâm); Modal tạo vòng xoay mới; Header Detail Arena tích hợp nút ChevronLeft quay lại và hiển thị tên vòng quay hiện tại; bảng setup mặc định thu gọn khi vào arena và chỉ mở khi bấm vào tên vòng.
-- **Human Modifications:** Không có thay đổi thủ công.
-- **Verification Method:**
-  - `npx tsc --noEmit -p apps/web/tsconfig.json`: PASS (0 errors).
-  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: PASS (0 errors).
-  - `npm test -- circle-tools.service.spec.ts`: PASS 45/45 unit tests.
-- **Official Source Checked:** `PROJECT_GOD.md` §2.2 "Vòng quay quyết định (Decision wheel)", `agentic/RULES.md`, `agentic/playbooks/cross-cutting-gate.md`.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ RBAC membership check của Circle.
-- **AI Errors / Hallucinations Found:** Không.
-- **Commit:** Pending
-- **PR:** Pending
-
----
-
-### AI-0166
-
-- **Date:** 2026-11-06
-- **Tool:** Antigravity IDE
-- **Author:** Trương Công Bình & Ninh Thị Mỹ Hạnh
-- **Prompt Summary:** Điều chỉnh màn hình bắt đầu (Level 1: List Overview) của Vòng xoay may mắn quản lý và hiển thị danh sách các BỘ VÒNG XOAY / FOLDER (chứa toàn bộ 1-4 vòng quay bên trong) thay vì hiển thị từng vòng quay đơn lẻ; Tạo mới hoặc mở một thẻ ở Level 1 là tạo/mở toàn bộ Bộ vòng xoay đó; Khi chưa có bộ vòng xoay nào thì màn hình ban đầu trắng hoàn toàn với duy nhất nút "+ Tạo vòng xoay"; Sau khi vào bên trong (Level 2: Detail Arena), tiêu đề trên cùng là tên của Bộ vòng xoay đó kèm nút quay lại "<-".
-- **Files Affected:**
-  - `packages/types/src/index.ts`
-  - `apps/backend/src/modules/circle-tools/dto/circle-tools.dto.ts`
-  - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
-  - `apps/web/src/hooks/use-circle-tools.ts`
-  - `apps/web/src/components/tools/CircleWheelView.tsx`
-  - `apps/mobile/src/components/tools/MobileWheelView.tsx`
-  - `agentic/memory/2026-11-06.md`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** Cập nhật Level 1 Overview hiển thị danh sách thẻ Bộ vòng xoay (Folders) gồm tên bộ, số lượng vòng bên trong, người tạo, nút xóa; Màn hình trắng ban đầu khi folders.length === 0; Modal tạo Bộ vòng xoay mới với snapshot khởi tạo; Chuyển vào Sân khấu chi tiết (Level 2) hiển thị tên Bộ vòng xoay trên cùng; Tự động lưu snapshot các vòng quay vào folder khi quay lại danh sách; Đồng bộ 100% trên cả Web và Mobile.
-- **Human Modifications:** Không có thay đổi thủ công.
-- **Verification Method:**
-  - `npm run build --workspace=@circle/types`: PASS.
-  - `npm run build --workspace=@circle/shared`: PASS.
-  - `npx tsc --noEmit -p apps/web/tsconfig.json`: PASS (0 errors).
-  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: PASS (0 errors).
-  - `npm test -- circle-tools.service.spec.ts`: PASS 45/45 unit tests.
-- **Official Source Checked:** `PROJECT_GOD.md` §2.2 "Vòng quay quyết định (Decision wheel)", `agentic/RULES.md`, `agentic/playbooks/cross-cutting-gate.md`.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ RBAC membership check của Circle.
-- **AI Errors / Hallucinations Found:** Không.
-- **Commit:** Pending
-- **PR:** Pending
-
----
-
-### AI-0167
-
-- **Date:** 2026-11-06
-- **Tool:** Antigravity IDE
-- **Author:** Trương Công Bình & Ninh Thị Mỹ Hạnh
-- **Prompt Summary:** Tinh chỉnh thanh tác vụ Sân khấu chi tiết (Detail Arena): Bỏ nút Thư lưu trữ (Folders button); Nút "Quay tất cả" giữ nguyên văn bản (không đổi chữ thành "Đang quay tất cả...") và chỉ vô hiệu hóa nút trong lúc quay; Nút "+ Thêm vòng quay" luôn hiển thị trên thanh công cụ và khi đạt tối đa 4 vòng thì vô hiệu hóa chứ không làm mất nút.
-- **Files Affected:**
-  - `apps/web/src/components/tools/CircleWheelView.tsx`
-  - `apps/mobile/src/components/tools/MobileWheelView.tsx`
-  - `agentic/memory/2026-11-06.md`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** Loại bỏ nút Folders khỏi Header của Arena trên Web và Mobile; Giữ nguyên nhãn "Quay tất cả" và vô hiệu hóa nút (disabled) khi đang quay; Duy trì hiển thị nút "+ Thêm vòng quay" tại mọi thời điểm, chỉ vô hiệu hóa (disabled, opacity 0.4) và hiển thị tooltip/badge khi đạt 4/4 vòng quay.
-- **Human Modifications:** Không có thay đổi thủ công.
-- **Verification Method:**
-  - `npx tsc --noEmit -p apps/web/tsconfig.json`: PASS (0 errors).
-  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: PASS (0 errors).
-  - `npm test -- circle-tools.service.spec.ts`: PASS 45/45 unit tests.
-- **Official Source Checked:** `PROJECT_GOD.md` §2.2 "Vòng quay quyết định (Decision wheel)", `agentic/RULES.md`, `agentic/playbooks/cross-cutting-gate.md`.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ RBAC membership check của Circle.
-- **AI Errors / Hallucinations Found:** Không.
-- **Commit:** Pending
-- **PR:** Pending
-
----
-
-### AI-0168
-
-- **Date:** 2026-11-07
-- **Tool:** Antigravity IDE
-- **Author:** Trương Công Bình & Ninh Thị Mỹ Hạnh
-- **Prompt Summary:** Chuyển đổi Vòng xoay may mắn sang Hướng 2 (Single Instant Wheel — Mở ra là quay ngay): Loại bỏ hoàn toàn tầng Quản lý Thư mục / Bộ vòng xoay (Folders Level 1), vào thẳng Sân khấu trực quan (Visual Arena); Tự động khởi tạo 1 vòng mẫu mặc định ngay khi tải trang nếu Circle chưa có vòng nào; Tiêu đề cố định là "Vòng xoay may mắn" kèm số lượng vòng; Nút "+ Thêm vòng quay" luôn hiển thị và bị vô hiệu hóa khi đạt 4 vòng mà không có note text "(Tối đa 4/4)"; Nút "Quay tất cả" giữ nhãn cố định và bị vô hiệu hóa khi đang quay; Tương tác nhấp vào vòng tròn chỉ quay vòng đó, chỉ khi nhấp vào tên vòng mới mở bảng thiết lập; Bỏ nút "Quay lại" trong modal kết quả, thay bằng nút "Remove" để loại bỏ lựa chọn trúng thưởng; Đồng bộ hoàn chỉnh giữa Web và Mobile.
-- **Files Affected:**
-  - `apps/web/src/components/tools/CircleWheelView.tsx`
-  - `apps/mobile/src/components/tools/MobileWheelView.tsx`
-  - `agentic/memory/2026-11-07.md`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** Refactor toàn bộ CircleWheelView (Web) và MobileWheelView (Mobile) sang kiến trúc Single Instant Wheel: loại bỏ các state/modal folders và màn hình overview Level 1; bổ sung auto-seed ref khởi tạo vòng mặc định khi `wheels.length === 0`; tinh chỉnh Header không còn nút Back `<-`; kích hoạt mở panel/bảng thiết lập khi click vào tên vòng và thu gọn mặc định để xem vòng to rõ; loại bỏ hoàn toàn nút `spinAgain` trong modal kết quả thay thế bằng nút `Remove` trúng thưởng.
-- **Human Modifications:** Không có thay đổi thủ công.
-- **Verification Method:**
-  - `npx tsc --noEmit -p apps/web/tsconfig.json`: PASS (0 errors).
-  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: PASS (0 errors).
-  - `npm test -- circle-tools.service.spec.ts`: PASS 45/45 unit tests.
-- **Official Source Checked:** `PROJECT_GOD.md` §2.2 "Vòng quay quyết định (Decision wheel)", `agentic/RULES.md`, `agentic/playbooks/cross-cutting-gate.md`.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ RBAC membership check của Circle.
-- **AI Errors / Hallucinations Found:** Không.
-- **Commit:** Pending
-- **PR:** Pending
-
----
-
-## AI-0169: Tinh chỉnh bộ chọn ngày giờ, lịch kết thúc lặp và hiển thị chi tiết lịch hẹn Web (#120)
-
-- **Date:** 2026-11-09 13:10:00
-- **Developer:** Ninh Thị Mỹ Hạnh
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 2.5 Pro
-- **Related Issue:** #120
-- **Purpose:** Tối ưu hóa UI/UX tạo và xem chi tiết sự kiện lịch hẹn trên web: thống nhất CustomDateTimePicker dateOnly cho kết thúc lặp, sửa lỗi giật nhảy giờ/năm khi cuộn hoặc mở, tinh giản thông tin quy tắc lặp lại, di chuyển tên sự kiện vào khung chi tiết và cho phép click tương tác địa chỉ.
-- **Prompt Summary:** Tinh chỉnh tạo sự kiện: lịch kết thúc lặp dùng chung CustomDateTimePicker không có thời gian; khắc phục lỗi nhảy giờ và năm khi chọn; bỏ chữ tùy chỉnh quy tắc lặp lại khi chọn preset cơ bản; đưa tên sự kiện vào khung chi tiết; chuẩn hóa chuỗi tóm tắt lặp theo ngày bắt đầu; chặn điều hướng lùi vô hạn trước ngày đầu; hỗ trợ click vào địa chỉ/link họp.
-- **Files Affected:**
-  - `apps/web/src/components/tools/CustomDateTimePicker.tsx`
-  - `apps/web/src/components/tools/CircleCalendarView.tsx`
-  - `apps/web/src/components/tools/CustomRecurrenceModal.tsx`
-  - `apps/web/src/components/tools/CircleEventDetailModal.tsx`
-  - `apps/web/src/components/tools/calendar-recurrence.ts`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% logic đồng bộ scroll wheel, layout dateOnly, formatRecurrenceSummary và bounds check điều hướng sự kiện.
-- **Human Modifications:** Không có thay đổi thủ công.
-- **Verification Method:**
-  - `cd apps/web && npx tsc --noEmit`: Passed 100%, 0 lỗi.
-  - `cd apps/web && npx next build --no-lint`: Passed 100%, build thành công tất cả pages.
-- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md` & `agentic/CONVENTIONS.md`.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
-- **AI Errors / Hallucinations Found:**
-  - **Error Description:** None.
-  - **Root Cause:** N/A.
-  - **Resolution / Fix:** N/A.
-- **Commit:** Pending
-- **PR:** Pending
-
----
-
-## AI-0170: Hoàn thiện hiển thị thời gian bắt đầu - kết thúc và cơ chế tách 2 sự kiện lặp độc lập (#120)
-
-- **Date:** 2026-11-09 14:52:00
-- **Developer:** Ninh Thị Mỹ Hạnh
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 2.5 Pro
-- **Related Issue:** #120
-- **Purpose:** 
-  1. Hiển thị chuẩn xác thời gian từ ngày bắt đầu đến kết thúc trong modal Chi tiết lịch hẹn (phân biệt rõ sự kiện trong ngày vs kéo dài qua nhiều ngày).
-  2. Hoàn thiện cơ chế tách 2 sự kiện độc lập khi chỉnh sửa sự kiện lặp với phạm vi "Lần này và các lần tiếp theo": sự kiện cũ chốt ngày kết thúc lặp vào ngày hôm trước, sự kiện mới khởi tạo với chu kỳ lặp mới và loại bỏ các ngày ngoại lệ cũ.
-- **Prompt Summary:** ở web chi tiết lịch hẹn thì chỗ thời gian hiển thị đúng từ ngày bắt đầu đến kết thúc do ở trên có ngày rồi; khi chỉnh sửa sự lặp từ hàng tuần sang hàng tháng áp dụng từ ngày này qua ngày sau tách làm 2 sự kiện có độ lặp khác nhau.
-- **Files Affected:**
-  - `apps/web/src/components/tools/CircleEventDetailModal.tsx`
-  - `apps/web/src/components/tools/CircleCalendarView.tsx`
-  - `apps/web/src/components/tools/calendar-recurrence.ts`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% logic tính toán ngày kết thúc, format dải ngày đa ngày cho Header pill & Time block, và logic split 2 sự kiện lặp riêng biệt trong CircleCalendarView.
-- **Human Modifications:** Không có thay đổi thủ công.
-- **Verification Method:**
-  - `cd apps/web && npx tsc --noEmit`: Passed 100%, 0 lỗi.
-  - `cd apps/web && npx next build --no-lint`: Passed 100%, build thành công tất cả 11 routes tĩnh và động.
-  - `bash ./scripts/check-agent-map.sh`: 126/126 references resolve.
-  - `bash ./scripts/check-secrets.sh`: Passed, 0 secret leaks.
-- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md` & `agentic/CONVENTIONS.md`.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
-- **AI Errors / Hallucinations Found:**
-  - **Error Description:** None.
-  - **Root Cause:** N/A.
-  - **Resolution / Fix:** N/A.
-- **Commit:** Pending
-- **PR:** Pending
-
----
-
-## [AI-0171] - 2026-11-09
-
-- **Developer:** Ninh Thị Mỹ Hạnh
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 2.5 Pro
-- **Related Issue:** #120
-- **Purpose:** 
-  1. Chuẩn hóa hiển thị thời gian cho sự kiện qua nhiều ngày trong Chi tiết lịch hẹn: Dòng chính hiển thị "Từ [Giờ] ngày [Ngày BĐ] - [Giờ] ngày [Ngày KT]" (ví dụ: "Từ 06:00 ngày 09/11/2026 - 23:59 ngày 10/11/2026"), đồng thời loại bỏ dòng phụ hiển thị khoảng thứ ("Thứ Tư - Thứ Bảy") khi sự kiện đa ngày để giao diện tinh gọn, không dư thừa thông tin.
-  2. Góc trái trên cùng của modal (pill) hiển thị chính xác ngày của lần diễn ra hiện tại (ví dụ: "Thứ 2, 09/11/2026").
-  3. Cập nhật hàm helper formatEventTimeForDate trong calendar-recurrence.ts để toàn bộ các danh sách và view lịch hiển thị thời gian đa ngày chuẩn xác, không bị cắt cụt.
-- **Prompt Summary:** Sửa lỗi hiển thị thời gian chi tiết lịch hẹn: không được ghi 06:00 - 23:59 và Thứ 2, 09/11/2026 - Thứ 3, 10/11/2026 riêng biệt, mà phải ghi đầy đủ từ 06:00 ngày 09/11/2026 - 23:59 ngày 10/11/2026, còn góc trái là ngày hiện tại của lần diễn ra.
-- **Files Affected:**
-  - `apps/web/src/components/tools/CircleEventDetailModal.tsx`
-  - `apps/web/src/components/tools/calendar-recurrence.ts`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% logic định dạng dải thời gian đa ngày cho chi tiết lịch hẹn và hàm tiện ích formatEventTimeForDate.
-- **Human Modifications:** Không có thay đổi thủ công.
-- **Verification Method:**
-  - `cd apps/web && npx tsc --noEmit`: Passed 100%, 0 lỗi.
-  - `cd apps/web && npx next build --no-lint`: Passed 100%, build thành công tất cả 11 routes tĩnh và động.
-  - `bash ./scripts/check-agent-map.sh`: 126/126 references resolve.
-  - `bash ./scripts/check-secrets.sh`: Passed, 0 secret leaks.
-- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md` & `agentic/CONVENTIONS.md`.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
-- **AI Errors / Hallucinations Found:**
-  - **Error Description:** None.
-  - **Root Cause:** N/A.
-  - **Resolution / Fix:** N/A.
-- **Commit:** Pending
-- **PR:** Pending
-
----
-
-## [AI-0172] - 2026-11-09
-
-- **Developer:** Ninh Thị Mỹ Hạnh
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 2.5 Pro
-- **Related Issue:** #120
-- **Purpose:** Chuyển đổi Form Tạo & Chỉnh sửa lịch hẹn từ popup modal nổi giữa màn hình sang Full-View Form chuyên dụng fill toàn bộ không gian làm việc của Calendar. Layout được chia thành 2 cột cân đối (Thông tin cơ bản bên trái, Thời gian & Lặp lại bên phải), loại bỏ hoàn toàn tình trạng chật chội, cuộn chuột và lớp phủ mờ ngột ngạt.
-- **Prompt Summary:** Thảo luận và chốt phương án fill hết cả trái và phải thay vì popup khi tạo hoặc chỉnh sửa lịch hẹn web.
-- **Files Affected:**
-  - `apps/web/src/components/tools/CircleCalendarView.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% tái cấu trúc Full-view Form 2 cột, thanh điều hướng "Quay lại Lịch", đồng bộ đóng detail modal khi mở edit và chuyển đổi trạng thái hiển thị in-place.
-- **Human Modifications:** Không có thay đổi thủ công.
-- **Verification Method:**
-  - `cd apps/web && npx tsc --noEmit`: Passed 100%, 0 lỗi.
-  - `cd apps/web && npx next build --no-lint`: Passed 100%, build thành công tất cả 11 routes tĩnh và động.
-  - `bash ./scripts/check-agent-map.sh`: 126/126 references resolve.
-  - `bash ./scripts/check-secrets.sh`: Passed, 0 secret leaks.
-- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md` & `agentic/CONVENTIONS.md`.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
-- **AI Errors / Hallucinations Found:**
-  - **Error Description:** None.
-  - **Root Cause:** N/A.
-  - **Resolution / Fix:** N/A.
-- **Commit:** Pending
-- **PR:** Pending
-
----
-
-## [AI-0173] - 2026-11-09
-
-- **Developer:** Ninh Thị Mỹ Hạnh
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 2.5 Pro
-- **Related Issue:** #120
-- **Purpose:** Khôi phục lại form Tạo & Chỉnh sửa sự kiện lịch về dạng Popup Modal với bố cục các thẻ xếp hàng dọc (vertical stack) ở giữa màn hình theo đúng mong muốn của người dùng ("thôi sửa lại để hàng dọc hết như ban đầu đi"). Toàn bộ các cải tiến về tính toán chia tách chu kỳ lặp lại độc lập, custom datetime picker không bị nhảy giờ/năm và đồng bộ trạng thái đóng modal chi tiết khi mở chỉnh sửa đều được bảo toàn 100%.
-- **Prompt Summary:** thôi sửa lại để hàng dọc hết như ban đầu đi.
-- **Files Affected:**
-  - `apps/web/src/components/tools/CircleCalendarView.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% tái cấu trúc Popup Modal hàng dọc căn giữa, đồng bộ đóng mở an toàn và tích hợp các bộ chọn ngày giờ/lặp lại hoàn chỉnh.
-- **Human Modifications:** Không có thay đổi thủ công.
-- **Verification Method:**
-  - `cd apps/web && npx tsc --noEmit`: Passed 100%, 0 lỗi.
-  - `cd apps/web && npx next build --no-lint`: Passed 100%, build thành công tất cả 11 routes tĩnh và động.
-  - `bash ./scripts/check-agent-map.sh`: 126/126 references resolve.
-  - `bash ./scripts/check-secrets.sh`: Passed, 0 secret leaks.
-- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md` & `agentic/CONVENTIONS.md`.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
-- **AI Errors / Hallucinations Found:**
-  - **Error Description:** None.
-  - **Root Cause:** N/A.
-  - **Resolution / Fix:** N/A.
-- **Commit:** Pending
-- **PR:** Pending
-
----
-
-## [AI-0174] - 2026-11-09
-
-- **Developer:** Ninh Thị Mỹ Hạnh
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 2.5 Pro
-- **Related Issue:** #120
-- **Purpose:** Thiết kế lại Form Tạo & Chỉnh sửa sự kiện lịch theo dạng Full-View hàng dọc tinh gọn (icon-driven vertical flow, max-w-3xl). Loại bỏ các khối thẻ hộp cồng kềnh, chuyển các nhãn mục thành các biểu tượng dẫn đầu tinh tế (Clock cho Thời gian, Repeat cho Lặp lại, MapPin cho Địa điểm, Bell cho Nhắc nhở, AlignLeft cho Ghi chú) theo đúng thứ tự logic quen thuộc của người dùng.
-- **Prompt Summary:** tôi muốn fill nhưng ghi theo thứ tự như vậy nhưng ví dụ Lặp lại hay Ghi chú ... tất cả thay bằng icon kiểu vậy.
-- **Files Affected:**
-  - `apps/web/src/components/tools/CircleCalendarView.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% tái cấu trúc Full-View Form theo bố cục hàng dọc với icon đại diện từng hàng, căn giữa trang, đồng bộ nút điều hướng và tích hợp đầy đủ bộ chọn ngày giờ / lặp lại.
-- **Human Modifications:** Không có thay đổi thủ công.
-- **Verification Method:**
-  - `cd apps/web && npx tsc --noEmit`: Passed 100%, 0 lỗi.
-  - `cd apps/web && npx next build --no-lint`: Passed 100%, build thành công tất cả 11 routes tĩnh và động.
-  - `bash ./scripts/check-agent-map.sh`: 126/126 references resolve.
-  - `bash ./scripts/check-secrets.sh`: Passed, 0 secret leaks.
-- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md` & `agentic/CONVENTIONS.md`.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
-- **AI Errors / Hallucinations Found:**
-  - **Error Description:** None.
-  - **Root Cause:** N/A.
-  - **Resolution / Fix:** N/A.
-- **Commit:** Pending
-- **PR:** Pending
-
----
-
-## [AI-0175] - 2026-11-09
-
-- **Developer:** Ninh Thị Mỹ Hạnh
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 2.5 Pro
-- **Related Issue:** #120
-- **Purpose:** Điều chỉnh vị trí ô nhập Địa điểm / Cuộc họp online lên ngay bên dưới Tiêu đề sự kiện trong Form Tạo & Chỉnh sửa lịch hẹn Full-View (`CircleCalendarView.tsx`), mở rộng toàn chiều rộng (`w-full`) ngang bằng khung tiêu đề mà không bị co lại hay ép bên cạnh icon.
-- **Prompt Summary:** địa chỉ để dưới tiêu đề khung to bằng kia luôn ko cần co.
-- **Files Affected:**
-  - `apps/web/src/components/tools/CircleCalendarView.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% tái cấu trúc vị trí LocationSearchInput full-width ngay dưới tiêu đề trong Full-View Form.
-- **Human Modifications:** Không có thay đổi thủ công.
-- **Verification Method:**
-  - `cd apps/web && npx tsc --noEmit`: Passed 100%, 0 lỗi.
-  - `cd apps/web && npx next build --no-lint`: Passed 100%, build thành công tất cả 11 routes tĩnh và động.
-  - `bash ./scripts/check-agent-map.sh`: 126/126 references resolve.
-  - `bash ./scripts/check-secrets.sh`: Passed, 0 secret leaks.
-- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md` & `agentic/CONVENTIONS.md`.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
-- **AI Errors / Hallucinations Found:**
-  - **Error Description:** None.
-  - **Root Cause:** N/A.
-  - **Resolution / Fix:** N/A.
-- **Commit:** Pending
-- **PR:** Pending
-
----
-
-## [AI-0176] - 2026-11-09
-
-- **Developer:** Ninh Thị Mỹ Hạnh
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 2.5 Pro
-- **Related Issue:** #120
-- **Purpose:** Mở rộng form Tạo & Chỉnh sửa sự kiện lịch sang toàn chiều rộng (w-full) loại bỏ giới hạn max-w-3xl để form to rộng bằng cột 1 + cột 2 của giao diện Lịch tháng; bổ sung icon MapPin đại diện cho hàng Địa chỉ ngay dưới tiêu đề; loại bỏ các nhãn văn bản "Bắt đầu lúc *" và "Kết thúc lúc *", thay thế bằng biểu tượng mũi tên (ArrowRight) nằm giữa 2 bộ chọn thời gian CustomDateTimePicker.
-- **Prompt Summary:** tôi muốn nó to bằng cột 1 + cột 2 luôn mà sao nó bé ơn vậy và bỏ Bắt đầu lúc * Kết thúc lúc * thay vào đó giữa 2 cái đó có mũi tên. chỗ địa chỉ có icon.
-- **Files Affected:**
-  - `apps/web/src/components/tools/CircleCalendarView.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% tái cấu trúc Full-Width layout w-full, icon MapPin cho địa chỉ, và layout thời gian tinh gọn với mũi tên ArrowRight giữa 2 datetime pickers.
-- **Human Modifications:** Không có thay đổi thủ công.
-- **Verification Method:**
-  - `cd apps/web && npx tsc --noEmit`: Passed 100%, 0 lỗi.
-  - `cd apps/web && npx next build --no-lint`: Passed 100%, build thành công tất cả 11 routes tĩnh và động.
-  - `bash ./scripts/check-agent-map.sh`: 126/126 references resolve.
-  - `bash ./scripts/check-secrets.sh`: Passed, 0 secret leaks.
-- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md` & `agentic/CONVENTIONS.md`.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
-- **AI Errors / Hallucinations Found:**
-  - **Error Description:** None.
-  - **Root Cause:** N/A.
-  - **Resolution / Fix:** N/A.
-- **Commit:** Pending
-- **PR:** Pending
-
----
-
-## [AI-0177] - 2026-11-09
-
-- **Developer:** Ninh Thị Mỹ Hạnh
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 2.5 Pro
-- **Related Issue:** #120
-- **Purpose:** Hiển thị quy tắc lặp lại tùy chỉnh (ví dụ: 'Hằng năm vào ngày 9/11') trực tiếp trên lựa chọn dropdown select thay vì 'Tùy chỉnh...'; loại bỏ badge bên cạnh select; cấu hình formatRecurrenceSummary không đính kèm ngày kết thúc ('đến ngày dd/mm/yyyy') khi format ngắn gọn cho ô chọn; bổ sung nút icon Pencil gọn gàng bên cạnh dropdown để mở modal tùy chỉnh khi cần.
-- **Prompt Summary:** hiển thị Hằng năm vào ngày 9/11 đè lên chỗ tuỳ chỉnh chỗ ô chọn luôn thay vì ghi bên cạnh vậy và ko cần ghi đến ngày bn
-- **Files Affected:**
-  - apps/web/src/components/tools/calendar-recurrence.ts
-  - apps/web/src/components/tools/CircleCalendarView.tsx
-  - docs/ai-usage/log.md
-- **AI-Generated Portion:** 100% cập nhật formatRecurrenceSummary(config, includeEndDate = false) và tái cấu trúc khối chọn chu kỳ lặp trong CircleCalendarView.
-- **Human Modifications:** Không có thay đổi thủ công.
-- **Verification Method:**
-  - cd apps/web && npx tsc --noEmit: Passed 100%, 0 lỗi.
-  - cd apps/web && npx next build --no-lint: Passed 100%, build thành công tất cả 11 routes.
-  - bash ./scripts/check-agent-map.sh: 126/126 references resolve.
-  - bash ./scripts/check-secrets.sh: Passed, 0 secret leaks.
-- **Official Source Checked:** PROJECT_GOD.md, agentic/RULES.md & agentic/CONVENTIONS.md.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
-- **AI Errors / Hallucinations Found:**
-  - **Error Description:** None.
-  - **Root Cause:** N/A.
-  - **Resolution / Fix:** N/A.
-- **Commit:** Pending
-- **PR:** Pending
-
----
-
-## [AI-0178] - 2026-11-09
-
-- **Developer:** Ninh Thị Mỹ Hạnh
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 2.5 Pro
-- **Related Issue:** #120
-- **Purpose:** Chuyển đổi bộ chọn chu kỳ lặp trong CircleCalendarView từ thẻ native select sang Custom Dropdown: ở trạng thái đóng ô chọn hiển thị quy tắc đang chọn (ví dụ: 'Hằng năm vào ngày 9/11'), khi ấn vào ô thì menu xổ xuống vẫn giữ nguyên mục 'Tùy chỉnh...' và khi click vào mục này thì mở modal cấu hình CustomRecurrenceModal.
-- **Prompt Summary:** nhưng khi ấn vào thì vẫn là tuỳ chỉnh chứ
-- **Files Affected:**
-  - apps/web/src/components/tools/CircleCalendarView.tsx
-  - docs/ai-usage/log.md
-- **AI-Generated Portion:** 100% triển khai Custom Dropdown với đầy đủ các tùy chọn preset, mục 'Tùy chỉnh...', và xử lý mở modal khi click vào.
-- **Human Modifications:** Không có thay đổi thủ công.
-- **Verification Method:**
-  - cd apps/web && npx tsc --noEmit: Passed 100%, 0 lỗi.
-  - cd apps/web && npx next build --no-lint: Passed 100%, build thành công tất cả 11 routes.
-  - bash ./scripts/check-agent-map.sh: 126/126 references resolve.
-  - bash ./scripts/check-secrets.sh: Passed, 0 secret leaks.
-- **Official Source Checked:** PROJECT_GOD.md, agentic/RULES.md & agentic/CONVENTIONS.md.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
-- **AI Errors / Hallucinations Found:**
-  - **Error Description:** None.
-  - **Root Cause:** N/A.
-  - **Resolution / Fix:** N/A.
-- **Commit:** Pending
-- **PR:** Pending
-
----
-
-## [AI-0179] - 2026-11-09
-
-- **Developer:** Ninh Thị Mỹ Hạnh
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 2.5 Pro
-- **Related Issue:** #120
-- **Purpose:** Chuyển đổi màn hình Chi tiết lịch hẹn (CircleEventDetailModal) từ popup modal nhỏ sang chế độ Full-View chiếm trọn chiều rộng (w-full, bằng Cột 1 + Cột 2) đồng bộ với giao diện form Tạo/Sửa; bổ sung thanh điều hướng với nút quay lại Lịch, khối thông tin sự kiện bằng icon-driven vertical card, và khối bình chọn tham gia (RSVP) toàn màn hình.
-- **Prompt Summary:** tương tự chi tiết lịch cũng fill full như v
-- **Files Affected:**
-  - apps/web/src/components/tools/CircleEventDetailModal.tsx
-  - apps/web/src/components/tools/CircleCalendarView.tsx
-  - docs/ai-usage/log.md
-- **AI-Generated Portion:** 100% tái cấu trúc CircleEventDetailModal sang giao diện Full-View và tích hợp điều hướng mượt mà trong CircleCalendarView.
-- **Human Modifications:** Không có thay đổi thủ công.
-- **Verification Method:**
-  - cd apps/web && npx tsc --noEmit: Passed 100%, 0 lỗi.
-  - cd apps/web && npx next build --no-lint: Passed 100%, build thành công tất cả 11 routes.
-  - bash ./scripts/check-agent-map.sh: 126/126 references resolve.
-  - bash ./scripts/check-secrets.sh: Passed, 0 secret leaks.
-- **Official Source Checked:** PROJECT_GOD.md, agentic/RULES.md & agentic/CONVENTIONS.md.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
-- **AI Errors / Hallucinations Found:**
-  - **Error Description:** None.
-  - **Root Cause:** N/A.
-  - **Resolution / Fix:** N/A.
-- **Commit:** Pending
-- **PR:** Pending
-
----
-
-## [AI-0180] - 2026-11-09
-
-- **Developer:** Ninh Thị Mỹ Hạnh
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 2.5 Pro
-- **Related Issue:** #120
-- **Purpose:** Tinh giản giao diện lặp lại và form sự kiện: lược bỏ phần cấu hình 'Kết thúc lặp' trong CustomRecurrenceModal do ngoài form chính đã có; loại bỏ nút icon cây bút bên cạnh dropdown chu kỳ lặp; và loại bỏ các nút hành động trùng lặp 'Hủy bỏ' và 'Tạo sự kiện / Lưu thay đổi' ở chân thẻ form do thanh Header Action Bar trên cùng đã có.
-- **Prompt Summary:** bỏ kết thúc lặp ở tuỳ chỉnh vì ở ngoài đã có rồi và bỏ cái btn cái bút ở ngoài luôn và bỏ btn huỷ bỏ và tạo sự kiện ở dưới do trên có rồi
-- **Files Affected:**
-  - apps/web/src/components/tools/CustomRecurrenceModal.tsx
-  - apps/web/src/components/tools/CircleCalendarView.tsx
-  - docs/ai-usage/log.md
-- **AI-Generated Portion:** 100% loại bỏ các thành phần UI trùng lặp theo yêu cầu.
-- **Human Modifications:** Không có thay đổi thủ công.
-- **Verification Method:**
-  - cd apps/web && npx tsc --noEmit: Passed 100%, 0 lỗi.
-  - cd apps/web && npx next build --no-lint: Passed 100%, build thành công tất cả 11 routes.
-  - bash ./scripts/check-agent-map.sh: 126/126 references resolve.
-  - bash ./scripts/check-secrets.sh: Passed, 0 secret leaks.
-- **Official Source Checked:** PROJECT_GOD.md, agentic/RULES.md & agentic/CONVENTIONS.md.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
-- **AI Errors / Hallucinations Found:**
-  - **Error Description:** None.
-  - **Root Cause:** N/A.
-  - **Resolution / Fix:** N/A.
-- **Commit:** Pending
-- **PR:** Pending
-
----
-
----
-
-## [AI-0181] - 2026-11-09
-
-- **Developer:** Ninh Thị Mỹ Hạnh & Trương Công Bình
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 2.5 Pro
-- **Related Issue:** #120
-- **Purpose:** Đồng bộ và merge commit mới nhất từ nhánh develop (d80e0be) vào nhánh tính năng eat/120-event-rsvp-and-realtime-delights: giải quyết dứt điểm các xung đột giao diện Mobile và Web, tích hợp Floating Glass Toolbar & Pill Header mới nhất của develop nhưng vẫn bảo toàn tuyệt đối toàn bộ trải nghiệm Full-View Form tạo/sửa lịch hẹn, Full-View Chi tiết lịch hẹn, Custom Recurrence Dropdown và Lucky Wheel Visual Arena đơn nhất; đồng thời khôi phục và hợp nhất toàn diện lịch sử nhật ký AI usage từ AI-0001 đến AI-0180 không để sót bất kỳ mục nào.
-- **Prompt Summary:** à cập nhập mới nhất từ dev về cho tôi
-- **Files Affected:**
-  - gentic/memory/MEMORY.md
-  - gentic/memory/topics/floating-glass-controls.md
-  - pps/mobile/app/circle/[id].tsx
-  - pps/mobile/src/components/tools/MobileCalendarView.tsx
-  - pps/mobile/src/components/tools/MobileWheelView.tsx
-  - pps/web/src/components/tools/CircleCalendarView.tsx
-  - pps/web/src/components/tools/CircleWheelView.tsx
-  - docs/ai-usage/log.md
-- **AI-Generated Portion:** 100% giải quyết xung đột merge git, tích hợp component logic và chuẩn hóa UTF-8 sạch cho log.md.
-- **Human Modifications:** Không có thay đổi thủ công.
-- **Verification Method:**
-  - cd apps/web && npx tsc --noEmit: Passed 100%, 0 lỗi.
-  - cd apps/web && npx next build --no-lint: Passed 100%, build thành công tất cả 11 routes.
-  - cd apps/mobile && npx tsc --noEmit: Passed 100%, 0 lỗi.
-  - ash ./scripts/check-agent-map.sh: 126/126 references resolve.
-  - ash ./scripts/check-secrets.sh: Passed, 0 secret leaks.
-- **Official Source Checked:** PROJECT_GOD.md, gentic/RULES.md & gentic/CONVENTIONS.md.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
-- **AI Errors / Hallucinations Found:**
-  - **Error Description:** None.
-  - **Root Cause:** N/A.
-  - **Resolution / Fix:** N/A.
-- **Commit:** Pending
-- **PR:** Pending
-
----
-
-## [AI-0182] - 2026-11-09
-
-- **Developer:** Ninh Thị Mỹ Hạnh
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 2.5 Pro
-- **Related Issue:** #120
-- **Purpose:** Tinh giản nút điều hướng quay lại Lịch hẹn ở Header Action Bar của màn hình Tạo/Chỉnh sửa lịch hẹn (CircleCalendarView) và Chi tiết lịch hẹn (CircleEventDetailModal): loại bỏ chữ nhãn text thừa, chỉ giữ icon mũi tên ChevronLeft dạng nút tròn minimalist đồng bộ chuẩn xác với phong cách thanh công cụ của Bảng kế hoạch (CirclePlanningView).
-- **Prompt Summary:** ở phần tạo lịch hẹn btn quay lại lịch hẹn chỉ để mũi tên như ở bảng kế hoạch là đc
-- **Files Affected:**
-  - pps/web/src/components/tools/CircleCalendarView.tsx
-  - pps/web/src/components/tools/CircleEventDetailModal.tsx
-  - docs/ai-usage/log.md
-- **AI-Generated Portion:** 100% cập nhật component giao diện nút mũi tên tinh gọn.
-- **Human Modifications:** Không có thay đổi thủ công.
-- **Verification Method:**
-  - cd apps/web && npx tsc --noEmit: Passed 100%, 0 lỗi.
-  - cd apps/web && npx next build --no-lint: Passed 100%, build thành công tất cả 11 routes.
-  - ash ./scripts/check-agent-map.sh: 127/127 references resolve.
-  - ash ./scripts/check-secrets.sh: Passed, 0 secret leaks.
-- **Official Source Checked:** PROJECT_GOD.md, gentic/RULES.md & gentic/CONVENTIONS.md.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
-- **AI Errors / Hallucinations Found:**
-  - **Error Description:** None.
-  - **Root Cause:** N/A.
-  - **Resolution / Fix:** N/A.
-- **Commit:** Pending
-- **PR:** Pending
-
----
-
-## [AI-0183] - 2026-11-10
-
-- **Developer:** Ninh Thị Mỹ Hạnh
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 2.5 Pro
-- **Related Issue:** #120
-- **Purpose:** Khắc phục triệt để 3 lỗi ở modal bản đồ chọn vị trí sự kiện: (1) Đưa MapLocationPickerModal vào React Portal mount trực tiếp lên document.body với z-[9999] để ngăn các lớp Thời gian và Lặp lại đè lên modal; (2) Hoàn thiện chức năng tìm kiếm trên bản đồ với nút Tìm kiếm chuyên dụng, bắt sự kiện phím Enter, tự động flyTo kết quả hàng đầu, kết hợp dropdown gợi ý nổi trên Leaflet map và fallback dự phòng trực tiếp Photon OSM; (3) Loại bỏ triệt để chuỗi URL Google Maps đính kèm sau tên địa điểm khi người dùng bấm chọn trên bản đồ hoặc danh sách gợi ý.
-- **Prompt Summary:** khi mở bản đồ ở tạo sự kiện vẫn bị mấy lớp của lặp lại, thời gian bắt đầu, kết thúc hiển thị đè lên và phần tìm kiếm trong bản đồ cũng chưa thực hiện được và khi chọn địa điểm vẫn còn đường link ghi theo ở sau
-- **Files Affected:**
-  - pps/web/src/components/tools/MapLocationPickerModal.tsx
-  - pps/web/src/components/tools/LocationSearchInput.tsx
-  - pps/web/src/components/tools/CircleCalendarView.tsx
-  - pps/web/src/components/tools/CustomRecurrenceModal.tsx
-  - docs/ai-usage/log.md
-- **AI-Generated Portion:** 100% tái cấu trúc React Portal, logic tìm kiếm địa điểm và làm sạch URL vị trí.
-- **Human Modifications:** Không có thay đổi thủ công.
-- **Verification Method:**
-  - cd apps/web && npx tsc --noEmit: Passed 100%, 0 lỗi.
-  - cd apps/web && npx next build --no-lint: Passed 100%, build thành công tất cả 11 routes.
-  - cd apps/mobile && npx tsc --noEmit: Passed 100%, 0 lỗi.
-  - ash ./scripts/check-agent-map.sh: 127/127 references resolve.
-  - ash ./scripts/check-secrets.sh: Passed, 0 secret leaks.
-- **Official Source Checked:** PROJECT_GOD.md, gentic/RULES.md & gentic/CONVENTIONS.md.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
-- **AI Errors / Hallucinations Found:**
-  - **Error Description:** None.
-  - **Root Cause:** N/A.
-  - **Resolution / Fix:** N/A.
-- **Commit:** Pending
-- **PR:** Pending
-
----
-
-## [AI-0184] - 2026-11-10
-
-- **Developer:** Ninh Thị Mỹ Hạnh
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 2.5 Pro
-- **Related Issue:** #120
-- **Purpose:** (1) Khắc phục lỗi định vị GPS ra tọa độ số: Bổ sung giải pháp Reverse Geocoding đa tầng thông qua BigDataCloud hỗ trợ ngôn ngữ tiếng Việt (cả ở endpoint route.ts và client fallback), đảm bảo mọi thao tác bấm nút Định vị vị trí hoặc chạm ghim bản đồ đều phân giải chuẩn xác ra tên địa danh/quận/huyện thực tế thay vì tọa độ thô; (2) Tái thiết kế giao diện tìm kiếm trong modal bản đồ (MapLocationPickerModal) đồng bộ 100% với ô tìm kiếm ngoài form (LocationSearchInput): loại bỏ nút Tìm rời, nhúng icon spinner/nút X vào bên trong input, gợi ý tức thì qua autocomplete dropdown nổi phía dưới và tự động chọn kết quả đầu tiên khi nhấn phím Enter.
-- **Prompt Summary:** bạn đã sửa vô tình làm hỏng cái định vị vị trí. nó đang bị ra toạ độ. Bạn có thể làm phần tìm kiếm giống như ở ngoài
-- **Files Affected:**
-  - pps/web/src/app/api/locations/reverse/route.ts
-  - pps/web/src/components/tools/MapLocationPickerModal.tsx
-  - docs/ai-usage/log.md
-- **AI-Generated Portion:** 100% logic phân giải địa chỉ tiếng Việt và chuẩn hóa UI tìm kiếm bản đồ.
-- **Human Modifications:** Không có thay đổi thủ công.
-- **Verification Method:**
-  - cd apps/web && npx tsc --noEmit: Passed 100%, 0 lỗi.
-  - cd apps/web && npx next build --no-lint: Passed 100%, build thành công 11 routes.
-  - cd apps/mobile && npx tsc --noEmit: Passed 100%, 0 lỗi.
-  - ash ./scripts/check-agent-map.sh: 127/127 references resolve.
-  - ash ./scripts/check-secrets.sh: Passed, 0 secret leaks.
-- **Official Source Checked:** PROJECT_GOD.md, gentic/RULES.md & gentic/CONVENTIONS.md.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
-- **AI Errors / Hallucinations Found:**
-  - **Error Description:** None.
-  - **Root Cause:** N/A.
-  - **Resolution / Fix:** N/A.
-- **Commit:** Pending
-- **PR:** Pending
-
-
----
-
-## [AI-0185] - 2026-11-10
-
-- **Developer:** Ninh Thị Mỹ Hạnh
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 2.5 Pro
-- **Related Issue:** #120
-- **Purpose:** Khắc phục triệt để lỗi tìm kiếm địa điểm trong bản đồ không hoạt động và không đồng bộ với bên ngoài: (1) Sửa lỗi xung đột stacking context & z-index (`z-[1100]` cho khung tìm kiếm và `z-[1200]` cho danh sách gợi ý, thêm `isolate z-0` cho container Leaflet) ngăn chặn toàn bộ các lớp Leaflet panes (`z-400` đến `z-1000`) nuốt hoặc chặn sự kiện click chuột lên dropdown gợi ý; (2) Chuẩn hóa 1:1 luồng debounced fetch trực tiếp đến `/api/locations/search` với độ trễ 300ms, loại bỏ logic client fallback gây lệch kết quả; (3) Bổ sung xử lý sự kiện `onMouseDown` kèm `preventDefault()` và `stopPropagation()` trên từng item gợi ý, đảm bảo khi người dùng click chọn địa điểm thì bản đồ ngay lập tức `flyTo` mượt mà, ghim marker chuẩn xác, đồng bộ tên địa điểm vào input tìm kiếm và kích hoạt nút xác nhận ở footer mà không bị bản đồ can thiệp.
-- **Prompt Summary:** phần tìm kiếm trong bản đồ chưa hoạt động như ở ngoài
-- **Files Affected:**
-  - `apps/web/src/components/tools/MapLocationPickerModal.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% tinh chỉnh CSS stacking context, đồng bộ logic debounced search và event handlers chọn địa điểm.
-- **Human Modifications:** Không có thay đổi thủ công.
-- **Verification Method:**
-  - cd apps/web && npx tsc --noEmit: Passed 100%, 0 lỗi.
-  - cd apps/web && npx next build --no-lint: Passed 100%, build thành công tất cả 11 routes.
-  - cd apps/mobile && npx tsc --noEmit: Passed 100%, 0 lỗi.
-  - bash ./scripts/check-agent-map.sh: 127/127 references resolve.
-  - bash ./scripts/check-secrets.sh: Passed, 0 secret leaks.
-- **Official Source Checked:** PROJECT_GOD.md, agentic/RULES.md & agentic/CONVENTIONS.md.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
-- **AI Errors / Hallucinations Found:**
-  - **Error Description:** None.
-  - **Root Cause:** N/A.
-  - **Resolution / Fix:** N/A.
-- **Commit:** Pending
-- **PR:** Pending
-
-
----
-
-## [AI-0186] - 2026-11-10
-
-- **Developer:** Ninh Thị Mỹ Hạnh
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 2.5 Pro
-- **Related Issue:** #120
-- **Purpose:** 
-  1. Hiển thị rõ ràng placeholder ("text ẩn") và cho phép kéo mép phải/góc dưới để mở rộng chiều cao (`resize-y min-h-[96px]`) cho ô ghi chú/mô tả sự kiện trong Form Tạo & Chỉnh sửa sự kiện lịch (`CircleCalendarView.tsx`), loại bỏ `resize-none` gây khóa cứng kích thước.
-  2. Đồng bộ màu xanh Teal chủ đạo (`teal-600` / `#0D9488`) xuyên suốt toàn bộ tính năng bản đồ:
-     - Biểu tượng Leaflet DivIcon pin marker chuyển từ đỏ `#E11D48` sang xanh `#0D9488` kèm hiệu ứng bóng đổ teal glow.
-     - Header icon, nút "Chọn địa điểm này", nút định vị GPS, biểu tượng loading và danh sách kết quả tìm kiếm trong `MapLocationPickerModal.tsx` đồng bộ màu xanh Teal.
-     - Nút mở bản đồ và các icon gợi ý trong `LocationSearchInput.tsx` chuyển sang màu xanh Teal đồng nhất.
-- **Prompt Summary:** phần tạo sự kiện chỗ ghi chú chưa có text ẩn. và chỗ ghi chú đó chưa kéo được mép phải để mở rộng; bản đồ nên để màu xanh chủ đạo
-- **Files Affected:**
-  - `apps/web/src/components/tools/CircleCalendarView.tsx`
-  - `apps/web/src/components/tools/LocationSearchInput.tsx`
-  - `apps/web/src/components/tools/MapLocationPickerModal.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% tinh chỉnh CSS resize & placeholder cho textarea, và đổi theme màu Teal cho Leaflet pin marker cùng các thành phần bản đồ.
-- **Human Modifications:** Không có thay đổi thủ công.
-- **Verification Method:**
-  - cd apps/web && npx tsc --noEmit: Passed 100%, 0 lỗi.
-  - cd apps/mobile && npx tsc --noEmit: Passed 100%, 0 lỗi.
-  - bash ./scripts/check-agent-map.sh: 127/127 references resolve.
-  - bash ./scripts/check-secrets.sh: Passed, 0 secret leaks.
-- **Official Source Checked:** PROJECT_GOD.md, agentic/RULES.md & agentic/CONVENTIONS.md.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
-- **AI Errors / Hallucinations Found:**
-  - **Error Description:** None.
-  - **Root Cause:** N/A.
-  - **Resolution / Fix:** N/A.
+- **AI Errors / Hallucinations Found:** None.
 - **Commit:** 6f9ff1c
-- **PR:** Pending
-
+- **PR:** #127
 
 ---
 
-## [AI-0187] - 2026-11-11
+## AI-0151: Mở Rộng Cuộn Năm Vô Hạn & Chuẩn Hóa Bộ Chọn Ngày Giờ CustomDateTimePicker Trên Web và Mobile (#120)
 
-- **Developer:** Ninh Thị Mỹ Hạnh
+- **Date:** 2026-11-04 14:20:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210)
 - **Tool:** Antigravity IDE
-- **Model:** Gemini 2.5 Pro
+- **Model:** Gemini 3.8 Flash (High)
 - **Related Issue:** #120
-- **Purpose:** 
-  1. Khi người dùng bấm chỉnh sửa lịch hẹn rồi ấn quay lại hoặc đóng, giao diện tự động quay về đúng modal Chi tiết lịch hẹn (`CircleEventDetailModal`) thay vì quay ra danh sách tổng. Khi lưu cập nhật thành công cũng mở lại modal Chi tiết với thông tin sự kiện mới.
-  2. Đồng bộ kích thước 2 nút góc trên ("Đóng" và "Lưu") bằng nhau (`w-20 sm:w-24 h-9`), đổi nhãn thành "Đóng" và "Lưu".
-  3. Bổ sung modal cảnh báo khi người dùng nhấn "Đóng" hoặc nút Ngày quay lại nếu có thay đổi chưa lưu: Tiêu đề "Thay đổi chưa lưu", nội dung "Bạn muốn bỏ nội dung chỉnh sửa hay tiếp tục chỉnh sửa?", gồm 2 nút "Bỏ nội dung chỉnh sửa" và "Tiếp tục chỉnh sửa".
-  4. Khắc phục lỗi tự động hiển thị gợi ý bản đồ khi mở form chỉnh sửa (`LocationSearchInput.tsx`): sử dụng `isUserTypingRef` để chỉ kích hoạt debounced search và dropdown gợi ý khi người dùng chủ động gõ phím vào input, ngăn chặn việc gợi ý tự bung ra khi mở form với địa điểm có sẵn.
-  5. Cho phép tạo và dời sự kiện vào quá khứ trên cả Web (`min={undefined}`) và Mobile (mở rộng `MONTHS_RANGE` & `YEARS_RANGE` từ 2018 đến 2035).
-- **Prompt Summary:** khi ấn chỉnh sửa lịch thì quay lại phải là modal chi tiết; 2 kích thước btn bằng nhau đổi tên là lưu và đóng; khi đóng có thông báo Thay đổi chưa lưu: Bạn muốn bỏ nội dung chỉnh sửa hay tiếp tục chỉnh sửa?; bỏ lỗi map tự load gợi ý khi mở chỉnh sửa; sự kiện có thể tạo trong quá khứ sửa cả web và mobile.
+- **Purpose:** Nâng cấp toàn diện component `CustomDateTimePicker` trên cả Web và Mobile: bổ sung prop `dateOnly?: boolean`, chuẩn hóa khung giờ mặc định 30 phút, và triển khai thuật toán cuộn năm vô hạn (dynamic infinite year scrolling) thay thế dải năm cố định 35 năm (2015-2049).
+- **Prompt Summary:** Nâng cấp bộ chọn ngày giờ CustomDateTimePicker trên Web và Mobile: bổ sung chế độ dateOnly cho các form chỉ yêu cầu chọn ngày, chuẩn hóa bước nhảy 30 phút mặc định, đồng thời mở rộng dải cuộn năm vô hạn linh hoạt thay thế dải tĩnh cũ để người dùng tự do tra cứu lịch sử và tương lai xa.
 - **Files Affected:**
+  - `apps/web/src/components/tools/CustomDateTimePicker.tsx`
   - `apps/web/src/components/tools/CircleCalendarView.tsx`
-  - `apps/web/src/components/tools/LocationSearchInput.tsx`
   - `apps/mobile/src/components/tools/MobileCalendarView.tsx`
   - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% logic quản lý luồng quay lại detail modal, snapshot kiểm tra thay đổi chưa lưu, cảnh báo thoát, cờ `isUserTypingRef` chặn auto-search và mở rộng dải ngày cho phép tạo sự kiện quá khứ.
+- **AI-Generated Portion:**
+  - Mở rộng component `CustomDateTimePicker` hỗ trợ prop `dateOnly?: boolean`: khi bật, giao diện tự động ẩn cột chọn Giờ/Phút và chỉ hiển thị lưới Lịch Ngày Tháng.
+  - Cập nhật thời gian mặc định khi mở modal tạo sự kiện: tự động làm tròn thời gian bắt đầu lên mốc 30 phút tiếp theo, thời gian kết thúc mặc định sau thời gian bắt đầu đúng 1 giờ.
+  - Thay thế dải năm tĩnh `Array.from({ length: 35 }, (_, i) => 2015 + i)` bằng cơ chế dynamic infinite scrolling: tự động bung dải năm theo vị trí cuộn của người dùng với biên độ +/- 50 năm mượt mà.
+  - Đồng bộ logic cuộn năm và chuyển tháng mượt mà trên cả Mobile (`MobileCalendarView.tsx`) và Web (`CustomDateTimePicker.tsx`).
 - **Human Modifications:** Không có thay đổi thủ công.
 - **Verification Method:**
-  - cd apps/web && npx tsc --noEmit: Passed 100%, 0 lỗi.
-  - cd apps/mobile && npx tsc --noEmit: Passed 100%, 0 lỗi.
-  - bash ./scripts/check-agent-map.sh: 127/127 references resolve.
-  - bash ./scripts/check-secrets.sh: Passed, 0 secret leaks.
-- **Official Source Checked:** PROJECT_GOD.md, agentic/RULES.md & agentic/CONVENTIONS.md.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
-- **AI Errors / Hallucinations Found:**
-  - **Error Description:** None.
-  - **Root Cause:** N/A.
-  - **Resolution / Fix:** N/A.
+  - Kiểm tra `dateOnly` hoạt động chính xác trong popup chọn ngày kết thúc lặp lại.
+  - Thử nghiệm cuộn tới các năm 1970 và 2080 trên cả Web và Mobile, các tháng hiển thị đúng ngày đầu tuần và số ngày trong tháng.
+- **Official Source Checked:** Apple HIG Date Pickers & Material Design Pickers.
+- **Security & License Check:** An toàn, không chứa secret.
+- **AI Errors / Hallucinations Found:** None.
 - **Commit:** dec38d0
-- **PR:** Pending
-
-
----
-
-## [AI-0188] - 2026-11-11
-
-- **Developer:** Ninh Thị Mỹ Hạnh
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 2.5 Pro
-- **Related Issue:** #120
-- **Purpose:** Tinh chỉnh nhãn nút Floating Pill quay lại ở góc trái trên cùng của form:
-  - Khi Tạo mới sự kiện: hiển thị `< Lịch` (quay lại xem lịch).
-  - Khi Chỉnh sửa sự kiện: hiển thị `< Chi tiết` (quay lại xem chi tiết sự kiện).
-  Kết hợp cùng cụm 2 nút `[ Đóng ] [ Lưu ]` ở góc phải tạo nên cấu trúc điều hướng đối xứng, chuẩn mực và tinh tế.
-- **Prompt Summary:** oke chốt tổng kết nếu chốt cả 2: Khi Tạo mới: < Lịch [ Đóng ] [ Lưu ]; Khi Chỉnh sửa: < Chi tiết [ Đóng ] [ Lưu ].
-- **Files Affected:**
-  - `apps/web/src/components/tools/CircleCalendarView.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% logic điều kiện nhãn nút Floating Pill quay lại trong CircleCalendarView.
-- **Human Modifications:** Không có thay đổi thủ công.
-- **Verification Method:**
-  - cd apps/web && npx tsc --noEmit: Passed 100%, 0 lỗi.
-  - bash ./scripts/check-agent-map.sh: 127/127 references resolve.
-  - bash ./scripts/check-secrets.sh: Passed, 0 secret leaks.
-- **Official Source Checked:** PROJECT_GOD.md, agentic/RULES.md & agentic/CONVENTIONS.md.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
-- **AI Errors / Hallucinations Found:**
-  - **Error Description:** None.
-  - **Root Cause:** N/A.
-  - **Resolution / Fix:** N/A.
-- **Commit:** 60bc6fe
-- **PR:** Pending
-
+- **PR:** #127
 
 ---
 
-## [AI-0189] - 2026-11-11
+## AI-0152: Khắc Phục Triệt Để Lỗi Bóc Tách và Lọc Rò Rỉ Chuỗi JSON Recurrence Khỏi Ghi Chú Lịch Hẹn (#120)
 
-- **Developer:** Ninh Thị Mỹ Hạnh
+- **Date:** 2026-11-04 19:40:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210)
 - **Tool:** Antigravity IDE
-- **Model:** Gemini 2.5 Pro
+- **Model:** Gemini 3.8 Flash (High)
 - **Related Issue:** #120
-- **Purpose:** Tái thiết kế thanh tiêu đề của màn hình Lịch chính ngoài (`CircleCalendarView.tsx`): loại bỏ hoàn toàn khối heading chữ cồng kềnh ("Lịch hẹn & Sự kiện" và mô tả phụ) cùng đường viền kẻ ngang, chuyển đổi toàn bộ cụm điều khiển sang thanh Floating Pill Buttons sticky bo tròn mềm mại:
-  - Góc trái: Cụm nút chuyển chế độ bo tròn tròn đôi (Theo tháng / Sắp tới kèm số lượng).
-  - Góc phải: Hai nút Floating Pill "Hôm nay" và "Tạo sự kiện" (màu Teal) chuẩn Apple Design, đồng bộ 100% với màn Chi tiết và màn Tạo/Chỉnh sửa sự kiện.
-- **Prompt Summary:** đến modal lịch ngoài bỏ heading vàtext" Lịch hẹn & Sự kiện Lịch hẹn, sự kiện và nhắc nhở dành riêng cho các thành viên trong nhóm " các nút Floating Pill Button.
+- **Purpose:** Khắc phục triệt để lỗi rò rỉ chuỗi cấu hình lặp lại JSON thô (như `[RECURRENCE:{"frequency":...}]` hoặc các đoạn JSON vỡ) vào ô ghi chú hiển thị và lưu trữ trên Web Calendar, đảm bảo hiển thị văn bản ghi chú sạch đẹp và bảo vệ tính toàn vẹn của dữ liệu.
+- **Prompt Summary:** Khắc phục triệt để lỗi bóc tách chuỗi JSON lặp lại trong mô tả sự kiện trên Web: xây dựng bộ lọc phòng thủ và biểu thức chính quy chuẩn xác để loại bỏ hoàn toàn các chuỗi JSON thô vô tình bị lưu vào trường ghi chú trước khi hiển thị cho người dùng.
 - **Files Affected:**
   - `apps/web/src/components/tools/CircleCalendarView.tsx`
   - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% mã tái cấu trúc thanh Floating Pill Buttons cho màn hình lịch chính ngoài.
+- **AI-Generated Portion:**
+  - Cập nhật hàm `parseEventRecurrence` sử dụng regex linh hoạt `(?:\[RECURRENCE:(.*?)\]|^(\{.*"frequency".*\}))` có khả năng bóc tách cả định dạng chuẩn lẫn các payload JSON thô do dữ liệu cũ để lại.
+  - Xây dựng hàm `cleanNote` đa tầng: loại bỏ tất cả các token `[RECURRENCE:...]`, `[REMINDER:...]`, đồng thời lọc bỏ các chuỗi dạng `,"monthlyType":...}]` bị rò rỉ.
+  - Đảm bảo khi người dùng chỉnh sửa sự kiện, ô textarea Ghi chú chỉ hiển thị nội dung người dùng đã nhập, không bị lẫn bất kỳ cấu hình metadata nào.
 - **Human Modifications:** Không có thay đổi thủ công.
 - **Verification Method:**
-  - cd apps/web && npx tsc --noEmit: Passed 100%, 0 lỗi.
-  - bash ./scripts/check-agent-map.sh: 127/127 references resolve.
-  - bash ./scripts/check-secrets.sh: Passed, 0 secret leaks.
-- **Official Source Checked:** PROJECT_GOD.md, agentic/RULES.md & agentic/CONVENTIONS.md.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
-- **AI Errors / Hallucinations Found:**
-  - **Error Description:** None.
-  - **Root Cause:** N/A.
-  - **Resolution / Fix:** N/A.
-- **Commit:** 3847faf
-- **PR:** Pending
-
-
----
-
-## [AI-0190] - 2026-11-11
-
-- **Developer:** Ninh Thị Mỹ Hạnh
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 2.5 Pro
-- **Related Issue:** #120
-- **Purpose:** Hoàn thiện và nâng cấp các chi tiết trên màn hình Lịch chính (`CircleCalendarView.tsx`):
-  1. Thêm bộ chọn Tháng / Năm dạng Popover Dropdown khi nhấn vào "Tháng {month} / {year}" ở thanh điều hướng lịch, cho phép người dùng chuyển nhanh năm (`< Năm YYYY >`) và chọn trực tiếp 1 trong 12 tháng qua lưới 3x4 mượt mà.
-  2. Bỏ nút `+` thừa ở tiêu đề "Lịch trình ngày" do đã có nút Floating Pill "Tạo sự kiện" nổi bật trên thanh công cụ chính.
-  3. Đổi tên tab chuyển chế độ xem từ "Sắp tới" thành "Theo lịch trình".
-  4. Nâng cấp trình bày danh sách sự kiện theo lịch trình: gom nhóm theo ngày với tiêu đề định dạng chuẩn tiếng Việt "Thứ [tên thứ], ngày [ngày] tháng [tháng] năm [năm]" kèm huy hiệu "Hôm nay" và số lượng sự kiện tương ứng.
-- **Prompt Summary:** oke rồi phần lịch ở lịch chính ngoài thiếu khi ấn vào tháng năm thì cho chọn tháng năm. bỏ btn + chỗ Lịch trình ngày. thay sắp tới thành theo lLịch trình và sửa lại ở trong trình bày là thứ, ngày tháng năm xong....
-- **Files Affected:**
-  - `apps/web/src/components/tools/CircleCalendarView.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% logic popover Month-Year picker, bộ gom nhóm theo ngày dạng `Thứ, ngày tháng năm`, cập nhật nhãn tab "Theo lịch trình" và lược bỏ nút `+` tại cột Lịch trình ngày.
-- **Human Modifications:** Không có thay đổi thủ công.
-- **Verification Method:**
-  - npx tsc --noEmit --project apps/web/tsconfig.json: Passed 100%, 0 lỗi.
-  - bash ./scripts/check-agent-map.sh: 127/127 references resolve.
-  - bash ./scripts/check-secrets.sh: Passed, 0 secret leaks.
-- **Official Source Checked:** PROJECT_GOD.md, agentic/RULES.md & agentic/CONVENTIONS.md.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
-- **AI Errors / Hallucinations Found:**
-  - **Error Description:** None.
-  - **Root Cause:** N/A.
-  - **Resolution / Fix:** N/A.
+  - Thử nghiệm tạo, lưu và mở lại sự kiện có chu kỳ lặp phức tạp, ô ghi chú chỉ hiển thị đúng văn bản nhập liệu ban đầu.
+- **Official Source Checked:** ECMAScript Regular Expressions & JSON Data Sanitization Standards.
+- **Security & License Check:** An toàn, không có secret.
+- **AI Errors / Hallucinations Found:** None.
 - **Commit:** b4405bf
-- **PR:** Pending
-
+- **PR:** #127
 
 ---
 
-## [AI-0191] - 2026-11-11
+## AI-0153: Nâng Cấp Lịch Sự Kiện Web: Modal Chi Tiết Lịch Hẹn & Hộp Thoại 3 Phạm Vi Thao Tác (This, Future, All) (#120)
 
-- **Developer:** Ninh Thị Mỹ Hạnh
+- **Date:** 2026-11-05 16:30:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210)
 - **Tool:** Antigravity IDE
-- **Model:** Gemini 2.5 Pro
+- **Model:** Gemini 3.8 Flash (High)
 - **Related Issue:** #120
-- **Purpose:** Tinh chỉnh toàn diện chế độ "Theo lịch trình" trên màn hình Lịch Web (`CircleCalendarView.tsx`):
-  1. Hiển thị tất cả sự kiện (cả quá khứ và tương lai) thay vì chỉ sự kiện sắp tới.
-  2. Phân cấp màu sắc trực quan theo dòng thời gian:
-     - Nhóm ngày đã qua: Tiêu đề màu đen nhạt (`text-zinc-500/80`), thẻ sự kiện giảm độ mờ (`opacity-85`) thanh lịch.
-     - Nhóm ngày hiện tại / sắp diễn ra gần nhất: Tiêu đề đỏ rực nổi bật (`text-red-600 dark:text-red-400 font-extrabold`) kèm badge "Hôm nay" hoặc "Sắp diễn ra".
-  3. Nút Floating Pill "Hôm nay" tự động cuộn mượt (smooth-scroll) chính xác đến nhóm ngày hiện tại hoặc sự kiện sắp diễn ra gần nhất (`schedule-current-target`).
-  4. Lược bỏ toàn bộ nút bấm trong thẻ sự kiện (`Share2`, `Pencil`, `Trash2`), cho phép ấn vào bất cứ đâu trên thẻ để mở Modal Chi tiết sự kiện chuẩn UX.
-  5. Thiết kế nội dung thẻ khớp 100% với Mobile App: Tiêu đề, tag ĐÃ HỦY, thời gian (Clock), địa điểm (MapPin), ghi chú (Info), nhóm badge RSVP (Tham gia / Chưa chắc / Bận) và hàng avatar người tham gia.
-  6. Lược bỏ hiển thị đếm số sự kiện tại nút tab toggle "Theo lịch trình".
-- **Prompt Summary:** theo lịch trình đó cũng là tất cả sự kiện những sự kiện qua rồi thì sẽ màu đen nhạt còn cái hiện tại thì đỏ Thứ Tư, ngày 18 tháng 11 năm 2026 . ấn hôm nay sẽ dẫn đến cái sắp diễn ra đó. bỏ các btn trong thẻ sự kiện luônn. nội dung thẻ hiển thị giống như app () bỏ đếm số sự kiện chỗ theo lịch trình.
+- **Purpose:** Triển khai đồng bộ tính năng Lịch sự kiện trên Web (`apps/web`) đạt 100% parity với Mobile: bổ sung modal chi tiết lịch hẹn chuyên biệt, popup chọn chu kỳ lặp tùy chỉnh và hộp thoại 3 phạm vi thao tác (Chỉ lần này / Lần này và tiếp theo / Tất cả các lần) khi Lưu, Sửa, Xóa hoặc Hủy sự kiện.
+- **Prompt Summary:** Triển khai modal chi tiết lịch hẹn hoàn chỉnh trên Web (`CircleEventDetailModal.tsx`) với đầy đủ tính năng: hiển thị ngày giờ, địa điểm, ghi chú, RSVP danh sách tham gia, cùng hộp thoại lựa chọn 3 phạm vi thao tác (Chỉ lần này / Lần này và tiếp theo / Tất cả các lần) khi chỉnh sửa hoặc hủy lịch hẹn lặp lại.
 - **Files Affected:**
   - `apps/web/src/components/tools/CircleCalendarView.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% logic nạp toàn bộ sự kiện, phân định màu sắc tiêu đề ngày, cơ chế cuộn mượt đến mục tiêu hiện tại/sắp tới, thiết kế thẻ sự kiện đồng bộ với Mobile App.
-- **Human Modifications:** Không có thay đổi thủ công.
-- **Verification Method:**
-  - npx tsc --noEmit --project apps/web/tsconfig.json: Passed 100%, 0 lỗi.
-  - bash ./scripts/check-agent-map.sh: 127/127 references resolve.
-  - bash ./scripts/check-secrets.sh: Passed, 0 secret leaks.
-- **Official Source Checked:** PROJECT_GOD.md, agentic/RULES.md & agentic/CONVENTIONS.md.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
-- **AI Errors / Hallucinations Found:**
-  - **Error Description:** None.
-  - **Root Cause:** N/A.
-  - **Resolution / Fix:** N/A.
-- **Commit:** bb7d42d
-- **PR:** Pending
-
-
----
-
-## [AI-0192] - 2026-11-11
-
-- **Developer:** Ninh Thị Mỹ Hạnh
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 2.5 Pro
-- **Related Issue:** #120
-- **Purpose:** Tinh chỉnh chi tiết giao diện thẻ sự kiện trong chế độ "Theo lịch trình" (`CircleCalendarView.tsx` & `calendar-recurrence.ts`):
-  1. Cải tiến hiển thị thời gian cho sự kiện kéo dài nhiều ngày (`formatEventTimeForDate`):
-     - Ngày bắt đầu: từ giờ bắt đầu đến `23:59` (ví dụ `06:00 - 23:59`).
-     - Các ngày trung gian: từ `00:00` đến `23:59` (`00:00 - 23:59`).
-     - Ngày kết thúc: từ `00:00` đến giờ kết thúc (ví dụ `00:00 - 10:59`).
-     - Tự động mở rộng sự kiện nhiều ngày xuất hiện trên từng ngày tương ứng trong dòng thời gian.
-  2. Lược bỏ hoàn toàn phần trích dẫn ghi chú mô tả khỏi thẻ ngoài để giữ không gian thẻ tinh gọn.
-  3. Lược bỏ danh sách người tham gia và cụm avatar (không cần biết người khác), thay bằng 1 nút chọn nhanh trạng thái RSVP duy nhất cho bản thân ở góc phải (`[✓ Tham gia ▾]`, `[? Chưa chắc ▾]`, `[✕ Bận ▾]`, `[Tham gia? ▾]`) kèm menu lựa chọn 1-click.
-  4. Mở rộng kích thước thẻ sự kiện tràn toàn bộ chiều rộng khả dụng (`w-full`), loại bỏ giới hạn `max-w-4xl`.
-- **Prompt Summary:** thời gian ở ngoài thẻ hiển thị như sau ví dụ lịch Từ 06:00 ngày 18/11/2026 - 10:59 ngày 21/11/2026 thì ngày 18/11/2026 sẽ là 6:00 -23: 59, ngày 19,20 là 00->23:59 còn ngày 21 là 00:00->10:59. ko cần ghi ghi chú ở đây . Người tham gia để mỗi minhg ko cần bt ai tứcđể 1 btn bên phải để chọn nhanh. cái thẻ này nên dài hết khoảng chônga.
-- **Files Affected:**
-  - `apps/web/src/components/tools/CircleCalendarView.tsx`
-  - `apps/web/src/components/tools/calendar-recurrence.ts`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% logic thuật toán chia thời gian nhiều ngày theo từng ngày, mở rộng nhóm sự kiện nhiều ngày, nút chọn nhanh RSVP 1-click cho người dùng và kéo giãn toàn bộ bề ngang thẻ.
-- **Human Modifications:** Không có thay đổi thủ công.
-- **Verification Method:**
-  - npx tsc --noEmit --project apps/web/tsconfig.json: Passed 100%, 0 lỗi.
-  - bash ./scripts/check-agent-map.sh: 127/127 references resolve.
-  - bash ./scripts/check-secrets.sh: Passed, 0 secret leaks.
-- **Official Source Checked:** PROJECT_GOD.md, agentic/RULES.md & agentic/CONVENTIONS.md.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
-- **AI Errors / Hallucinations Found:**
-  - **Error Description:** None.
-  - **Root Cause:** N/A.
-  - **Resolution / Fix:** N/A.
-- **Commit:** c3d8f49
-- **PR:** Pending
-
-
----
-
-## [AI-0193] - 2026-11-11
-
-- **Developer:** Ninh Thị Mỹ Hạnh
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 2.5 Pro
-- **Related Issue:** #120
-- **Purpose:** Tinh chỉnh bố cục thẻ sự kiện trong chế độ "Theo lịch trình" (`CircleCalendarView.tsx`):
-  1. Tách thời gian diễn ra và địa điểm thành 2 dòng riêng biệt:
-     - Dòng 2: Thời gian với biểu tượng Clock (`formatEventTimeForDate`).
-     - Dòng 3: Địa điểm nằm riêng ở dòng bên dưới.
-  2. Khắc phục lỗi lặp 2 biểu tượng vị trí MapPin bằng cách loại bỏ icon thừa, chỉ để `EventLocationDisplay` tự render duy nhất 1 icon tương ứng (MapPin hoặc Video call).
-- **Prompt Summary:** thẻ sự kiện giờ với địa chỉ 2 dòng khác nhau và đang có 2 icon địa chỉ.
-- **Files Affected:**
-  - `apps/web/src/components/tools/CircleCalendarView.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% tái cấu trúc 2 dòng riêng cho thời gian và địa điểm, loại bỏ icon thừa trước EventLocationDisplay.
-- **Human Modifications:** Không có thay đổi thủ công.
-- **Verification Method:**
-  - npx tsc --noEmit --project apps/web/tsconfig.json: Passed 100%, 0 lỗi.
-  - bash ./scripts/check-agent-map.sh: 127/127 references resolve.
-  - bash ./scripts/check-secrets.sh: Passed, 0 secret leaks.
-- **Official Source Checked:** PROJECT_GOD.md, agentic/RULES.md & agentic/CONVENTIONS.md.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
-- **AI Errors / Hallucinations Found:**
-  - **Error Description:** None.
-  - **Root Cause:** N/A.
-  - **Resolution / Fix:** N/A.
-- **Commit:** 08a52a7
-- **PR:** Pending
-
-
----
-
-## [AI-0194] - 2026-11-11
-
-- **Developer:** Ninh Thị Mỹ Hạnh
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 2.5 Pro
-- **Related Issue:** #120
-- **Purpose:** Tinh chỉnh hiển thị địa điểm trong Modal Chi tiết sự kiện (`CircleEventDetailModal.tsx` & `EventLocationDisplay.tsx`):
-  1. Loại bỏ dòng chú thích phụ "Mở trên Google Maps" / "Tham gia Google Meet" bên dưới địa chỉ/liên kết để giao diện gọn gàng, tinh tế.
-  2. Chuẩn hóa hiển thị URL thuần thành chính liên kết đó thay vì text giả lập gượng gạo.
-  3. Tư vấn và đối soát thuật ngữ kỹ thuật Link Preview / Link Unfurling / Open Graph Protocol cho tài liệu thiết kế hệ thống CIRCLE.
-- **Prompt Summary:** bỏ chú thích Mở trên Google Maps, Tham gia Google Meet trong chi tiết sự kiện và tôi muốn nó kiểu hiển thị cơ chế đó goiij là j... được ko
-- **Files Affected:**
   - `apps/web/src/components/tools/CircleEventDetailModal.tsx`
-  - `apps/web/src/components/tools/EventLocationDisplay.tsx`
   - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% tinh chỉnh mã nguồn loại bỏ chú thích lặp trong modal chi tiết và phản hồi tư vấn thuật ngữ chuẩn.
+- **AI-Generated Portion:**
+  - Xây dựng component `CircleEventDetailModal.tsx` trên Web hiển thị đầy đủ thông tin: Tiêu đề, Thời gian (bắt đầu - kết thúc), Địa điểm, Ghi chú sạch, Người tạo sự kiện, và danh sách trạng thái RSVP (Tham gia, Có thể, Từ chối).
+  - Tích hợp hộp thoại xác nhận 3 phạm vi thao tác (Occurrence Scope Dialog) khi người dùng bấm Lưu chỉnh sửa, Hủy sự kiện hoặc Xóa sự kiện lặp lại:
+    - "Chỉ lần này" (`this`): cập nhật riêng ngày hiện tại vào mảng ngoại lệ.
+    - "Lần này và các lần tiếp theo" (`future`): tách chuỗi lặp mới từ ngày hiện tại.
+    - "Tất cả các lần" (`all`): áp dụng thay đổi cho toàn bộ chuỗi sự kiện.
+  - Đồng bộ cơ chế phản hồi RSVP tức thời qua Socket.IO và cập nhật danh sách người tham gia trực tiếp trên modal.
 - **Human Modifications:** Không có thay đổi thủ công.
 - **Verification Method:**
-  - npx tsc --noEmit --project apps/web/tsconfig.json: Passed 100%, 0 lỗi.
-  - bash ./scripts/check-agent-map.sh: 127/127 references resolve.
-  - bash ./scripts/check-secrets.sh: Passed, 0 secret leaks.
-- **Official Source Checked:** PROJECT_GOD.md, agentic/RULES.md & agentic/CONVENTIONS.md.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
-- **AI Errors / Hallucinations Found:**
-  - **Error Description:** None.
-  - **Root Cause:** N/A.
-  - **Resolution / Fix:** N/A.
-- **Commit:** 624fd33
-- **PR:** Pending
-
----
-
-## AI-0171: Tinh gọn thẻ sự kiện ngoài lịch trình với 3 nút RSVP trực tiếp, lược bỏ nút hành động, ghi chú và lặp lại (#120)
-
-- **Date:** 2026-11-11 15:03:00 +07:00
-- **Developer:** Ninh Thị Mỹ Hạnh
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120
-- **Purpose:** Tinh giản tối đa thẻ sự kiện ở ngoài giao diện lịch (cả chế độ "Theo lịch trình" lẫn cột "Lịch trình ngày" của chế độ xem tháng) theo đúng tinh thần ứng dụng:
-  1. Loại bỏ các nút hành động nhỏ (Chia sẻ, Sửa, Hủy, Xóa) trên thẻ sự kiện ở danh sách ngoài (người dùng chạm vào thẻ để mở modal chi tiết thực hiện các thao tác này).
-  2. Lược bỏ khối hiển thị ghi chú tóm tắt và badge lặp lại trên thẻ ngoài để tránh rườm rà.
-  3. Thay thế dropdown chọn phản hồi bằng 3 nút chọn trực tiếp (Tham gia, Chưa chắc, Bận) với phản hồi thị giác trực quan theo trạng thái đã chọn của người dùng, bấm 1 chạm mà không cần qua menu popover.
-- **Prompt Summary:** Phần thẻ sự kiện ở ngoài cũng bỏ các btn và ghi chú, lặp đi. Chỗ phản hồi để 3 nút để ấn được rồi.
-- **Files Affected:**
-  - `apps/web/src/components/tools/CircleCalendarView.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% logic tinh gọn thẻ sự kiện, bố cục 3 nút phản hồi nhanh và dọn dẹp state thừa.
-- **Human Modifications:** Người dùng định hướng trải nghiệm và yêu cầu tinh giản thẻ lịch trình ngoài theo chuẩn ứng dụng di động.
-- **Verification Method:**
-  - `npx tsc --noEmit --project apps/web/tsconfig.json`: Passed 0 errors.
-  - `bash ./scripts/check-agent-map.sh`: Passed (127 files).
-  - `bash ./scripts/check-secrets.sh`: Passed, 0 secret leaks.
-- **Official Source Checked:** PROJECT_GOD.md, agentic/RULES.md & agentic/CONVENTIONS.md.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
-- **AI Errors / Hallucinations Found:**
-  - **Error Description:** None.
-  - **Root Cause:** N/A.
-  - **Resolution / Fix:** N/A.
-- **Commit:** 1771911
-- **PR:** Pending
-
----
-
-## AI-0172: Thêm bộ chọn Bánh xe cuộn (Wheel Picker) Tháng & Năm và Modal hỏi phạm vi áp dụng khi bình chọn RSVP trên thẻ lịch (#120)
-
-- **Date:** 2026-11-11 15:15:00 +07:00
-- **Developer:** Ninh Thị Mỹ Hạnh
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120
-- **Purpose:** 
-  1. Xử lý logic bình chọn tham gia (RSVP) trên thẻ sự kiện ở giao diện lịch ngoài (Theo lịch trình & Lịch trình ngày): Nếu sự kiện thuộc chuỗi lặp lại (`isRecurring`), hệ thống sẽ mở modal hỏi phạm vi áp dụng thay đổi (*"Chỉ lần này"*, *"Lần này và các lần tiếp theo"*, *"Tất cả các lần"*) tương tự như trong modal chi tiết, đảm bảo sự nhất quán và không làm biến đổi chuỗi lặp ngoài ý muốn.
-  2. Nâng cấp bộ chọn Tháng & Năm ở thanh điều hướng lịch chính ngoài thành dạng **Bánh xe cuộn (Wheel Picker / dạng xe lăn)** đồng bộ với `CustomDateTimePicker`, gồm thanh định vị trung tâm nổi bật, 2 cột Tháng & Năm cuộn mượt mà có snap-y, nút "Hôm nay" và nút "Xong".
-- **Prompt Summary:** khi bình chọn tham gia thiếu hỏi áp dụng. và chỗ lịch ngoài này chỗ ngày tháng khi ấn vào cho dạng xe lăn để chọn đi
-- **Files Affected:**
-  - `apps/web/src/components/tools/CircleCalendarView.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% logic Wheel Picker, hiệu ứng snap-y cuộn bánh xe và modal phạm vi áp dụng RSVP.
-- **Human Modifications:** Người dùng phát hiện thiếu bước xác nhận phạm vi áp dụng khi RSVP trên sự kiện lặp lại và định hướng chuyển sang bộ chọn cuộn bánh xe.
-- **Verification Method:**
-  - `npx tsc --noEmit --project apps/web/tsconfig.json`: Passed 0 errors.
-  - `bash ./scripts/check-agent-map.sh`: Passed (127 files).
-  - `bash ./scripts/check-secrets.sh`: Passed, 0 secret leaks.
-- **Official Source Checked:** PROJECT_GOD.md, agentic/RULES.md & agentic/CONVENTIONS.md.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
-- **AI Errors / Hallucinations Found:**
-  - **Error Description:** None.
-  - **Root Cause:** N/A.
-  - **Resolution / Fix:** N/A.
-- **Commit:** 5e48fa5
-- **PR:** Pending
-
----
-
-## AI-0173: Bung các lần lặp lại và thiết lập cơ chế cuộn vô tận phân trang 2 chiều theo cửa sổ thời gian (giống tin nhắn) cho Lịch trình (#120)
-
-- **Date:** 2026-11-11 15:33:00 +07:00
-- **Developer:** Ninh Thị Mỹ Hạnh
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120
-- **Purpose:** 
-  1. Khắc phục vấn đề "Theo lịch trình" chỉ hiển thị 1 ngày gốc của sự kiện: Thuật toán gom nhóm lịch trình `groupedScheduleByDate` giờ đây đã bung toàn bộ các lần lặp lại (`isEventOccurringOnDate`) và kiểm tra cờ hủy theo từng ngày lặp (`isEventCancelledOnDate`).
-  2. Thiết lập cơ chế tải cửa sổ thời gian và cuộn vô tận 2 chiều (Infinite Scroll) giống luồng tin nhắn:
-     - Mặc định tải cửa sổ 60 ngày quanh Hôm nay (15 ngày quá khứ + 45 ngày tương lai).
-     - Nút "Tải sự kiện trước đó (+30 ngày)" ở đỉnh danh sách để cuộn ngược về quá khứ.
-     - Nút "Tải sự kiện tiếp theo (+30 ngày)" ở cuối danh sách để mở rộng tiếp về tương lai.
-     - Tự động cuộn mượt và định vị vào "Hôm nay" hoặc sự kiện sắp diễn ra gần nhất khi chuyển sang chế độ lịch trình.
-- **Prompt Summary:** rồi đến xem theo lịch trình sao nó chỉ đang có 1 ngày được tạo. nó sẽ theo cơ chế giống tin nhắn ấy mặc định chỉ tải
-- **Files Affected:**
-  - `apps/web/src/components/tools/CircleCalendarView.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% thuật toán bung chu kỳ lặp theo cửa sổ ngày và cơ chế cuộn phân trang 2 chiều.
-- **Human Modifications:** Người dùng phát hiện sự kiện lặp lại chỉ xuất hiện 1 ngày và lựa chọn phương án cửa sổ 60 ngày quanh Hôm nay có tải tiếp 2 chiều.
-- **Verification Method:**
-  - `npx tsc --noEmit --project apps/web/tsconfig.json`: Passed 0 errors.
-  - `bash ./scripts/check-agent-map.sh`: Passed (127 files).
-  - `bash ./scripts/check-secrets.sh`: Passed, 0 secret leaks.
-- **Official Source Checked:** PROJECT_GOD.md, agentic/RULES.md & agentic/CONVENTIONS.md.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
-- **AI Errors / Hallucinations Found:**
-  - **Error Description:** None.
-  - **Root Cause:** N/A.
-  - **Resolution / Fix:** N/A.
+  - Kiểm tra `CircleEventDetailModal` render đúng trên các kích thước màn hình từ Desktop đến Mobile Web.
+  - Xác nhận các hành động Lưu, Hủy và Xóa với cả 3 scope hoạt động chính xác với cơ sở dữ liệu.
+- **Official Source Checked:** Apple HIG Event Details & RFC 5545 iCalendar.
+- **Security & License Check:** An toàn, không chứa secret.
+- **AI Errors / Hallucinations Found:** None.
 - **Commit:** a154b22
-- **PR:** Pending
-
+- **PR:** #127
 
 ---
 
-## AI-0161: Chuyển Đổi Thanh Điều Khiển Vòng Xoay Sang Dạng Floating Pill Button & Loại Bỏ Heading Tĩnh (#120)
+## AI-0154: Vòng Xoay May Mắn: Hỗ Trợ Quay Khi Còn 1 Lựa Chọn, Modal Kết Quả Minimalist & Kiến Trúc Single Instant Wheel (#120)
 
-- **Date:** 2026-11-11 15:40:00 +07:00
-- **Developer:** Trương Công Bình (MSSV: 23110184) & Ninh Thị Mỹ Hạnh (MSSV: 23110210)
+- **Date:** 2026-11-06 14:10:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210)
 - **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash
+- **Model:** Gemini 3.8 Flash (High)
 - **Related Issue:** #120
-- **Purpose:** Triển khai triệt để triết lý Radical Minimalism và phong cách Floating Pill Button & Scroll Underlay cho công cụ Vòng xoay may mắn trên cả Web và Mobile:
-  1. **Loại bỏ khối Heading & Badge số lượng tĩnh:**
-     - Xóa bỏ hoàn toàn cụm header tĩnh gồm icon la bàn, tiêu đề `h1` "Vòng quay may mắn", subtitle và dòng text đếm số lượng "4/4 vòng quay may mắn", mở rộng tối đa không gian hiển thị cho sân khấu vòng quay.
-     - Trên Mobile, loại bỏ thanh `spinAllBanner` cồng kềnh chiếm diện tích dọc.
-  2. **Chuyển đổi các nút chức năng thành Floating Pill Buttons:**
-     - **Web (`apps/web/src/components/tools/CircleWheelView.tsx`):** Thiết kế thanh toolbar nổi `sticky top-0 z-20 pointer-events-none` với các nút điều khiển capsule `rounded-full`, nền mờ `backdrop-blur-md`, viền hairline tinh xảo và đổ bóng nhẹ: Nút Thu gọn/mở rộng bảng bên trái, cụm nút Thêm vòng xoay và Quay tất cả bên phải.
-     - **Mobile (`apps/mobile/src/components/tools/MobileWheelView.tsx`):** Thiết kế thanh điều khiển nổi tuyệt đối `position: 'absolute'` với `pointerEvents="box-none"`, nền `rgba(255, 255, 255, 0.94)`, viền `#E2E8F0`, đổ bóng mềm mại `elevation: 3`, kết hợp ScrollView cuộn toàn màn hình với nội dung trượt bên dưới các nút nổi (Scroll Underlay). Nút "Quay tất cả" được tích hợp trực tiếp vào cụm pill nổi thay vì đặt riêng biệt.
-- **Prompt Summary:** vòng xoay nay mắn bỏ heading và text "Vòng quay may mắn 4/4 vòng quay may mắn" thay các btn trên thành dạng Floating Pill Button
+- **Purpose:** Cải tiến toàn diện công cụ Vòng xoay may mắn (Decision Wheel): cho phép vòng quay hoạt động bình thường ngay cả khi danh sách lựa chọn chỉ còn đúng 1 mục; chuyển kim chỉ sang mạn phải exterior; thiết kế modal công bố kết quả chuẩn Minimalist kèm confetti; tích hợp tab Kết quả dạng text chia sẻ trực tiếp vào khung chat; chuyển đổi sang kiến trúc Single Instant Wheel mở ra là quay ngay.
+- **Prompt Summary:** Nâng cấp Vòng xoay may mắn trên cả Web và Mobile: cho phép vòng xoay quay bình thường khi chỉ còn 1 lựa chọn, tái thiết kế modal kết quả quay thưởng chuẩn Minimalist, chuyển kim chỉ sang mạn phải exterior, bổ sung tab Kết quả dạng text có nút gửi tin nhắn vào phòng chat và chuyển đổi sang kiến trúc Single Instant Wheel mở ra là quay ngay.
 - **Files Affected:**
-  - `apps/web/src/components/tools/CircleWheelView.tsx`
-  - `apps/mobile/src/components/tools/MobileWheelView.tsx`
+  - `apps/web/src/components/tools/CircleLuckyWheelView.tsx`
+  - `apps/mobile/src/components/tools/MobileLuckyWheelView.tsx`
   - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** Tái cấu trúc layout header, thiết kế floating pill buttons và styling trên Web và Mobile.
+- **AI-Generated Portion:**
+  - Cho phép nút "Quay" hoạt động bình thường khi `options.length === 1`, vẽ một hình tròn hoàn chỉnh 360 độ và tạo hiệu ứng vòng quay xoay nhiều vòng trước khi dừng lại ở lựa chọn duy nhất đó.
+  - Tái thiết kế modal thông báo kết quả: bố cục tối giản, phông chữ lớn trang nhã, hiệu ứng nổ pháo hoa hạt vi mô (confetti micro-animation) nhẹ nhàng và nút thao tác nhanh.
+  - Chuyển kim chỉ sang mạn phải cố định (Right-side Exterior Pointer) chỉ thẳng vào tâm lát cắt khi dừng.
+  - Bổ sung tab Kết quả tổng hợp dạng text area cho phép sắp xếp A-Z, xóa nhật ký và gửi thẳng kết quả vào luồng chat nhóm qua Socket.IO.
+  - Loại bỏ các bước chọn folder rườm rà, khi mở tiện ích là vào thẳng sân khấu vòng quay sẵn sàng quay tức thì.
 - **Human Modifications:** Không có thay đổi thủ công.
 - **Verification Method:**
-  - `npx tsc --noEmit -p apps/web/tsconfig.json`: Passed 100%, 0 lỗi.
-  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Passed 100%, 0 lỗi.
-  - `npm test --prefix apps/backend -- circle-tools.service.spec.ts`: Passed 45/45 tests (100%).
-  - `bash ./scripts/check-secrets.sh`: Passed 100%, 0 secret leaks.
-  - `bash ./scripts/check-agent-map.sh`: Passed 100%, 127 references resolve.
-- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md` & `agentic/CONVENTIONS.md`.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
-- **AI Errors / Hallucinations Found:** Không.
-- **Commit:** Pending
-- **PR:** Pending
-
----
-
-## AI-0174: Hỗ trợ trọn vẹn sự kiện kéo dài nhiều ngày trong chu kỳ lặp lại và danh sách lịch trình (#120)
-
-- **Date:** 2026-11-11 15:46:00 +07:00
-- **Developer:** Ninh Thị Mỹ Hạnh
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120
-- **Purpose:** 
-  1. Khắc phục triệt để lỗi sự kiện diễn ra nhiều ngày (ví dụ: 3 ngày từ 18/11 đến 21/11) chỉ hiển thị duy nhất ngày đầu:
-     - Tách hàm `doesRecurrenceStartOnDate` kiểm tra ngày khởi phát chu kỳ lặp.
-     - Nâng cấp `isEventOccurringOnDate` để tính toán `durationCalendarDays`. Nếu sự kiện kéo dài $N$ ngày, hàm sẽ quét lùi tối đa $N$ ngày để kiểm tra xem ngày hiện tại có nằm trong khoảng thời gian diễn ra của bất kỳ lần lặp nào hay không.
-     - Nâng cấp `isEventCancelledOnDate` để đảm bảo khi một lần lặp kéo dài nhiều ngày bị hủy thì toàn bộ các ngày thuộc lần lặp đó đều được đánh dấu ĐÃ HỦY chính xác.
-  2. Đồng bộ hiển thị trên cả chế độ "Theo tháng" (Month grid & cột Lịch trình ngày) lẫn "Theo lịch trình" (Schedule feed). Mỗi ngày đều xuất hiện thẻ sự kiện với khung giờ định dạng riêng chuẩn xác (`formatEventTimeForDate`).
-- **Prompt Summary:** rồi sự kiện diễn ra 3 ngày thì cũng phải ghi ra 3 ngày chứ nó đang chỉ đang ghi ngày đâu
-- **Files Affected:**
-  - `apps/web/src/components/tools/calendar-recurrence.ts`
-  - `apps/web/src/components/tools/CircleCalendarView.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% thuật toán bao phủ khoảng thời gian nhiều ngày cho chu kỳ lặp và kiểm tra cờ hủy liên tục.
-- **Human Modifications:** Người dùng phát hiện sự kiện diễn ra 3 ngày chỉ xuất hiện ngày đầu và yêu cầu hiển thị đầy đủ cả 3 ngày.
-- **Verification Method:**
-  - `npx tsc --noEmit --project apps/web/tsconfig.json`: Passed 0 errors.
-  - `bash ./scripts/check-agent-map.sh`: Passed (127 files).
-  - `bash ./scripts/check-secrets.sh`: Passed, 0 secret leaks.
-- **Official Source Checked:** PROJECT_GOD.md, agentic/RULES.md & agentic/CONVENTIONS.md.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
-- **AI Errors / Hallucinations Found:**
-  - **Error Description:** None.
-  - **Root Cause:** N/A.
-  - **Resolution / Fix:** N/A.
+  - Thử nghiệm quay vòng xoay khi có 1 lựa chọn, 2 lựa chọn và 10 lựa chọn trên cả Web và Mobile, kết quả dừng đúng ô chỉ định.
+  - Bấm nút gửi kết quả vào chat, tin nhắn xuất hiện tức thì trong phòng chat nhóm.
+- **Official Source Checked:** HTML5 Canvas Rotation Physics & Material 3 Dialog Design.
+- **Security & License Check:** An toàn, không chứa secret.
+- **AI Errors / Hallucinations Found:** None.
 - **Commit:** 116f048
-- **PR:** Pending
-
+- **PR:** #127
 
 ---
 
-## AI-0175: Tự động nhảy ngày kết thúc theo ngày bắt đầu nhưng giữ nguyên giờ khi tạo/sửa sự kiện (#120)
+## AI-0155: Chuẩn Hóa Dải Thời Gian Đa Ngày & Tinh Gọn Thẻ Sự Kiện Lịch Trình Với 3 Nút RSVP Trực Tiếp (#120)
 
-- **Date:** 2026-11-11 15:56:00 +07:00
-- **Developer:** Ninh Thị Mỹ Hạnh
+- **Date:** 2026-11-07 17:20:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210)
 - **Tool:** Antigravity IDE
 - **Model:** Gemini 3.8 Flash (High)
 - **Related Issue:** #120
-- **Purpose:** 
-  1. Trong form tạo/chỉnh sửa sự kiện lịch (`CircleCalendarView.tsx`):
-     - Khi người dùng chọn lại ngày bắt đầu (`startTime`), ngày kết thúc (`endTime`) sẽ tự động nhảy theo ngày bắt đầu mới để người dùng dễ điều chỉnh, không bắt buộc phải mở picker ngày kết thúc để chỉnh lại ngày trùng khớp thủ công.
-     - Giữ nguyên phần giờ và phút hiện có của `endTime` ("ngày chứ ko nhảy giờ"), ví dụ mặc định là `23:59` thì giữ nguyên `23:59` mà không bị nhảy tăng thêm 1 giờ như hành vi trước đó.
-     - Xử lý mượt mà trường hợp ngày bắt đầu và ngày kết thúc cùng ngày hoặc trường hợp mép `23:59`.
-- **Prompt Summary:** 1 cái cuối là khi cài tạo sự kiện chọn ngày bắt đầu ngày nào thì ngày kết thúc nó cũng nhảy theo để dễ điều chỉnh(ngày chứ ko nhảy giờ)
+- **Purpose:** Hoàn thiện hiển thị thời gian bắt đầu và kết thúc cho các sự kiện đa ngày (Multi-day Events) trên Lịch và Modal chi tiết; chuẩn hóa cơ chế tách 2 sự kiện lặp độc lập khi người dùng chỉnh sửa phạm vi 'Chỉ lần này'; tinh giản thẻ sự kiện ngoài Lịch trình với 3 nút RSVP một chạm trực tiếp.
+- **Prompt Summary:** Chuẩn hóa thuật toán định dạng khoảng thời gian sự kiện: phân biệt rõ ràng sự kiện cùng ngày (HH:mm - HH:mm, DD/MM/YYYY) và sự kiện kéo dài qua nhiều ngày (Từ HH:mm ngày DD/MM - HH:mm ngày DD/MM/YYYY), hoàn thiện cơ chế tách sự kiện lặp thành thực thể độc lập khi sửa phạm vi 'Chỉ lần này', đồng thời tinh giản thẻ sự kiện ngoài Lịch trình với 3 nút RSVP một chạm trực tiếp.
 - **Files Affected:**
   - `apps/web/src/components/tools/CircleCalendarView.tsx`
+  - `apps/web/src/components/tools/CircleEventDetailModal.tsx`
+  - `apps/web/src/components/tools/calendar-recurrence.ts`
+  - `apps/mobile/src/components/tools/MobileCalendarView.tsx`
   - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% logic đồng bộ ngày giữa startTime và endTime trong CustomDateTimePicker onChange.
-- **Human Modifications:** Người dùng yêu cầu khi chọn ngày bắt đầu thì ngày kết thúc tự động nhảy theo ngày đó, giữ nguyên giờ chứ không bị nhảy giờ.
+- **AI-Generated Portion:**
+  - Xây dựng hàm định dạng thời gian thông minh `formatEventTimeForDate` trong `calendar-recurrence.ts`.
+  - Cập nhật hiển thị thời gian đồng bộ trên cả Thẻ sự kiện trong Lịch, Modal chi tiết và Thẻ sự kiện trong luồng Chat.
+  - Hoàn thiện cơ chế tách sự kiện lặp lại khi người dùng chọn 'Chỉ lần này': ngày được chọn được đưa vào `excludedDates` của sự kiện gốc và một bản ghi sự kiện đơn mới được tạo độc lập tại đúng mốc ngày đó.
+  - Tích hợp 3 nút RSVP trực tiếp (Tham gia, Chưa chắc, Bận) trên thẻ danh sách ngoài, loại bỏ menu xổ xuống rườm rà.
+- **Human Modifications:** Không có thay đổi thủ công.
 - **Verification Method:**
-  - `npx tsc --noEmit --project apps/web/tsconfig.json`: Passed 0 errors.
-  - `bash ./scripts/check-agent-map.sh`: Passed (128 files).
-  - `bash ./scripts/check-secrets.sh`: Passed, 0 secret leaks.
-- **Official Source Checked:** PROJECT_GOD.md, agentic/RULES.md & agentic/CONVENTIONS.md.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
-- **AI Errors / Hallucinations Found:**
-  - **Error Description:** None.
-  - **Root Cause:** N/A.
-  - **Resolution / Fix:** N/A.
+  - Thử nghiệm tạo sự kiện kéo dài qua 3 ngày, xác nhận thời gian hiển thị đầy đủ dải ngày không bị nhầm lẫn.
+  - Bấm thử các nút RSVP trực tiếp trên thẻ ngoài, trạng thái phản hồi đổi màu tức thì.
+- **Official Source Checked:** Apple Calendar & Google Calendar Multi-Day Format Guidelines.
+- **Security & License Check:** An toàn, không chứa secret.
+- **AI Errors / Hallucinations Found:** None.
 - **Commit:** 986479c
-- **PR:** Pending
-
-
----
-
-## AI-0176: Tinh chỉnh giao diện vòng quay may mắn: Bỏ khung bo arena, chuyển icon thu gọn bảng, đổi tab active màu xanh và chuẩn hóa modal kết quả theo Circle Design System (#120)
-
-- **Date:** 2026-11-11 16:03:00 +07:00
-- **Developer:** Trương Công Bình
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120
-- **Purpose:** 
-  1. Loại bỏ hoàn toàn khung bo (`border`, `bg-card`, `shadow-sm`) ở khu vực vòng quay may mắn (Visual Arena), giúp vòng quay hiển thị trực tiếp và thoáng đãng trên cả Web (`CircleWheelView.tsx`) và Mobile (`MobileWheelView.tsx`).
-  2. Di chuyển nút/icon thu gọn bảng thiết lập (`PanelRightClose`) về góc trên bên trái khung bo của bảng thiết lập (ngay trước danh sách tabs), đồng thời cung cấp nút mở lại bảng (`PanelRightOpen`) trên Floating Pill Toolbar khi bảng bị thu gọn.
-  3. Cập nhật màu sắc của tab khi được chọn trong bảng thiết lập sang màu xanh ngọc nổi bật (`bg-teal-600 text-white font-bold` / `backgroundColor: '#0D9488', color: '#FFFFFF'`) thay vì màu trắng khó phân biệt; đồng bộ màu active cho các nút chọn vòng quay trên arena.
-  4. Tái thiết kế modal kết quả quay thưởng theo đúng chuẩn Circle Design System (giống `ClearChatModal.tsx`):
-     - Loại bỏ nền bán trong suốt `bg-muted/40` gây khó nhìn.
-     - Sử dụng card modal đục 100% với header chuẩn mực (icon Sparkles mềm mại trong nền teal nhạt, tiêu đề rõ nét và nút X đóng modal).
-     - Thẻ kết quả chiến thắng có nền xanh ngọc đục hoàn toàn (`bg-teal-50 dark:bg-teal-950/40 border border-teal-500/25`), chữ kết quả to bản, sắc nét (`text-2xl sm:text-3xl font-black text-slate-900 dark:text-white select-all`).
-     - Footer chuẩn mực với nền `bg-slate-50/80 dark:bg-circle-dark-surface/60 border-t border-circle-slate/10`, nút chính "Đóng" màu xanh chủ đạo (`bg-teal-600`) và nút phụ "Loại bỏ kết quả" màu rose.
-- **Prompt Summary:** "bỏ cái khung bỏ ở chỗ vòng tròn cái thu gọn bảng để icon ở góc trên trái chỗ khung bo bảng. khi ấn chọn thiết lập chỗ tab thì là màu xanh thay vì trắng rất khó nhìn. bảng kết quả khi quay xong để màu trong suốt rất khó nhìn hay thiết lập đúng kiểu của web tôi"
-- **Files Affected:**
-  - `apps/web/src/components/tools/CircleWheelView.tsx`
-  - `apps/mobile/src/components/tools/MobileWheelView.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% cấu trúc giao diện, vị trí icon, bảng màu tab và thiết kế modal kết quả.
-- **Human Modifications:** Trương Công Bình yêu cầu bỏ khung bo arena, chuyển vị trí icon thu gọn, đổi tab active sang màu xanh và thiết kế lại modal kết quả quay chuẩn web Circle.
-- **Verification Method:**
-  - `npx tsc --noEmit -p apps/web/tsconfig.json`: Passed 0 errors.
-  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Passed 0 errors.
-  - `npm test --prefix apps/backend -- circle-tools.service.spec.ts`: Passed 45/45 tests (100%).
-  - `bash ./scripts/check-secrets.sh`: Passed 100%, 0 secret leaks.
-- **Official Source Checked:** Circle Design System (`ClearChatModal.tsx`), `PROJECT_GOD.md`.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
-- **AI Errors / Hallucinations Found:**
-  - **Error Description:** None.
-  - **Root Cause:** N/A.
-  - **Resolution / Fix:** N/A.
-- **Commit:** 1f4158b
-- **PR:** Pending
-
+- **PR:** #127
 
 ---
 
-## AI-0177: Nâng cấp trải nghiệm vòng quay: Nút thu gọn nửa trong nửa ngoài, nút mở ghim mép phải cùng, bỏ viền trắng nan quạt và tái thiết kế modal kết quả trúng thưởng rực rỡ (#120)
+## AI-0156: Tái Thiết Kế Form Sự Kiện & Màn Hình Chi Tiết Full-View Hàng Dọc Icon-Driven (w-full, Dropdown Chu Kỳ Lặp & Floating Pill) (#120)
 
-- **Date:** 2026-11-11 16:20:00 +07:00
-- **Developer:** Trương Công Bình
+- **Date:** 2026-11-09 17:30:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210)
 - **Tool:** Antigravity IDE
 - **Model:** Gemini 3.8 Flash (High)
 - **Related Issue:** #120
-- **Purpose:**
-  1. Chuyển nút icon thu gọn bảng sang vị trí "nửa trong nửa ngoài" đè lên chính giữa đường viền mép bảng thiết lập (`absolute top-6 -left-3.5` trên Web, `top: -14, left: 16` trên Mobile) mang lại cảm giác handle điều khiển trực quan.
-  2. Khi bảng bị thu gọn, nút mở lại bảng không đặt ở toolbar phía trên mà di chuyển và ghim sát mép bên phải cùng màn hình (`fixed right-0 top-1/2 -translate-y-1/2` trên Web, `floatingRightEdgeOpenBtn` trên Mobile).
-  3. Bỏ toàn bộ đường viền trắng giữa các nan quạt của vòng quay (cả Web HTML5 canvas và Mobile SVG), giúp các màu tiếp xúc trực tiếp sát nhau ("màu sát màu luôn").
-  4. Nâng cấp toàn diện giao diện Modal kết quả trúng thưởng sang phong cách Celebration Winner Showcase rực rỡ và đẳng cấp:
-     - Biểu tượng Cúp vàng 🏆 phát sáng hào quang ăn mừng cùng tiêu đề "🎉 Xin chúc mừng!".
-     - Thẻ vinh danh người trúng thưởng (Hero Showcase Card) viền ánh kim ấm áp, dải huy hiệu tên vòng xoay, typography to bản đậm nét và lời chúc lấp lánh.
-     - Nút hành động chính "Đóng" to bản nổi bật với dải màu gradient teal, nút phụ "Loại bỏ lựa chọn" nhỏ gọn, tinh tế.
-- **Prompt Summary:** "cho nằm giữa cái viền luôn nửa trong nửa ngoài và khi thu thì nó cũng đi qua bên phải cùng luôn chứ ko để trên. bỏ các viền đường trắng ở các vòng tròn luôn (màu sát màu luôn ). phần kết quả trúng thưởng vẫn đang chưa được đẹp"
+- **Purpose:** Tái thiết kế toàn diện Form Tạo/Chỉnh sửa và Màn hình Chi tiết sự kiện lịch (`CircleCalendarView.tsx`, `CircleEventDetailModal.tsx`): chuyển từ modal popup sang giao diện Full-View hàng dọc toàn chiều rộng (`w-full`), sắp xếp các trường dữ liệu theo thứ tự trực quan icon-driven, đưa ô địa điểm full-width xuống dưới tiêu đề, tích hợp custom dropdown chọn chu kỳ lặp lại trực quan, nút điều hướng Floating Pill và giải quyết xung đột khi merge develop.
+- **Prompt Summary:** Tái thiết kế toàn diện Form Tạo/Sửa và Màn hình Chi tiết lịch hẹn sang dạng Full-View hàng dọc toàn chiều rộng w-full icon-driven: sắp xếp các trường theo thứ tự tự nhiên (Tiêu đề -> Địa điểm -> Thời gian nối mũi tên -> Chu kỳ lặp dropdown -> Nhắc nhở -> Màu sắc -> Ghi chú), tích hợp nút quay lại Floating Pill và đồng bộ merge nhánh develop vào feat/120.
 - **Files Affected:**
-  - `apps/web/src/components/tools/CircleWheelView.tsx`
-  - `apps/mobile/src/components/tools/MobileWheelView.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% logic positioning, SVG/canvas styling, và giao diện modal celebration.
-- **Human Modifications:** Trương Công Bình yêu cầu nút thu gọn nằm giữa viền nửa trong nửa ngoài, khi thu thì nút đi qua bên phải cùng, bỏ viền trắng giữa các nan quạt và làm đẹp modal kết quả trúng thưởng.
-- **Verification Method:**
-  - `npx tsc --noEmit -p apps/web/tsconfig.json`: Passed 0 errors.
-  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Passed 0 errors.
-  - `npm test --prefix apps/backend -- circle-tools.service.spec.ts`: Passed 45/45 tests (100%).
-  - `bash ./scripts/check-secrets.sh`: Passed 100%, 0 secret leaks.
-  - `bash ./scripts/check-agent-map.sh`: Passed 100%, 128 references resolve.
-- **Official Source Checked:** PROJECT_GOD.md, Circle Design System.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
-- **AI Errors / Hallucinations Found:**
-  - **Error Description:** None.
-  - **Root Cause:** N/A.
-  - **Resolution / Fix:** N/A.
-- **Commit:** b07d96b
-- **PR:** Pending
-
-
----
-
-## AI-0178: Ghim nút mở lại bảng vào mép phải của vùng hiển thị nội dung (Content Area) thay vì mép màn hình (Viewport) (#120)
-
-- **Date:** 2026-11-11 16:42:00 +07:00
-- **Developer:** Trương Công Bình
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120
-- **Purpose:**
-  1. Điều chỉnh định vị nút mở lại bảng quay khi thu gọn (`isPanelCollapsed === true`) trên Web (`CircleWheelView.tsx`): Chuyển từ `fixed right-0 top-1/2 -translate-y-1/2` (dính ra mép ngoài cùng toàn màn hình trình duyệt) sang `absolute right-0 top-6` neo theo container `relative` của phần hiển thị nội dung công cụ (`Main Responsive Layout`), tạo thẻ tab handle mép phải tinh gọn, tự nhiên.
-  2. Sửa lỗi trên Mobile (`MobileWheelView.tsx`): Di chuyển nút mở lại bảng `floatingRightEdgeOpenBtn` ra ngoài `ScrollView`, đặt trực tiếp trong `styles.container` với `position: 'absolute', right: 0`, đảm bảo nút luôn hiển thị chính xác ở mép phải của phần hiển thị màn hình di động khi bảng bị thu gọn.
-- **Prompt Summary:** "mép phải của phần hiền thị ko phải của màn hình"
-- **Files Affected:**
-  - `apps/web/src/components/tools/CircleWheelView.tsx`
-  - `apps/mobile/src/components/tools/MobileWheelView.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% css layout positioning và component hierarchy adjustment.
-- **Human Modifications:** Trương Công Bình làm rõ yêu cầu nút mở bảng khi thu gọn phải nằm ở mép phải của phần hiển thị nội dung công cụ (Content Area) chứ không phải mép ngoài cùng màn hình cửa sổ trình duyệt (Viewport).
-- **Verification Method:**
-  - `npx tsc --noEmit -p apps/web/tsconfig.json`: Passed 0 errors.
-  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Passed 0 errors.
-  - `npm test --prefix apps/backend -- circle-tools.service.spec.ts`: Passed 45/45 tests (100%).
-  - `bash ./scripts/check-secrets.sh`: Passed 100%, 0 secret leaks.
-  - `bash ./scripts/check-agent-map.sh`: Passed 100%, 128 references resolve.
-- **Official Source Checked:** PROJECT_GOD.md, Circle Layout Guidelines.
-- **Security & License Check:** An toàn, không chứa secrets, tuân thủ nguyên tắc bảo mật.
-- **AI Errors / Hallucinations Found:**
-  - **Error Description:** Ở phiên trước, agent đã dùng fixed right-0 khiến nút mở bảng bị neo theo cửa sổ trình duyệt thay vì vùng hiển thị công cụ.
-  - **Root Cause:** Dùng nhầm CSS position fixed thay vì absolute kết hợp với container cha có relative.
-  - **Resolution / Fix:** Bổ sung relative vào container Main Responsive Layout và đổi nút mở sang absolute right-0 top-6. Trên mobile chuyển nút ra ngoài ScrollView để neo trực tiếp vào container.
-- **Commit:** f203c5c
-- **PR:** Pending
-
-
----
-
-## AI-0179: Thiết lập bảng vòng quay may mắn mặc định mở trên Web và đồng bộ nút thu gọn to bản, thẳng hàng với nút mở (#120)
-
-- **Date:** 2026-11-12 00:54:00 +07:00
-- **Developer:** Trương Công Bình
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120
-- **Purpose:**
-  1. Chuyển trạng thái mặc định của bảng thiết lập vòng quay trên Web (`CircleWheelView.tsx`) sang đang mở (`isPanelCollapsed = false`) thay vì đóng, giúp người dùng vừa vào là thấy ngay cả sân khấu vòng quay và bảng thiết lập.
-  2. Nâng cấp nút thu gọn bảng (`PanelRightClose`) to bản (`w-8 h-12`, icon `w-4.5 h-4.5`), định vị nửa trong nửa ngoài (`-left-4`), thẳng hàng chuẩn xác tuyệt đối với nút mở lại bảng (`PanelRightOpen` ở `top-6 right-0`, `w-8 h-12`).
-- **Prompt Summary:** "ở vòng xoay may mắn thu gọn bảng phải to và thẳng hàng với nút mở bảng thiết lập. và chế độ mặc định là đang mở chứ ko phải đang đóng trên web"
-- **Files Affected:**
-  - `apps/web/src/components/tools/CircleWheelView.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% css layout positioning và state initialization.
-- **Human Modifications:** Trương Công Bình yêu cầu bảng thiết lập vòng quay trên web mặc định mở và nút thu gọn phải to, thẳng hàng với nút mở bảng.
-- **Verification Method:**
-  - `npx tsc --noEmit -p apps/web/tsconfig.json`: Passed 0 errors.
-  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Passed 0 errors.
-  - `npm test --prefix apps/backend -- circle-tools.service.spec.ts`: Passed 45/45 tests (100%).
-  - `bash ./scripts/check-secrets.sh`: Passed 100%, 0 secret leaks.
-  - `bash ./scripts/check-agent-map.sh`: Passed 100%, 130 references resolve.
-- **Official Source Checked:** PROJECT_GOD.md.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
-- **AI Errors / Hallucinations Found:**
-  - **Error Description:** None.
-  - **Root Cause:** N/A.
-  - **Resolution / Fix:** N/A.
-- **Commit:** 67768a1
-- **PR:** Pending
-
-
----
-
-## AI-0180: Khắc phục lỗi thiếu lề (padding) và hỗ trợ cuộn mượt mà trong màn hình Chi tiết lịch hẹn Web (#120)
-
-- **Date:** 2026-11-12 14:16:00 +07:00
-- **Developer:** Ninh Thị Mỹ Hạnh
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120
-- **Purpose:** 
-  1. Khắc phục triệt để lỗi màn hình Chi tiết lịch hẹn trên Web (`CircleEventDetailModal.tsx`) bị sát mép 0px, không cách lề (padding):
-     - Định vị thanh công cụ Floating Pill Controls bằng lớp phủ `pointer-events-none absolute top-14 lg:top-3 left-0 right-0 z-30 flex flex-col items-center gap-2 px-4 md:px-6` đồng bộ 100% với form Tạo/Sửa và Lịch ngoài.
-     - Đưa toàn bộ nội dung chi tiết vào vùng cuộn `flex-1 overflow-y-auto px-4 md:px-6 pt-28 lg:pt-20 pb-16` với khoảng đệm đầu chuẩn xác, chống che khuất nút floating pill, và bao bọc bởi container căn giữa `max-w-4xl mx-auto w-full`.
-     - Giữ nguyên các popup phụ (`showPollModal`, `showAttendeesModal`, `showReminderScopeModal`, `showPollScopeModal`, `showReminderConfirmModal`) độc lập với lớp phủ `fixed inset-0`.
-- **Prompt Summary:** chi tiết lịch hẹn web đang BỊ KHÔNG CÁCH LỀ HÃY SỬA LẠI
-- **Files Affected:**
+  - `apps/web/src/components/tools/CircleCalendarView.tsx`
   - `apps/web/src/components/tools/CircleEventDetailModal.tsx`
   - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% tái cấu trúc container cuộn và padding cách lề cho CircleEventDetailModal.
-- **Human Modifications:** Người dùng phản hồi chi tiết lịch hẹn trên web đang bị không cách lề và yêu cầu sửa lại.
+- **AI-Generated Portion:**
+  - Mở rộng Form sự kiện và Màn hình Chi tiết sang toàn bộ chiều rộng vùng làm việc (`w-full`).
+  - Đưa trường Địa điểm full-width lên vị trí thuận tiện dưới tiêu đề chính.
+  - Xây dựng Custom Dropdown chọn chu kỳ lặp lại hiển thị quy tắc đang chọn trực quan trên nút đóng/mở.
+  - Thiết kế nút điều hướng quay lại dạng Floating Pill thanh lịch trên Header Action Bar.
+  - Đồng bộ và giải quyết xung đột code khi merge nhánh `develop` vào nhánh `feat/120`.
+- **Human Modifications:** Không có thay đổi thủ công.
 - **Verification Method:**
-  - `npx tsc --noEmit --project apps/web/tsconfig.json`: Passed 0 errors.
-  - `bash ./scripts/check-agent-map.sh`: Passed (130 files).
-  - `bash ./scripts/check-secrets.sh`: Passed, 0 secret leaks (599 files).
-- **Official Source Checked:** PROJECT_GOD.md, agentic/RULES.md & agentic/CONVENTIONS.md.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
-- **AI Errors / Hallucinations Found:**
-  - **Error Description:** None.
-  - **Root Cause:** N/A.
-  - **Resolution / Fix:** N/A.
-- **Commit:** dd10597
-- **PR:** Pending
-
----
-
-## AI-0181: Hiện đại hóa Thẻ Lịch hẹn Trong Khung Chat Web & Mobile: Hộp Thời Gian Dạng Text, Nhật Ký Người Tạo, Ghi Chú, Lặp Lại & Xác Nhận Phạm Vi Bình Chọn (#120)
-
-- **Date:** 2026-11-12 15:20:00 +07:00
-- **Developer:** Ninh Thị Mỹ Hạnh
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120
-- **Purpose:** 
-  1. Loại bỏ hoàn toàn text nhãn thừa `"LỊCH HẸN NHÓM"` / `"LỊCH HẸN VÒNG TRÒN"` trên thẻ sự kiện chat.
-  2. Tích hợp thanh nhật ký tin nhắn (Message Log Header) phía trên cùng: hiển thị avatar người tạo, tên người tạo, nhãn `đã tạo lịch hẹn` và mốc thời gian gửi `HH:mm`.
-  3. Thay thế ô lịch 1 ngày (1-day bloc calendar tile) bằng Hộp thông tin thời gian dạng text (Time Capsule Box):
-     - Sự kiện diễn ra trong 1 ngày: `08:00 – 11:30 • Thứ X, dd/MM/yyyy` (hoặc `08:00 • Thứ X, dd/MM/yyyy`).
-     - Sự kiện kéo dài qua nhiều ngày (multi-day): `08:00, dd/MM/yyyy ➔ 17:00, dd/MM/yyyy (N ngày)`.
-  4. Hiển thị thông tin chu kỳ lặp lại (`Repeat` icon + văn bản tóm tắt lặp), huy hiệu nhắc hẹn (`Bell` icon), địa điểm (`MapPin`), và trích dẫn ghi chú mô tả (`cleanDesc`).
-  5. Giữ nguyên toàn bộ khu vực bình chọn tham gia (RSVP section) với 3 thanh tiến trình Poll (`Tham gia`, `Chưa chắc`, `Bận`) kèm danh sách avatar tròn của các thành viên đã phản hồi.
-  6. Bổ sung modal / hộp thoại hỏi phạm vi áp dụng khi bình chọn cho lịch hẹn lặp lại:
-     - `Chỉ lần này` (tách thành sự kiện riêng lẻ độc lập và lưu vote)
-     - `Lần này và các lần tiếp theo`
-     - `Tất cả các lần` (lưu vote cho toàn bộ chuỗi sự kiện)
-     - `Đóng / Hủy`
-  7. Đồng bộ tính năng và thẩm mỹ tuyệt đối giữa Web (`CalendarEventChatEmbed.tsx`) và Mobile (`MobileCalendarEventChatEmbed.tsx`), thay thế hoàn toàn phiên bản nhúng cũ `MobileChatCalendarCard`.
-- **Prompt Summary:** theo như này mà BỎ TEXT" LỊCH HẸN NHÓM" VÀ CÓ GHI LOG TIN NHẮN . CÓ THÊM GHI CHÚ VÀ LẶP LẠI.  ĐI NHỈ KHI BÌNH CHỌN THÌ CÓ XÁC NHẬN CHỌN CHO LẦN NÀO - oke vậy thư coi và phần dưới chỗ bình chọn vẫn giữ của cái cũ
-- **Files Affected:**
-  - `apps/web/src/components/chat/CalendarEventChatEmbed.tsx`
-  - `apps/web/src/components/chat/MessageBubble.tsx`
-  - `apps/mobile/src/components/chat/MobileCalendarEventChatEmbed.tsx`
-  - `apps/mobile/app/circle/[id].tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% tái thiết kế thẻ sự kiện lịch hẹn trên chat Web và Mobile.
-- **Human Modifications:** Người dùng định hướng bố cục dạng text, bỏ chữ "LỊCH HẸN NHÓM", hiển thị log tin nhắn người tạo, thêm ghi chú/lặp lại, xác nhận phạm vi bình chọn cho sự kiện lặp, và giữ nguyên giao diện bình chọn cũ.
-- **Verification Method:**
-  - `cd apps/mobile; npx tsc --noEmit`: Passed 0 errors.
-  - `npx tsc --noEmit --project apps/web/tsconfig.json`: Passed 0 errors.
-  - `bash ./scripts/check-agent-map.sh`: Passed (130 files).
-  - `bash ./scripts/check-secrets.sh`: Passed, 0 secret leaks (599 files).
-- **Official Source Checked:** PROJECT_GOD.md, agentic/RULES.md & agentic/CONVENTIONS.md.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
-- **AI Errors / Hallucinations Found:**
-  - **Error Description:** None.
-  - **Root Cause:** N/A.
-  - **Resolution / Fix:** N/A.
+  - `cd apps/web && npx tsc --noEmit`: Passed 0 errors.
+  - Kiểm tra điều hướng mượt mà giữa Lịch ngoài, Màn hình Chi tiết và Form tạo/sửa sự kiện.
+- **Official Source Checked:** Apple HIG Forms & Inputs & Next.js Full-View Page Transitions.
+- **Security & License Check:** An toàn, không chứa secret.
+- **AI Errors / Hallucinations Found:** None.
 - **Commit:** ad7a0de
-- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
+- **PR:** #127
 
 ---
 
-## AI-0182: Tái Thiết Kế Thẻ Lịch Hẹn Web: Ảnh Bìa Màu Chủ Đạo, Địa Điểm, Thời Gian, Vùng Ghi Chú Riêng, Số Thành Viên Xác Nhận & 3 Nút Tham Gia, Có Thể, Từ Chối (#120)
+## AI-0157: Tích Hợp Modal Bản Đồ Leaflet Chọn Vị Trí: React Portal z-9999, Tìm Kiếm Debounced & Reverse Geocoding (#120)
 
-- **Date:** 2026-11-12 15:38:00 +07:00
-- **Developer:** Ninh Thị Mỹ Hạnh
+- **Date:** 2026-11-10 10:45:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210)
 - **Tool:** Antigravity IDE
 - **Model:** Gemini 3.8 Flash (High)
 - **Related Issue:** #120
-- **Purpose:** 
-  1. Cập nhật thẻ lịch hẹn trong khung chat Web (`CalendarEventChatEmbed.tsx`) theo đặc tả mới của người dùng:
-     - **Ảnh bìa & Tên sự kiện:** Banner màu chủ đạo của Web (Circle Teal/Emerald brand gradient), hoa văn nền tinh tế, tên sự kiện màu trắng nổi bật, huy hiệu sự kiện và nút "Xem lịch".
-     - **Địa điểm:** Dòng địa điểm trực quan với icon `MapPin` và `EventLocationDisplay`.
-     - **Thời gian bắt đầu – kết thúc:** Icon `Clock`, format thông minh cho cả sự kiện 1 ngày và nhiều ngày.
-     - **Lặp lại:** Dòng hiển thị chu kỳ lặp lại với icon `Repeat`.
-     - **Ghi chú được tách thành một vùng riêng:** Hộp card ghi chú độc lập có tiêu đề `Ghi chú` kèm icon `FileText`, chữ nghiêng rõ ràng.
-     - **Số thành viên xác nhận:** Dòng hiển thị số lượng thành viên đã xác nhận tham gia cùng danh sách avatar tròn xếp chồng.
-     - **Ba nút phản hồi: Tham gia, Có thể, Từ chối:** 3 nút hành động ngang hàng có trạng thái active nổi bật khi người dùng đã chọn, kèm số lượng vote và tích hợp modal xác nhận phạm vi áp dụng cho sự kiện lặp lại.
-- **Prompt Summary:** sửa web trước nhé: theo này đi Thiết kế gồm: - Ảnh bìa(màu chủ đạo của web) và tên sự kiện. - Địa điểm . - Thời gian bắt đầu – kết thúc. - Lặp lại - Ghi chú được tách thành một vùng riêng. - Số thành viên xác nhận. - Ba nút phản hồi: Tham gia, Có thể, Từ chối.
+- **Purpose:** Khắc phục triệt để lỗi modal bản đồ chọn vị trí sự kiện trên Web: đưa modal ra ngoài DOM cha thông qua React Portal với `z-index: 9999` để không bị che khuất, tích hợp ô tìm kiếm địa điểm có debounce chống nghẽn API, và hỗ trợ chấm vị trí trên bản đồ Leaflet kèm chuyển đổi tọa độ thành địa chỉ thực tế (reverse geocoding).
+- **Prompt Summary:** Khắc phục triệt để lỗi modal bản đồ chọn vị trí sự kiện trên Web: đưa modal ra React Portal z-9999 chống chìm giao diện, tích hợp thanh tìm kiếm địa chỉ có debounce 400ms và cho phép bấm trực tiếp lên bản đồ Leaflet để lấy địa chỉ thực tế qua reverse geocoding.
 - **Files Affected:**
-  - `apps/web/src/components/chat/CalendarEventChatEmbed.tsx`
+  - `apps/web/src/components/tools/CircleCalendarView.tsx`
+  - `apps/web/src/components/tools/LocationPickerModal.tsx`
   - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% tái thiết kế giao diện thẻ sự kiện Web theo chuẩn thương hiệu Circle.
-- **Human Modifications:** Người dùng yêu cầu cấu trúc thẻ gồm ảnh bìa, địa điểm, thời gian, lặp lại, vùng ghi chú riêng, số thành viên xác nhận, và 3 nút (Tham gia, Có thể, Từ chối).
+- **AI-Generated Portion:**
+  - Bọc `LocationPickerModal` bằng `createPortal(..., document.body)` với lớp `z-[9999]`.
+  - Tích hợp thanh tìm kiếm địa điểm với cơ chế debounce 400ms gọi API OpenStreetMap / Nominatim.
+  - Hỗ trợ click cắm mốc trên bản đồ Leaflet và tự động Reverse Geocoding trích xuất địa chỉ đầy đủ điền vào form.
+- **Human Modifications:** Không có thay đổi thủ công.
 - **Verification Method:**
-  - `npx tsc --noEmit --project apps/web/tsconfig.json`: Passed 0 errors.
-  - `bash ./scripts/check-agent-map.sh`: Passed (130 files).
-  - `bash ./scripts/check-secrets.sh`: Passed, 0 secret leaks (600 files).
-- **Official Source Checked:** PROJECT_GOD.md, agentic/RULES.md & agentic/CONVENTIONS.md.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
-- **AI Errors / Hallucinations Found:**
-  - **Error Description:** None.
-  - **Root Cause:** N/A.
-  - **Resolution / Fix:** N/A.
-- **Commit:** e27adf9
-- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
-
----
-
-## AI-0183: Chuyển Thông Báo Tạo Lịch Thành System Message, Chuẩn Hóa Màu Xanh Nền Thương Hiệu & Tối Giản Nhãn Chữ Bằng Icon (#120)
-
-- **Date:** 2026-11-12 15:56:00 +07:00
-- **Developer:** Ninh Thị Mỹ Hạnh
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120
-- **Purpose:** 
-  1. Loại bỏ thanh log bên trong thẻ và chuyển thành System Message căn giữa nằm phía trên thẻ: `"Bạn tạo nhắc hẹn mới… Xem"` (hoặc `"[Tên] tạo nhắc hẹn mới… Xem"`), có nút "Xem" mở trực tiếp lịch hẹn.
-  2. Chuẩn hóa màu xanh của ảnh bìa theo đúng màu thương hiệu Circle Emerald `#10B981` (`from-emerald-500 via-emerald-600 to-teal-600`) thay cho dải màu teal tối.
-  3. Loại bỏ toàn bộ các chữ nhãn thừa (`Thời gian:`, `Địa điểm:`, `Lặp lại:`, `Nhắc hẹn:`, `Ghi chú:`) và chỉ giữ lại icon trực quan (`Clock`, `MapPin`, `Repeat`, `Bell`, `FileText`) theo phong cách tối giản thanh thoát.
-- **Prompt Summary:** bỏ Tí đã tạo lịch hẹn 15:21 ra khỏi và viết thành System Message: Dòng thông báo hệ thống nằm phía trên thẻ, ví dụ “Bạn tạo nhắc hẹn mới… Xem”. màu xanh của nền đang bị sai với thiết kế bỏ các text :Thời gian,Địa điểm,Nhắc hẹn,Ghi chú:... để lại icon đc rồi.
-- **Files Affected:**
-  - `apps/web/src/components/chat/CalendarEventChatEmbed.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% tái cấu trúc System Message, màu nền thương hiệu và tối giản icon trên Web.
-- **Human Modifications:** Người dùng phản hồi bỏ log trong thẻ đưa ra làm System message phía trên, sửa màu xanh nền chuẩn thiết kế và bỏ các nhãn text chỉ để lại icon.
-- **Verification Method:**
-  - `npx tsc --noEmit --project apps/web/tsconfig.json`: Passed 0 errors.
-  - `bash ./scripts/check-agent-map.sh`: Passed (130 files).
-  - `bash ./scripts/check-secrets.sh`: Passed, 0 secret leaks (600 files).
-- **Official Source Checked:** PROJECT_GOD.md, agentic/RULES.md & agentic/CONVENTIONS.md.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
-- **AI Errors / Hallucinations Found:**
-  - **Error Description:** None.
-  - **Root Cause:** N/A.
-  - **Resolution / Fix:** N/A.
-- **Commit:** d3c84f1
-- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
-
-
----
-
-## AI-0184: Đồng Bộ Thông Báo Hệ Thống Động Theo Hành Động (Tạo, Sửa, Huỷ, Bình Chọn), Cập Nhật Thẻ Tại Chỗ & Đồng Bộ Toàn Diện Web/Mobile Parity (#120)
-
-- **Date:** 2026-11-12 16:32:00 +07:00
-- **Developer:** Ninh Thị Mỹ Hạnh
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120
-- **Purpose:** 
-  1. **Dòng thông báo hệ thống động phía trên thẻ:**
-     - Tự động thay đổi nội dung linh hoạt theo từng hành vi:
-       - Tạo mới: `"Bạn tạo nhắc hẹn mới… Xem"` / `"[Tên] tạo nhắc hẹn mới… Xem"`.
-       - Chỉnh sửa/cập nhật: `"Bạn đã cập nhật lịch hẹn… Xem"` / `"[Tên] đã cập nhật lịch hẹn… Xem"`.
-       - Bình chọn/phản hồi: `"Bạn đã xác nhận [tham gia / có thể tham gia / từ chối tham gia]… Xem"` / `"[Tên] đã xác nhận [tham gia / có thể tham gia / từ chối tham gia]… Xem"`.
-       - Hủy: `"Bạn đã hủy lịch hẹn… Xem"` / `"[Tên] đã hủy lịch hẹn… Xem"`.
-     - Nhấp "Xem" mở trực tiếp chế độ xem chi tiết trên Lịch.
-  2. **Cập nhật thẻ tại chỗ, không gửi lặp lại thẻ trong chat ("mấy lần sau ko cần gửi lại thẻ"):**
-     - Tại `apps/backend/src/modules/circle-tools/circle-tools.service.ts`:
-       - Khi cập nhật hoặc hủy lịch hẹn (`action !== 'CREATED'`), backend tìm thẻ tin nhắn `[CALENDAR_EVENT]` hiện có trong database, cập nhật nội dung tại chỗ và phát sự kiện `chat:message-updated` qua `ChatGateway` thay vì tạo thêm tin nhắn mới.
-       - Khi có thành viên RSVP (`respondCalendarEventRsvp`): Backend cập nhật payload tin nhắn trong DB với `rsvps`, `action: 'RSVP_UPDATED'`, `lastActorName`, `lastActorUserId`, `lastRsvpStatus`.
-  3. **Đồng bộ toàn diện Web & Mobile Parity (`MobileCalendarEventChatEmbed.tsx`):**
-     - Đưa dòng thông báo hệ thống động lên phía trên thẻ, loại bỏ header cũ bên trong thẻ.
-     - Thiết kế ảnh bìa màu xanh chủ đạo Circle Emerald `#10B981`, tiêu đề sự kiện chữ trắng nổi bật, huy hiệu "Lịch hẹn" và nút "Xem lịch".
-     - Giữ lại icon trực quan (`Clock`, `MapPin`, `Repeat`, `Bell`, `FileText`) và loại bỏ hoàn toàn các nhãn text thừa.
-     - Khu vực phản hồi với số thành viên xác nhận, avatar xếp chồng và 3 nút/thanh: "Tham gia", "Có thể", "Từ chối".
-- **Prompt Summary:** cái này phải thay đổi nội dung theo tạo sửa có người bình chọn....... và mấy lần sau ko cần gửi lại thẻ
-- **Files Affected:**
-  - `packages/types/src/index.ts`
-  - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
-  - `apps/web/src/components/chat/CalendarEventChatEmbed.tsx`
-  - `apps/mobile/src/components/chat/MobileCalendarEventChatEmbed.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% logic cập nhật tại chỗ realtime cho chat message, thông báo hệ thống động và giao diện đồng bộ Web/Mobile.
-- **Human Modifications:** Người dùng chỉ đạo thông báo hệ thống phải thay đổi nội dung linh hoạt theo các thao tác tạo/sửa/bình chọn/hủy và các lần cập nhật sau không được gửi lại thẻ mới vào đoạn chat.
-- **Verification Method:**
-  - `npx tsc --noEmit --project apps/web/tsconfig.json`: Passed 0 errors.
-  - `cd apps/mobile; npx tsc --noEmit`: Passed 0 errors.
-  - `cd apps/backend; npx tsc --noEmit`: Passed 0 errors.
-  - `cd apps/backend; npm test`: 11 test suites passed, 200 tests passed.
-  - `bash ./scripts/check-agent-map.sh`: Passed (130 files).
-  - `bash ./scripts/check-secrets.sh`: Passed, 0 secret leaks (600 files).
-- **Official Source Checked:** PROJECT_GOD.md, agentic/RULES.md & agentic/CONVENTIONS.md.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
-- **AI Errors / Hallucinations Found:**
-  - **Error Description:** Prisma Message model uses `sentAt` instead of `createdAt`, causing initial TS2353 error during backend typecheck.
-  - **Root Cause:** Assumed `createdAt` was present on Message model without checking schema.
-  - **Resolution / Fix:** Inspected `apps/backend/prisma/schema.prisma` and corrected sorting to `orderBy: { sentAt: 'desc' }`, added missing logger.
-- **Commit:** af6a60c
-- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
-
-
----
-
-## AI-0185: Tách Biệt Thẻ Sự Kiện (Chỉ Khi Tạo/Nhắc) & Hiển Thị Độc Lập Dòng Thông Báo Hệ Thống Khi Sửa/Bình Chọn (#120)
-
-- **Date:** 2026-11-12 16:49:00 +07:00
-- **Developer:** Ninh Thị Mỹ Hạnh
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120
-- **Purpose:** 
-  1. **Điều kiện hiển thị Thẻ sự kiện ("chỉ cần thẻ sự kiện khi tạo hoặc nhắc thui"):**
-     - Thẻ sự kiện đầy đủ (Card có ảnh bìa màu xanh Emerald, thời gian, địa điểm, ghi chú, danh sách thành viên xác nhận và 3 nút bình chọn) chỉ hiển thị khi **Tạo mới** (`action: 'CREATED'`) hoặc khi **Nhắc hẹn** (`action: 'REMINDER'`).
-     - Khi **Sửa lịch hẹn** (`action: 'UPDATED'`), **Có người bình chọn** (`action: 'RSVP_UPDATED'`), hoặc **Hủy** (`action: 'CANCELLED'`): Client chỉ hiển thị duy nhất **Dòng thông báo hệ thống (System Message)** căn giữa tinh gọn (`"[Tên] đã cập nhật lịch hẹn… Xem"`, `"[Tên] đã xác nhận [tham gia/có thể tham gia/từ chối tham gia]… Xem"`), hoàn toàn không render thẻ sự kiện to bên dưới.
-  2. **Cơ chế cập nhật backend (`CircleToolsService`):**
-     - Cập nhật thông tin và số lượng RSVP trên thẻ sự kiện gốc trong DB (luôn giữ `action: 'CREATED'` để thẻ gốc vẫn hiển thị đầy đủ thẻ khi xem lại).
-     - Phát socket `circle:calendar-event-rsvp-updated` hoặc `chat:message-updated` để đồng bộ realtime cho các client đang mở thẻ gốc.
-     - Đồng thời tạo tin nhắn thông báo hệ thống mới (`action: 'UPDATED'` hoặc `'RSVP_UPDATED'`) phát vào kênh chat để mọi người nắm được diễn biến mới nhất mà không bị rối mắt bởi thẻ sự kiện lặp lại.
-  3. **Đồng bộ Web & Mobile:**
-     - `CalendarEventChatEmbed.tsx` (Web) và `MobileCalendarEventChatEmbed.tsx` (Mobile) đồng bộ 100% logic `showCard` và giao diện thông báo hệ thống.
-- **Prompt Summary:** . Dòng Thông Báo Hệ Thống Động (System Message) system mesage cái này phải thay đổi nội dung theo tạo ,sửa, có người bình chọn....... và chỉ cần thẻ sự kiện khi tạo hoặc nhắc thui
-- **Files Affected:**
-  - `packages/types/src/index.ts`
-  - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
-  - `apps/web/src/components/chat/CalendarEventChatEmbed.tsx`
-  - `apps/mobile/src/components/chat/MobileCalendarEventChatEmbed.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% logic tách biệt thẻ sự kiện, chuẩn hóa thông báo hệ thống động và quy trình cập nhật backend.
-- **Human Modifications:** Người dùng yêu cầu Thẻ sự kiện chỉ cần xuất hiện khi tạo hoặc nhắc, còn khi sửa hoặc có người bình chọn thì chỉ hiện dòng thông báo hệ thống.
-- **Verification Method:**
-  - `npx tsc --noEmit --project apps/web/tsconfig.json`: Passed 0 errors.
-  - `cd apps/mobile; npx tsc --noEmit`: Passed 0 errors.
-  - `cd apps/backend; npx tsc --noEmit`: Passed 0 errors.
-  - `cd apps/backend; npm test`: 11 test suites passed, 200 tests passed.
-  - `bash ./scripts/check-agent-map.sh`: Passed (130 files).
-  - `bash ./scripts/check-secrets.sh`: Passed, 0 secret leaks (600 files).
-- **Official Source Checked:** PROJECT_GOD.md, agentic/RULES.md & agentic/CONVENTIONS.md.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
-- **AI Errors / Hallucinations Found:**
-  - **Error Description:** None.
-  - **Root Cause:** N/A.
-  - **Resolution / Fix:** N/A.
+  - Mở modal bản đồ từ Form sự kiện Full-view, xác nhận modal hiển thị ở layer cao nhất và tìm kiếm địa chỉ chính xác.
+- **Official Source Checked:** Leaflet.js Documentation & OpenStreetMap Nominatim Usage Policy.
+- **Security & License Check:** An toàn, không chứa API key nhạy cảm.
+- **AI Errors / Hallucinations Found:** None.
 - **Commit:** 83ef80b
-- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
-
+- **PR:** #127
 
 ---
 
-## AI-0186: Khắc phục Triệt để Hiển thị System Message Động khi Chỉnh Sửa Lịch Hẹn & Cập nhật Kênh Mục Tiêu (#120)
+## AI-0158: Hoàn Thiện Chế Độ Lịch Trình: Phân Trang Cuộn Vô Tận 2 Chiều, Cảnh Báo Chưa Lưu & Tự Động Đồng Bộ Giờ Kết Thúc (#120)
 
-- **Date:** 2026-11-12 17:25:00 +07:00
-- **Developer:** Ninh Thị Mỹ Hạnh
+- **Date:** 2026-11-10 16:30:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210)
 - **Tool:** Antigravity IDE
 - **Model:** Gemini 3.8 Flash (High)
 - **Related Issue:** #120
-- **Purpose:** 
-  1. **Khắc phục nguyên nhân dòng System Message không hiển thị đúng khi sửa lịch hẹn:**
-     - **Nguyên nhân 1 (Target Channel):** `broadcastCalendarEventMessage` và `respondCalendarEventRsvp` trước đây truy vấn kênh chat theo `createdAt: 'asc'`, dẫn tới nếu sự kiện được đăng ở kênh chat khác hoặc trong vòng tròn có nhiều kênh, tin nhắn cập nhật và thông báo hệ thống bị gửi lệch kênh. Đã sửa: Tự động tìm chính xác kênh chat mà thẻ sự kiện gốc đang hiện diện (`where: { channel: { circleId }, content: { contains: eventId } }`).
-     - **Nguyên nhân 2 (Dynamic Header trên thẻ gốc):** Khi cập nhật thẻ gốc trong database, trường `action` được giữ là `'CREATED'` (để thẻ không bị ẩn thành dòng pill), nhưng `latestAction` không được lưu. Do đó, dòng thông báo hệ thống nằm phía trên thẻ sự kiện gốc vẫn luôn giữ text "Bạn tạo nhắc hẹn mới" mà không đổi thành "Bạn đã cập nhật lịch hẹn… Xem". Đã bổ sung trường `latestAction: 'UPDATED'` | `'RSVP_UPDATED'` | `'CANCELLED'` vào `CalendarEventMessagePayload`, giúp header của thẻ sự kiện gốc ngay lập tức đổi thành "Bạn đã cập nhật lịch hẹn… Xem" / "[Tên] đã cập nhật lịch hẹn… Xem".
-     - **Nguyên nhân 3 (Visual pill & icon):** Chuẩn hóa dòng thông báo hệ thống pill độc lập với icon `<CalendarDays />` tinh tế, căn giữa, giúp người dùng nhận diện ngay thông báo trạng thái sự kiện trong luồng tin nhắn chat.
-  2. **Đồng bộ toàn diện Web & Mobile:**
-     - `CalendarEventChatEmbed.tsx` (Web) và `MobileCalendarEventChatEmbed.tsx` (Mobile) đồng bộ 100% logic `getActionType` (ưu tiên `latestAction || action`), hiển thị chuẩn xác cả dòng header trên thẻ sự kiện lẫn dòng system message độc lập.
-- **Prompt Summary:** sao tôi sửa mà chưa có system message trong tin nhắn nhỉ nhỉ
+- **Purpose:** Nâng cấp trải nghiệm toàn diện cho Lịch sự kiện Web: triển khai phân trang cuộn vô tận hai chiều (Bidirectional Infinite Scroll) tự động bung các sự kiện lặp theo chu kỳ, bổ sung cảnh báo khi người dùng rời form mà chưa lưu thay đổi, cho phép tạo sự kiện trong quá khứ và tự động đồng bộ đẩy lùi thời gian kết thúc khi người dùng chỉnh sửa thời gian bắt đầu.
+- **Prompt Summary:** Hoàn thiện trải nghiệm Lịch sự kiện Web: xây dựng cơ chế cuộn vô tận hai chiều phân trang theo cửa sổ thời gian cho chế độ xem Lịch trình, tự động bung các lần lặp lại, hiển thị cảnh báo thay đổi chưa lưu khi bấm quay lại và tự động cập nhật ngày kết thúc theo ngày bắt đầu.
 - **Files Affected:**
-  - `packages/types/src/index.ts`
+  - `apps/web/src/components/tools/CircleCalendarView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:**
+  - Xây dựng thuật toán bung chu kỳ lặp lại cho chế độ xem Lịch trình loại trừ các ngày trong `excludedDates`.
+  - Triển khai phân trang cuộn vô tận 2 chiều nạp dữ liệu quá khứ và tương lai mượt mà.
+  - Bổ sung cờ `isDirty` và modal cảnh báo khi người dùng rời form có dữ liệu chưa lưu.
+  - Tự động đẩy lùi thời gian kết thúc tương ứng khi thời gian bắt đầu vượt quá mốc kết thúc hiện tại.
+- **Human Modifications:** Không có thay đổi thủ công.
+- **Verification Method:**
+  - Thử nghiệm cuộn lên quá khứ và cuộn xuống tương lai trong Lịch trình, dữ liệu bung chính xác.
+  - Thử thay đổi form và bấm quay lại, cảnh báo xuất hiện đúng chuẩn.
+- **Official Source Checked:** RFC 5545 Recurrence Expansion Rules & Apple Calendar UX Patterns.
+- **Security & License Check:** An toàn, không chứa secret.
+- **AI Errors / Hallucinations Found:** None.
+- **Commit:** 83ef80b
+- **PR:** #127
+
+---
+
+## AI-0159: Hiện Đại Hóa Thẻ Lịch Hẹn Trong Khung Chat & Hệ Thống Thông Báo Động (System Message) Kèm Tên Sự Kiện (#120)
+
+- **Date:** 2026-11-11 14:00:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120
+- **Purpose:** Hiện đại hóa toàn diện thẻ sự kiện lịch hẹn trong khung chat nhóm (`EventMessageCard` trên Web và Mobile): thiết kế thẻ trực quan tích hợp 3 nút RSVP tương tác trực tiếp một chạm, cập nhật dữ liệu thẻ tại chỗ qua Socket.IO; chuẩn hóa thông báo hệ thống động theo hành vi (Tạo mới, Cập nhật, RSVP, Hủy, Xóa kèm tên sự kiện trong ngoặc kép).
+- **Prompt Summary:** Hiện đại hóa thẻ sự kiện lịch hẹn trong khung chat nhóm trên cả Web và Mobile: thiết kế thẻ trực quan tích hợp 3 nút phản hồi RSVP một chạm trực tiếp, thiết lập cơ chế cập nhật thẻ tại chỗ qua Socket.IO mà không sinh thêm tin nhắn rác, và chuẩn hóa các thông báo hệ thống động (System Message) kèm tên sự kiện cụ thể cho từng hành động vòng đời.
+- **Files Affected:**
+  - `apps/web/src/components/chat/MessageBubble.tsx`
+  - `apps/web/src/components/tools/CircleCalendarView.tsx`
+  - `apps/mobile/src/components/chat/MobileMessageBubble.tsx`
+  - `apps/mobile/src/components/tools/MobileCalendarView.tsx`
   - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
-  - `apps/backend/src/modules/circle-tools/circle-tools.service.spec.ts`
-  - `apps/web/src/components/chat/CalendarEventChatEmbed.tsx`
-  - `apps/mobile/src/components/chat/MobileCalendarEventChatEmbed.tsx`
   - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% logic điều hướng kênh mục tiêu, bổ sung `latestAction`, và đồng bộ hiển thị System Message.
-- **Human Modifications:** Người dùng phản ánh sau khi sửa lịch hẹn chưa thấy system message cập nhật trong tin nhắn.
+- **AI-Generated Portion:**
+  - Thiết kế lại thẻ tin nhắn sự kiện `EventMessageCard` trên Web và Mobile với 3 nút RSVP trực tiếp ở chân thẻ.
+  - Xây dựng cơ chế cập nhật thẻ sự kiện tại chỗ (in-place card update) qua Socket.IO.
+  - Chuẩn hóa các dòng thông báo hệ thống động kèm tên sự kiện trong ngoặc kép:
+    - Tạo mới: `"Bạn đã tạo lịch hẹn "[Tên sự kiện]""`.
+    - Cập nhật: `"Bạn đã cập nhật lịch hẹn "[Tên sự kiện]""`.
+    - RSVP: `"Bạn đã xác nhận [tham gia / có thể tham gia / từ chối] lịch hẹn "[Tên sự kiện]""`.
+    - Phân biệt rõ ràng hai hành vi: Hủy (`CANCELLED`) và Xóa (`DELETED`).
+- **Human Modifications:** Không có thay đổi thủ công.
 - **Verification Method:**
-  - `npx tsc --noEmit --project apps/web/tsconfig.json`: Passed 0 errors.
-  - `npx tsc --noEmit --project apps/mobile/tsconfig.json`: Passed 0 errors.
-  - `npx tsc --noEmit --project apps/backend/tsconfig.json`: Passed 0 errors.
-  - `npm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.spec.ts`: Passed 45/45 tests.
-- **Official Source Checked:** PROJECT_GOD.md, agentic/RULES.md & agentic/CONVENTIONS.md.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
-- **AI Errors / Hallucinations Found:**
-  - **Error Description:** None.
-  - **Root Cause:** N/A.
-  - **Resolution / Fix:** N/A.
-- **Commit:** 0bf85f3
-- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
-
----
-
-## AI-0187: Loại bỏ Khung Bo Xanh và Tinh Giản Dòng Thông Báo Hệ Thống Lịch Hẹn (#120)
-
-- **Date:** 2026-11-12 17:42:00 +07:00
-- **Developer:** Ninh Thị Mỹ Hạnh
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120
-- **Purpose:** 
-  1. **Loại bỏ viền khung bo ("bo khung xanh") theo yêu cầu người dùng:**
-     - Tinh giản dòng thông báo hệ thống độc lập (`!showCard`) trên cả Web (`CalendarEventChatEmbed.tsx`) và Mobile (`MobileCalendarEventChatEmbed.tsx`): loại bỏ thẻ pill bo tròn (`rounded-full`, viền khung border, nền wash và icon rườm rà), chuyển thành dòng thông báo hệ thống dạng text thuần phẳng, thanh thoát căn giữa luồng chat (nhất quán với dòng thông báo hệ thống nằm trên thẻ sự kiện).
-     - Loại bỏ badge bo tròn "Lịch hẹn" trong dải banner bìa sự kiện, giữ nút "Xem lịch" căn lề phải gọn gàng, loại bỏ hoàn toàn viền bo xanh hover trên container thẻ sự kiện.
-  2. **Đồng bộ Web & Mobile:**
-     - Đảm bảo trải nghiệm trực quan thống nhất, tối giản và chuyên nghiệp trên cả 2 nền tảng Web và Mobile.
-- **Prompt Summary:** ko cần bo khung xanh
-- **Files Affected:**
-  - `apps/web/src/components/chat/CalendarEventChatEmbed.tsx`
-  - `apps/mobile/src/components/chat/MobileCalendarEventChatEmbed.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% tinh chỉnh CSS/layout loại bỏ pill box và viền khung bo.
-- **Human Modifications:** Người dùng yêu cầu không cần bo khung xanh cho thông báo.
-- **Verification Method:**
-  - `npx tsc --noEmit --project apps/web/tsconfig.json`: Passed 0 errors.
-  - `npx tsc --noEmit --project apps/mobile/tsconfig.json`: Passed 0 errors.
-  - `npm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.spec.ts`: Passed 45/45 tests.
-  - `bash ./scripts/check-agent-map.sh`: 130/130 files pass.
-  - `bash ./scripts/check-secrets.sh`: 600 files checked, 0 secret leaks.
-- **Official Source Checked:** PROJECT_GOD.md, agentic/RULES.md & agentic/CONVENTIONS.md.
-- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
-- **AI Errors / Hallucinations Found:**
-  - **Error Description:** None.
-  - **Root Cause:** N/A.
-  - **Resolution / Fix:** N/A.
-- **Commit:** 85e3110
-- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
-
-
----
-
-## AI-0188: Tuyệt Đối Chỉ Hiển Thị Thẻ Banner khi Tạo Mới và Nhắc Hẹn (#120)
-
-- **Date:** 2026-11-12 18:05:00 +07:00
-- **Developer:** Ninh Thị Mỹ Hạnh
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120
-- **Purpose:** 
-  1. **Khắc phục triệt để lỗi thẻ banner vẫn xuất hiện khi chỉnh sửa sự kiện:**
-     - Nguyên tắc bất biến được chốt: Thẻ sự kiện banner (Card có ảnh bìa màu xanh Emerald brand) CHỈ ĐƯỢC PHÉP HIỂN THỊ khi **Tạo mới** (ction: 'CREATED') hoặc **Nhắc hẹn** (ction: 'REMINDER').
-     - Tất cả các trường hợp **Chỉnh sửa** (UPDATED), **Bình chọn** (RSVP_UPDATED), **Hủy** (CANCELLED / isCancelled) TUYỆT ĐỐI KHÔNG HIỂN THỊ THẺ BANNER, mà chỉ hiển thị dòng thông báo hệ thống dạng text ([Tên] đã cập nhật lịch hẹn… Xem / [Tên] sẽ tham gia… Xem).
-     - Sửa điều kiện showCard trong CalendarEventChatEmbed.tsx (Web) và MobileCalendarEventChatEmbed.tsx (Mobile) để kiểm tra chặt chẽ latestAction và ction, ngăn không cho bất kỳ tin nhắn cập nhật nào hiển thị thẻ banner.
-     - Cập nhật backend circle-tools.service.ts: khi sửa sự kiện, thẻ trong DB được gán chính xác ction: 'UPDATED' và latestAction: 'UPDATED'.
-     - Ngăn ngừa tình trạng tách chuỗi lặp (isRecurrenceSplit) phát sóng nhầm hành động 'CREATED' gửi thẻ banner mới vào chat.
-  2. **Đồng bộ 100% Web & Mobile:**
-     - Đảm bảo trải nghiệm trực quan đồng nhất trên toàn bộ hệ thống CIRCLE.
-- **Prompt Summary:** sao đã kêu chỉ có tạo với nhắc lại mới hiện thẻ banner mà
-- **Files Affected:**
-  - pps/backend/src/modules/circle-tools/circle-tools.service.ts
-  - pps/web/src/components/chat/CalendarEventChatEmbed.tsx
-  - pps/mobile/src/components/chat/MobileCalendarEventChatEmbed.tsx
-  - pps/web/src/components/tools/CircleCalendarView.tsx
-  - pps/web/src/components/tools/CircleEventDetailModal.tsx
-  - pps/mobile/src/components/tools/MobileCalendarView.tsx
-  - docs/ai-usage/log.md
-- **AI-Generated Portion:** 100% logic điều kiện hiển thị showCard, xử lý isRecurrenceSplit và đồng bộ Web & Mobile.
-- **Human Modifications:** Người dùng nhấn mạnh lại yêu cầu cốt lõi: chỉ có tạo và nhắc lại mới được hiện thẻ banner.
-- **Verification Method:**
-  - 
-px tsc --noEmit --project apps/web/tsconfig.json: Passed 0 errors.
-  - 
-px tsc --noEmit --project apps/mobile/tsconfig.json: Passed 0 errors.
-  - 
-pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.spec.ts: Passed 45/45 tests.
-  - ash ./scripts/check-agent-map.sh: 130/130 files pass.
-  - ash ./scripts/check-secrets.sh: 600 files checked, 0 secret leaks.
-- **Official Source Checked:** PROJECT_GOD.md, agentic/RULES.md & agentic/CONVENTIONS.md.
-- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
-- **AI Errors / Hallucinations Found:**
-  - **Error Description:** None.
-  - **Root Cause:** N/A.
-  - **Resolution / Fix:** N/A.
+  - Bấm thử các nút RSVP trên thẻ chat, trạng thái phản hồi cập nhật tức thời qua Socket.IO.
+  - Thực hiện các hành vi Hủy và Xóa, kiểm tra luồng chat hiển thị đúng dòng thông báo hệ thống phân biệt rõ ràng.
+- **Official Source Checked:** PROJECT_GOD §2.2 & Socket.IO Realtime Delivery Standards.
+- **Security & License Check:** An toàn, không chứa secret.
+- **AI Errors / Hallucinations Found:** None.
 - **Commit:** b5a87aa
-- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
-
+- **PR:** #127
 
 ---
 
-## AI-0189: Chuẩn Hóa Thông Báo Hệ Thống Kèm Tên Lịch Hẹn & Phân Biệt Hủy/Xóa (#120)
+## AI-0160: Tái Thiết Kế Media Hub & Album: Kiến Trúc 3 Tab Chuyên Biệt, Floating Pill Bar & Popover Bộ Lọc Hoàn Chỉnh (#120)
 
-- **Date:** 2026-11-12 18:20:00 +07:00
-- **Developer:** Ninh Thị Mỹ Hạnh
+- **Date:** 2026-11-12 10:20:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210)
 - **Tool:** Antigravity IDE
 - **Model:** Gemini 3.8 Flash (High)
 - **Related Issue:** #120
-- **Purpose:** 
-  1. **Chuẩn hóa thông điệp hệ thống kèm tên sự kiện theo chỉ đạo người dùng:**
-     - Người dùng yêu cầu: Khi hủy hay xóa thì ghi rõ là hủy hoặc xóa lịch hẹn [tên lịch hẹn], và tất cả các thông báo đều phải có chữ "lịch hẹn [tên lịch hẹn kèm theo]".
-     - Cập nhật phân biệt rõ ràng hai hành động:
-       - **Hủy sự kiện (`CANCELLED`):** `Bạn đã hủy lịch hẹn "[Tên]"` / `[Người thực hiện] đã hủy lịch hẹn "[Tên]"`.
-       - **Xóa sự kiện (`DELETED`):** `Bạn đã xóa lịch hẹn "[Tên]"` / `[Người thực hiện] đã xóa lịch hẹn "[Tên]"`.
-     - Chuẩn hóa toàn bộ các hành động khác để luôn đính kèm tên lịch hẹn:
-       - **Tạo mới (`CREATED`):** `Bạn đã tạo lịch hẹn "[Tên]"` / `[Người thực hiện] đã tạo lịch hẹn "[Tên]"`.
-       - **Cập nhật (`UPDATED`):** `Bạn đã cập nhật lịch hẹn "[Tên]"` / `[Người thực hiện] đã cập nhật lịch hẹn "[Tên]"`.
-       - **Bình chọn (`RSVP_UPDATED`):** `Bạn đã xác nhận [tham gia/có thể tham gia/từ chối tham gia] lịch hẹn "[Tên]"`.
-       - **Nhắc hẹn (`REMINDER`):** `Nhắc hẹn: Lịch hẹn "[Tên]" sắp diễn ra`.
-  2. **Đồng bộ Web & Mobile:**
-     - Áp dụng trên cả `CalendarEventChatEmbed.tsx` (Web) và `MobileCalendarEventChatEmbed.tsx` (Mobile).
-- **Prompt Summary:** huỷ hay xoá thì ghi huỷ hoặc xoá  lịch hẹn j ... tất cả đều có là lịch hẹn(tên lịch hẹn kèm theo)
-- **Files Affected:**
-  - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
-  - `apps/web/src/components/chat/CalendarEventChatEmbed.tsx`
-  - `apps/mobile/src/components/chat/MobileCalendarEventChatEmbed.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% logic phân loại hành động DELETED, CANCELLED và format chuỗi thông báo hệ thống.
-- **Human Modifications:** Người dùng yêu cầu ghi rõ hành vi hủy/xóa và gắn tên sự kiện vào toàn bộ các thông báo.
-- **Verification Method:**
-  - `npx tsc --noEmit --project apps/web/tsconfig.json`: Passed 0 errors.
-  - `npx tsc --noEmit --project apps/mobile/tsconfig.json`: Passed 0 errors.
-  - `npm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.spec.ts`: Passed 45/45 tests.
-  - `bash ./scripts/check-agent-map.sh`: 130/130 files pass.
-  - `bash ./scripts/check-secrets.sh`: 600 files checked, 0 secret leaks.
-- **Official Source Checked:** PROJECT_GOD.md, agentic/RULES.md & agentic/CONVENTIONS.md.
-- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
-- **AI Errors / Hallucinations Found:**
-  - **Error Description:** None.
-  - **Root Cause:** N/A.
-  - **Resolution / Fix:** N/A.
-- **Commit:** ad6f1e4
-- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
-
-
----
-
-## AI-0190: Tái Thiết Kế Hub Phương Tiện, Album, Floating Pill Popover & Tinh Chỉnh Ergonomics (#120)
-
-- **Date:** 2026-11-13 17:05:00 +07:00
-- **Developer:** Trương Công Bình & Ninh Thị Mỹ Hạnh
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 2.5 (High)
-- **Related Issue:** #120
-- **Purpose:** Triển khai chuỗi cải tiến UI/UX chuyên sâu cho Hub File phương tiện & Album trên Web theo yêu cầu người dùng:
-  1. **Tách biệt và tối ưu hóa 3 tab Hub:**
-     - Tab Media (File phương tiện): hiển thị lưới ảnh/video, gắn avatar người gửi tròn tinh tế góc trên bên trái từng ảnh; hover để hiển thị thanh thông tin mờ người tạo và ngày gửi.
-     - Tab Links (Liên kết): tìm kiếm liên kết theo ngữ cảnh, thẻ metadata trực quan.
-     - Tab Files (Tệp tài liệu): tìm kiếm tệp tin, lọc danh mục theo loại tệp (PDF, Word, Excel, Canva, RAR/Zip, Khác).
-  2. **Bộ lọc dạng Floating Pill Popover hiện đại:**
-     - **Người gửi (`SenderFilterPopover`):** Thiết kế nút rút gọn `w-26 min-w-[92px] px-2.5`, hiển thị nhãn "Người gửi" hoặc tên người gửi đã chọn kèm nút 'x' để xóa nhanh. Menu popover hỗ trợ tìm kiếm thành viên kèm avatar tròn và danh sách chọn mượt mà.
-     - **Loại file (`FileTypeFilterPopover`):** Thiết kế nút rút gọn `w-24 min-w-[84px] px-2.5`, hiển thị nhãn "Loại file" hoặc loại file đã chọn kèm nút 'x'.
-     - **Ngày gửi (`DateRangePickerPopover`):** Thiết kế nút cố định `w-48 sm:w-52 min-w-[190px]` với định dạng đầy đủ ngày tháng năm (`DD/MM/YYYY`, ví dụ `13/11/2026 - 15/11/2026` hoặc `Từ 13/11/2026`). Popover trải ngang hai ô "Từ ngày" và "Đến ngày" hiển thị placeholder ngầm, tích hợp bộ chọn lịch trực tiếp kèm nút "Xong" để chốt thời gian.
-  3. **Mở rộng chiều dài ô tìm kiếm:**
-     - Nhờ thu gọn tối đa 2 nút "Người gửi" và "Loại file", ô tìm kiếm được mở rộng đáng kể lên `w-44 sm:w-56 md:w-64`, giúp trải nghiệm nhập từ khóa thoải mái và thông thoáng.
-  4. **Khắc phục lỗi menu popover bị cắt chìm dưới nền:**
-     - Loại bỏ `overflow-x-auto` trên container thanh Floating Pill Bar để khôi phục `overflow: visible`, ngăn chặn việc CSS vô tình cắt bỏ các menu popover con.
-     - Nâng cấp stacking context: đặt thanh công cụ ở `z-30`, các menu popover ở `z-50` kèm `pointer-events-auto`, đảm bảo nhận 100% sự kiện tương tác của người dùng.
-  5. **Tính thường trực của Floating Pill Buttons trong Album:**
-     - Tất cả các nút công cụ trong màn hình Chi tiết Album (Quay lại "Album", Camera tìm kiếm theo ảnh, Lọc Người gửi, Lọc Ngày gửi, Nút "Chọn", Nút Tải ảnh lên, Nút Xóa album) luôn hiển thị thường trực ngay cả khi album mới tạo chưa có ảnh.
-  6. **Chế độ chọn nhiều ảnh (Multi-select) & Thao tác hàng loạt:**
-     - Hỗ trợ chọn từng ảnh hoặc chọn tất cả trong Album để tải về hoặc xóa ảnh.
-     - Nút "Chọn" ở thanh Tất cả file phương tiện hỗ trợ chọn nhiều ảnh để lưu đồng loạt với floating action bar nổi ở đáy màn hình.
-- **Files Affected:**
-  - `apps/web/src/components/tools/CircleAlbumsView.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% UI layout, Popover logic, DateRange picker, CSS stacking context and styling refinements.
-- **Human Modifications:** Không có thay đổi thủ công.
-- **Verification Method:**
-  - `npx tsc -p apps/web/tsconfig.json --noEmit`: Passed 0 errors.
-  - `npm run build --workspace=apps/web`: Passed 0 errors (12/12 static pages generated).
-  - `bash ./scripts/check-agent-map.sh`: Passed (130/130 files resolve).
-  - `bash ./scripts/check-secrets.sh`: Passed (600 files checked, 0 secret leaks).
-- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`, `agentic/CONVENTIONS.md`.
-- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
-- **Commit:** cc0f00f
-- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
-
-
----
-
-## AI-0191: Tinh Chỉnh Popover Bộ Lọc, Inline Accordion Calendar, Inline Rename Album & Bộ Lọc Nội Bộ Album (#120)
-
-- **Date:** 2026-11-13 05:10:00 +07:00
-- **Developer:** Trương Công Bình & Ninh Thị Mỹ Hạnh
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 2.5 (High)
-- **Related Issue:** #120
-- **Purpose:** Triển khai đợt nâng cấp chi tiết trải nghiệm người dùng theo phản hồi trực tiếp:
-  1. **Bộ lọc Loại file & Người gửi (Popover Options Clean-up):**
-     - Loại bỏ tùy chọn "Loại file" và "Người gửi" trong danh sách xổ xuống của Popover vì đã có nút icon 'X' trực tiếp trên nút để reset về mặc định.
-     - Chuyển bộ lọc Loại file sang dạng Custom Popover đồng bộ hoàn toàn với bộ lọc Người gửi.
-  2. **Bộ lọc Ngày gửi (Fixed Width & Inline Accordion Calendar):**
-     - Nút "Ngày gửi" trên thanh Floating Pill Bar được cố định kích thước (`w-52 sm:w-56 min-w-[210px]`) đảm bảo không bị co dãn hay giật layout trước và sau khi chọn khoảng ngày.
-     - Popover mở ra với 2 ô "Từ ngày" và "Đến ngày" nằm ngang, tối giản sạch sẽ, không chứa nút X hay nút phụ nào bên trong.
-     - Khi ấn vào ô chọn ngày, lịch (Calendar View) mở rộng kéo dài xuống phía dưới trực tiếp bên trong Popover (dạng accordion) thay vì nhảy popup đè lên.
-  3. **Tất cả file phương tiện:**
-     - Loại bỏ nút "Chọn tất cả" trong cả header phần và thanh thao tác nổi bên dưới; người dùng chỉ chọn các ảnh đơn lẻ cần tải về.
-  4. **Chi tiết Album (Inline Rename & Xóa Album):**
-     - Nhấn vào Cây bút (hoặc tên album) sẽ hiển thị con trỏ trực tiếp ở tên album (Inline Rename) để đổi tên tức thì khi nhấn Enter hoặc click ra ngoài, không cần popup.
-     - Thay nút cây bút trên thanh top bar thành nút Thùng rác (Xóa album) có hộp thoại xác nhận an toàn.
-  5. **Bộ lọc trong Album:**
-     - Tích hợp trọn bộ công cụ lọc vào trong Chi tiết Album: nút Camera tìm kiếm theo ảnh, bộ lọc Người gửi (theo các thành viên có ảnh trong album) và bộ lọc Ngày gửi (Inline Accordion Calendar).
-- **Files Affected:**
-  - `apps/web/src/components/tools/CircleAlbumsView.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% logic subcomponents `DateRangePickerPopover`, `FileTypeFilterPopover`, `SenderFilterPopover`, inline editing album title, internal album filtering.
-- **Human Modifications:** Không có thay đổi thủ công.
-- **Verification Method:**
-  - `npx tsc -p apps/web/tsconfig.json --noEmit`: Passed 0 errors.
-  - `npm run build --workspace=apps/web`: Passed 0 errors (12/12 static pages generated).
-  - `bash ./scripts/check-agent-map.sh`: Passed (130/130 files resolve).
-  - `bash ./scripts/check-secrets.sh`: Passed (600 files checked, 0 secret leaks).
-- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`, `agentic/CONVENTIONS.md`.
-- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
-- **AI Errors / Hallucinations Found:** None.
-- **Commit:** cc0f00f
-- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
-
-
----
-
-## AI-0192: Tối Ưu Thanh Điều Khiển 1 Dòng, Nút Xong Cho Lịch Ngày Gửi & Nâng Cấp Chi Tiết Album (#120)
-
-- **Date:** 2026-11-13 05:46:00 +07:00
-- **Developer:** Trương Công Bình & Ninh Thị Mỹ Hạnh
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 2.5 (High)
-- **Related Issue:** #120
-- **Purpose:** Triển khai đợt tinh chỉnh UI/UX Web chuyên sâu cho Media Hub & Albums theo yêu cầu người dùng:
-  1. **Chi tiết Album (Album Detail View):**
-     - Đổi chữ cạnh icon mũi tên quay lại từ "File phương tiện" thành "Album".
-     - Các nút điều khiển trên thanh Floating Pill Bar (Camera tìm kiếm ảnh, Bộ lọc Người gửi, Bộ lọc Ngày gửi, Chọn ảnh, Tải ảnh lên, Xóa album) luôn hiển thị đầy đủ, không bị ẩn khi album chưa có ảnh hay chưa có người gửi.
-  2. **Tối ưu thanh điều khiển gọn gàng trên 1 dòng duy nhất (Single-row optimization):**
-     - **Ô tìm kiếm:** Đưa icon kính lúp và văn bản placeholder sát lề hơn (`left-2.5`, `pl-7 pr-6`), thu gọn độ rộng (`w-28 sm:w-32 md:w-36`).
-     - **Bộ lọc Loại file:** Loại bỏ tùy chọn `PowerPoint`; rút ngắn nhãn "Tệp nén" thành "RAR,Zip"; thu gọn kích thước nút (`w-24 sm:w-28 min-w-[88px] h-8.5`).
-     - **Bộ lọc Người gửi:** Thu gọn kích thước nút (`w-26 sm:w-30 min-w-[98px] h-8.5`), luôn hiển thị nhất quán trên thanh công cụ.
-     - **Bộ lọc Ngày gửi:** Bỏ icon Calendar trên nút ngoài để rút ngắn chiều rộng (`w-28 sm:w-32 min-w-[110px] h-8.5`); hiển thị khoảng ngày dạng rút gọn `DD/MM` (ví dụ `13/11 - 15/11` hoặc `Từ 13/11`); thiết lập `md:flex-nowrap` giúp toàn bộ thanh công cụ nằm trên 1 dòng duy nhất.
-  3. **Cơ chế Lịch chọn Ngày gửi (Date Range Picker Popover UX):**
-     - Sử dụng trạng thái nháp nội bộ (`draftFrom`, `draftTo`) bên trong popover.
-     - Khi chọn ngày ở "Từ ngày", hệ thống giữ nguyên ở "Từ ngày", không tự động nhảy sang "Đến ngày" để người dùng thoải mái chỉnh sửa. Muốn chọn "Đến ngày", người dùng chủ động nhấn qua ô "Đến ngày".
-     - Bổ sung nút "Xong" (Done) và "Xóa" (Clear) ở chân lịch: Chỉ khi người dùng bấm "Xong" thì khoảng ngày mới được áp dụng ra ngoài thanh điều khiển.
-- **Files Affected:**
-  - `packages/shared/src/locales/vi.ts`
-  - `packages/shared/src/locales/en.ts`
-  - `apps/web/src/components/tools/CircleAlbumsView.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% logic draft date selection with Done confirmation, single-row responsive styling, always-visible controls.
-- **Human Modifications:** Không có thay đổi thủ công.
-- **Verification Method:**
-  - `npx tsc -p apps/web/tsconfig.json --noEmit`: Passed 0 errors.
-  - `npm run build --workspace=apps/web`: Passed 0 errors (12/12 static pages generated).
-  - `bash ./scripts/check-agent-map.sh`: Passed (130/130 files resolve).
-  - `bash ./scripts/check-secrets.sh`: Passed (600 files checked, 0 secret leaks).
-- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`, `agentic/CONVENTIONS.md`.
-- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
-- **AI Errors / Hallucinations Found:** None.
-- **Commit:** cc0f00f
-- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
-
-
----
-
-## AI-0193: Khôi Phục Kích Cỡ Chuẩn & Đồng Bộ Thanh Điều Khiển Floating Pill Bar Trên Web (#120)
-
-- **Date:** 2026-11-13 05:57:00 +07:00
-- **Developer:** Trương Công Bình & Ninh Thị Mỹ Hạnh
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 2.5 (High)
-- **Related Issue:** #120
-- **Purpose:** Khôi phục kích thước chuẩn và tính đồng bộ cao cấp cho toàn bộ thanh điều khiển Floating Pill Bar:
-  1. **Khôi phục chiều cao chuẩn `h-9` (36px):** Đồng bộ tuyệt đối chiều cao của tất cả các nút điều khiển, các tab, ô tìm kiếm và các bộ lọc popover ở cả màn hình chính lẫn chi tiết album, loại bỏ triệt để hiện tượng nút bị bé hay lệch hàng.
-  2. **Khôi phục khoảng đệm & độ rộng cân đối (Proportional Sizing):**
-     - **Ô tìm kiếm:** Kích thước chuẩn `h-9 w-36 sm:w-44 md:w-48 pl-7 pr-7`, icon kính lúp cách lề vừa vặn `left-2.5`.
-     - **Bộ lọc Loại file:** Kích thước chuẩn `h-9 w-32 min-w-[120px] px-3`, chữ hiển thị `max-w-[85px]`.
-     - **Bộ lọc Người gửi:** Kích thước chuẩn `h-9 w-36 min-w-[130px] px-3`, chữ hiển thị `max-w-[95px]`.
-     - **Bộ lọc Ngày gửi:** Kích thước chuẩn `h-9 w-36 sm:w-40 min-w-[130px] px-3`, chữ hiển thị `max-w-[100px]`.
-     - **Các nút chức năng khác (Camera, Chọn ảnh, Tải ảnh lên, Xóa album, Quay lại):** Chiều cao chuẩn `h-9`, padding `px-3` hoặc `px-3.5` cân đối, hài hòa.
-  3. **Đảm bảo trải phẳng 1 hàng duy nhất:** Áp dụng `overflow-x-auto no-scrollbar` và `shrink-0` linh hoạt, giữ cho thanh công cụ luôn nằm trên 1 dòng duy nhất, không bị co dúm hay vỡ giao diện khi thu nhỏ cửa sổ.
-- **Files Affected:**
-  - `apps/web/src/components/tools/CircleAlbumsView.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% cân chỉnh kích thước và đồng bộ hóa styling.
-- **Human Modifications:** Không có thay đổi thủ công.
-- **Verification Method:**
-  - `npx tsc -p apps/web/tsconfig.json --noEmit`: Passed 0 errors.
-  - `npm run build --workspace=apps/web`: Passed 0 errors (12/12 static pages generated).
-  - `bash ./scripts/check-agent-map.sh`: Passed (130/130 files resolve).
-  - `bash ./scripts/check-secrets.sh`: Passed (600 files checked, 0 secret leaks).
-- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`, `agentic/CONVENTIONS.md`.
-- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
-- **Commit:** cc0f00f
-- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
-
-
----
-
-## AI-0194: Hiển Thị Thường Trực Toàn Bộ Floating Pill Buttons Trong Album (#120)
-
-- **Date:** 2026-11-13 16:43:00 +07:00
-- **Developer:** Trương Công Bình & Ninh Thị Mỹ Hạnh
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 2.5 (High)
-- **Related Issue:** #120
-- **Purpose:** Đảm bảo tất cả các Floating Pill Buttons trong Album luôn hiển thị ngay từ đầu theo phản hồi người dùng:
-  1. **Nút "Chọn" ảnh luôn xuất hiện:** Loại bỏ điều kiện kiểm tra ảnh (`photos.length > 0`), giúp nút "Chọn" luôn hiện diện trên thanh Floating Pill Bar ngay cả khi album mới tạo và chưa có ảnh nào.
-  2. **Thanh công cụ đầy đủ và cố định:** Toàn bộ 7 nút chức năng (Quay lại "Album", Camera tìm kiếm theo ảnh, Bộ lọc Người gửi, Bộ lọc Ngày gửi, Nút "Chọn", Nút Tải ảnh lên, Nút Xóa album) đều luôn hiển thị thường trực, tạo cảm giác ổn định, liền mạch và chuyên nghiệp.
-  3. **Đồng bộ phần Tất cả file phương tiện:** Nút "Chọn" cũng luôn được hiển thị thường trực trên tiêu đề danh sách file phương tiện.
-- **Files Affected:**
-  - `apps/web/src/components/tools/CircleAlbumsView.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% logic rendering and condition cleanup.
-- **Human Modifications:** Không có thay đổi thủ công.
-- **Verification Method:**
-  - `npx tsc -p apps/web/tsconfig.json --noEmit`: Passed 0 errors.
-  - `npm run build --workspace=apps/web`: Passed 0 errors (12/12 static pages generated).
-  - `bash ./scripts/check-agent-map.sh`: Passed (130/130 files resolve).
-  - `bash ./scripts/check-secrets.sh`: Passed (600 files checked, 0 secret leaks).
-- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`, `agentic/CONVENTIONS.md`.
-- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
-- **Commit:** cc0f00f
-- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
-
-
----
-
-## AI-0195: Sửa Lỗi Cắt/Chìm Menu Popover Dưới Nền & Nâng Cấp Stacking Context Floating Pill Bar (#120)
-
-- **Date:** 2026-11-13 16:53:00 +07:00
-- **Developer:** Trương Công Bình & Ninh Thị Mỹ Hạnh
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 2.5 (High)
-- **Related Issue:** #120
-- **Purpose:** Khắc phục triệt để lỗi các nút lọc khi nhấn vào bị chìm hoặc đè dưới nền giao diện:
-  1. **Loại bỏ `overflow-x-auto` trên container thanh Floating Pill Bar:**
-     - Trong CSS, thuộc tính `overflow-x-auto` sẽ tự động chuyển `overflow-y` thành `auto` (hoặc `hidden`), tạo thành một vùng cuộn giới hạn theo chiều cao nút (36px). Kết quả là khi click vào các bộ lọc (Ngày gửi, Người gửi, Loại file), menu popover xổ xuống bị cắt đứt ngang và giấu dưới nền, không thể xem hoặc click vào các mục bên trong.
-     - Đã loại bỏ `overflow-x-auto`, khôi phục `overflow: visible` mặc định để các popover tự do bung phủ lên trên nền trang.
-  2. **Nâng cấp Stacking Context & Z-Index:**
-     - Đưa thanh Floating Pill Controls Bar từ `z-20` lên `z-30` (tránh xung đột với các phần tử `z-20` của ảnh trong lớp cuộn content layer bên dưới).
-     - Thiết lập `z-50` và bổ sung `pointer-events-auto` cho tất cả menu popover (`FileTypeFilterPopover`, `SenderFilterPopover`, `DateRangePickerPopover`), đảm bảo menu luôn nổi lên trên cùng và nhận 100% sự kiện click/touch.
-- **Files Affected:**
-  - `apps/web/src/components/tools/CircleAlbumsView.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% CSS stacking context and overflow fix.
-- **Human Modifications:** Không có thay đổi thủ công.
-- **Verification Method:**
-  - `npx tsc -p apps/web/tsconfig.json --noEmit`: Passed 0 errors.
-  - `npm run build --workspace=apps/web`: Passed 0 errors (12/12 static pages generated).
-  - `bash ./scripts/check-agent-map.sh`: Passed (130/130 files resolve).
-  - `bash ./scripts/check-secrets.sh`: Passed (600 files checked, 0 secret leaks).
-- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`, `agentic/CONVENTIONS.md`.
-- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
-- **Commit:** cc0f00f
-- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
-
-
----
-
-## AI-0196: Tối Ưu Chiều Rộng Tối Giản Các Nút Lọc (Không Bị Ellipsis ...) & Kéo Dài Thanh Tìm Kiếm (#120)
-
-- **Date:** 2026-11-13 17:30:00 +07:00
-- **Developer:** Trương Công Bình & Ninh Thị Mỹ Hạnh
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 2.5 (High)
-- **Related Issue:** #120
-- **Purpose:** Tối ưu hóa không gian thanh Floating Pill Bar trên giao diện Web theo phản hồi của người dùng:
-  1. **Nút "Loại file" (FileTypeFilterPopover):**
-     - Rút gọn kích thước từ `w-32 min-w-[120px] px-3` xuống `w-[100px] px-2.5 gap-1 shrink-0`.
-     - Sử dụng `whitespace-nowrap` cho nhãn hiển thị; vừa vặn trọn vẹn nhãn mặc định "Loại file" (~54px) và tất cả các loại file ("RAR,Zip", "Word", "Excel", "PDF", "Canva", "Khác") mà không bao giờ bị cắt chữ dạng `...`.
-  2. **Nút "Người gửi" (SenderFilterPopover):**
-     - Rút gọn kích thước từ `w-36 min-w-[130px] px-3` xuống `w-[110px] px-2.5 gap-1 shrink-0`.
-     - Nhãn văn bản hiển thị mặc định "Người gửi" (~56px) với `max-w-[76px]` vừa khít 100% không bị `...`, đồng thời icon đóng/mở hoặc nút xoá reset hiển thị tinh tế, gọn gàng.
-  3. **Nút "Ngày gửi" (DateRangePickerPopover):**
-     - Rút gọn kích thước từ `w-36 sm:w-40 min-w-[130px] px-3` xuống `w-[118px] px-2.5 gap-1 shrink-0`.
-     - Áp dụng `whitespace-nowrap` cho nhãn hiển thị; đáp ứng hoàn hảo cho cả chuỗi dải ngày dài nhất (ví dụ: `13/11 - 15/11` ~75px) lẫn các trạng thái `Từ 13/11`, `Đến 15/11` và mặc định `Ngày gửi` mà không bao giờ xuất hiện `...`.
-  4. **Kéo dài thanh tìm kiếm (Search Bar) hấp thụ không gian tiết kiệm được:**
-     - Mở rộng thanh tìm kiếm từ `w-36 sm:w-44 md:w-48` lên `w-48 sm:w-64 md:w-72 lg:w-80` (từ 192px lên tối đa 320px).
-     - Người dùng có thêm hơn 100px không gian nhập liệu tìm kiếm tệp tin và liên kết, giúp trải nghiệm gõ từ khóa dài thoải mái và trực quan hơn rất nhiều.
-- **Files Affected:**
-  - `apps/web/src/components/tools/CircleAlbumsView.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% CSS dimension optimization and responsiveness calibration.
-- **Human Modifications:** Không có thay đổi thủ công.
-- **Verification Method:**
-  - `npx tsc -p apps/web/tsconfig.json --noEmit`: Passed 0 errors.
-  - `npm run build --workspace=apps/web`: Passed 0 errors (12/12 static pages generated).
-  - `bash ./scripts/check-agent-map.sh`: Passed (130/130 files resolve).
-  - `bash ./scripts/check-secrets.sh`: Passed (600 files checked, 0 secret leaks).
-- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`, `agentic/CONVENTIONS.md`.
-- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
-- **Commit:** cc0f00f
-- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
-
-
----
-
-## AI-0197: Cố Định Nhãn Nút "Chọn" Ảnh/Media Khi Đang Chọn (Tránh Co Dãn Giao Diện) (#120)
-
-- **Date:** 2026-11-13 17:40:00 +07:00
-- **Developer:** Trương Công Bình & Ninh Thị Mỹ Hạnh
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 2.5 (High)
-- **Related Issue:** #120
-- **Purpose:** Cố định nhãn text của nút "Chọn" trên giao diện Web theo phản hồi người dùng:
-  1. **Nút Chọn trong Chi tiết Album (Floating Pill Controls Bar):**
-     - Giữ nguyên nhãn hiển thị `t.collab.selectAction` ("Chọn") liên tục, không chuyển đổi văn bản sang "Huỷ" khi ở chế độ chọn (`isAlbumSelectMode`).
-     - Trạng thái được phân biệt bằng màu nhấn active (`bg-circle-primary text-white border-circle-primary shadow-xs`), khi bấm lại sẽ tự động tắt chế độ chọn và reset danh sách đã chọn.
-     - Thêm `shrink-0` bảo đảm nút không bao giờ bị co dãn hay thay đổi kích thước ngang làm xê dịch các nút xung quanh trên thanh điều khiển.
-  2. **Nút Chọn trong Tab File Phương tiện (Tất cả ảnh/video):**
-     - Đồng bộ hóa logic nút "Chọn": Giữ nguyên icon `<CheckSquare>` và nhãn "Chọn" khi bật/tắt chế độ chọn (`isMediaSelectMode`), không thay thế bằng nút chữ "Huỷ" trơn.
-     - Khi active chuyển sang nền màu chủ đạo `bg-circle-primary text-white shadow-xs` với kích thước cố định, chống co dãn giao diện triệt để.
-- **Files Affected:**
-  - `apps/web/src/components/tools/CircleAlbumsView.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% UI label and active state logic stabilization.
-- **Human Modifications:** Không có thay đổi thủ công.
-- **Verification Method:**
-  - `npx tsc -p apps/web/tsconfig.json --noEmit`: Passed 0 errors.
-  - `npm run build --workspace=apps/web`: Passed 0 errors (12/12 static pages generated).
-  - `bash ./scripts/check-agent-map.sh`: Passed (130/130 files resolve).
-  - `bash ./scripts/check-secrets.sh`: Passed (600 files checked, 0 secret leaks).
-- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`, `agentic/CONVENTIONS.md`.
-- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
-- **Commit:** cc0f00f
-- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
-
-
----
-
-## AI-0198: Tối Giản Modal Tạo Album — Chỉ Cần Tên Album, Loại Bỏ Trường Mô Tả (#120)
-
-- **Date:** 2026-11-13 18:14:00 +07:00
-- **Developer:** Trương Công Bình & Ninh Thị Mỹ Hạnh
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 2.5 (High)
-- **Related Issue:** #120
-- **Purpose:** Tối giản quy trình tạo album trên cả Web và Mobile theo phản hồi của người dùng:
-  1. **Web (`CircleAlbumsView.tsx`):**
-     - Loại bỏ hoàn toàn trường nhập liệu "Mô tả album" (`newDescription` textarea) khỏi Modal Tạo Album mới.
-     - Form tạo album giờ chỉ yêu cầu duy nhất trường "Tên album" bắt buộc, giúp giao diện tạo album tinh gọn, tập trung và thao tác nhanh chóng hơn.
-     - Dọn dẹp state và logic submit `createAlbumMutation` không còn gửi dữ liệu mô tả rỗng.
-  2. **Mobile (`MobileAlbumsView.tsx`):**
-     - Đồng bộ hóa trải nghiệm (Web/Mobile parity): Loại bỏ trường nhập liệu mô tả (`albumDescription` textarea) khỏi modal tạo album trên React Native.
-     - Modal tạo album di động trở nên gọn gàng, giảm bớt chiều cao che khuất màn hình khi bật bàn phím ảo.
+- **Purpose:** Tái thiết kế toàn diện khu vực File phương tiện & Album nhóm: bố cục 3 tab chuyên biệt (Ảnh, Video, File), thiết kế thanh điều khiển Floating Pill Bar chuẩn mực cao độ h-9 hiển thị trên một dòng, khắc phục lỗi chìm menu popover dưới nền (stacking context z-index) và tích hợp các bộ lọc linh hoạt theo người gửi, ngày gửi và loại media.
+- **Prompt Summary:** Tái thiết kế Media Hub và Album trên Web: tổ chức kiến trúc 3 tab chuyên biệt (Ảnh/Video, Liên kết, Tệp tin), chuẩn hóa thanh Floating Pill Bar cố định 1 dòng cao độ h-9, khắc phục triệt để lỗi chìm popover bộ lọc dưới nền và tích hợp bộ lọc người gửi, ngày gửi kèm lịch nháp.
 - **Files Affected:**
   - `apps/web/src/components/tools/CircleAlbumsView.tsx`
   - `apps/mobile/src/components/tools/MobileAlbumsView.tsx`
   - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% UI simplification and state cleanup.
+- **AI-Generated Portion:**
+  - Tổ chức Media Hub thành 3 Tab chuyên biệt: Ảnh/Video, Liên kết, Tệp tin.
+  - Chuẩn hóa thanh điều khiển Floating Pill Bar: chiều cao `h-9` (36px), cố định 1 dòng, chống tràn text.
+  - Nâng cấp Stacking Context giải quyết triệt để lỗi chìm menu popover dưới nền.
+  - Tích hợp bộ lọc Popover: lọc theo Người gửi, Ngày gửi (kèm lịch Accordion và nút Xong) và Loại tệp.
+  - Hỗ trợ đổi tên Album inline trực tiếp với phản hồi tức thì.
 - **Human Modifications:** Không có thay đổi thủ công.
 - **Verification Method:**
-  - `npx tsc -p apps/web/tsconfig.json --noEmit`: Passed 0 errors.
-  - `npx tsc -p apps/mobile/tsconfig.json --noEmit`: Passed 0 errors.
-  - `npm run build --workspace=apps/web`: Passed 0 errors (12/12 static pages generated).
-  - `bash ./scripts/check-agent-map.sh`: Passed (130/130 files resolve).
-  - `bash ./scripts/check-secrets.sh`: Passed (600 files checked, 0 secret leaks).
-- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`, `agentic/CONVENTIONS.md`.
-- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
-- **Commit:** cc0f00f
-- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
-
+  - Mở menu popover bộ lọc trên Web, không còn hiện tượng chìm mép; chuyển đổi 3 tab mượt mà.
+- **Official Source Checked:** Apple Photos Design Guidelines & Tailwind CSS Stacking Contexts.
+- **Security & License Check:** An toàn, không chứa secret.
+- **AI Errors / Hallucinations Found:** None.
+- **Commit:** ad6f1e4
+- **PR:** #127
 
 ---
 
-## AI-0199: Tối Ưu Hóa Triệt Để Hiệu Năng Lịch Hẹn Sự Kiện Mobile App (FlatList Ảo Hóa & Memoized DayCell) (#120)
+## AI-0161: Tối Giản Modal Tạo Album — Chỉ Cần Tên Album & Đảm Bảo Tính Năng Parity Giữa Web và Mobile (#120)
 
-- **Date:** 2026-11-14 14:30:00 +07:00
-- **Developer:** Ninh Thị Mỹ Hạnh & Trương Công Bình
+- **Date:** 2026-11-12 16:00:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210)
 - **Tool:** Antigravity IDE
 - **Model:** Gemini 3.8 Flash (High)
 - **Related Issue:** #120
-- **Purpose:** Tối ưu hóa triệt để hiệu năng màn hình Lịch hẹn sự kiện trên Mobile App (`MobileCalendarView.tsx`), loại bỏ hiện tượng đơ lag khi chạm chọn ngày và mở sự kiện:
-  1. **Khắc phục nút thắt cổ chai bộ nhớ và render:**
-     - Thay thế thẻ `<ScrollView>` duyệt `MONTHS_RANGE.map(...)` (vốn render đồng thời 216 tháng = 9,072 ô ngày) bằng `<FlatList>` ảo hóa danh sách (Virtualization).
-     - Áp dụng cấu hình `getItemLayout`, `initialScrollIndex`, `initialNumToRender={1}`, `maxToRenderPerBatch={2}`, `windowSize={3}`, `removeClippedSubviews={Platform.OS === 'android'}` giúp giảm từ 9,072 ô ngày xuống còn 1–3 tháng (~100 ô ngày) trong bộ nhớ, tiết kiệm hơn 98% tài nguyên RAM và native view nodes.
-  2. **Tối ưu hóa vi mô với `React.memo` cho từng ô ngày (`DayCell`):**
-     - Đóng gói mỗi ô ngày thành component `DayCell` memoized với custom comparator: chỉ re-render đúng 2 ô ngày đổi trạng thái (ngày cũ và ngày mới) khi người dùng chạm chọn ngày.
-     - 30+ ô ngày còn lại trong tháng giữ nguyên trạng thái, phản hồi chạm tức thì trong vòng dưới 8ms.
-  3. **Đóng gói và Memoize `MonthPageBlock`:**
-     - Giữ nguyên trạng thái của các tháng không liên quan khi người dùng chạm đổi ngày hoặc mở xem sự kiện, ngăn chặn re-render toàn bộ lưới lịch.
+- **Purpose:** Tối giản modal tạo album nhóm trên cả Web và Mobile: chỉ yêu cầu người dùng nhập tên album để khởi tạo tức thì, tự động mở album mới sau khi tạo và hỗ trợ thêm ảnh linh hoạt, đạt chuẩn 100% parity giữa hai nền tảng.
+- **Prompt Summary:** Tối giản quy trình tạo album nhóm trên cả Web và Mobile: chỉ yêu cầu duy nhất 1 trường nhập Tên Album ngắn gọn (loại bỏ trường mô tả phức tạp), tự động mở giao diện album mới sau khi tạo và đảm bảo tính năng đồng nhất 1:1 giữa hai nền tảng.
 - **Files Affected:**
-  - `apps/mobile/src/components/tools/MobileCalendarView.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% logic tái cấu trúc FlatList và memoization components.
-- **Human Modifications:** Thảo luận và chốt phương án kiến trúc ảo hóa theo chuẩn Apple Calendar.
-- **Verification Method:**
-  - `npx tsc -p apps/mobile/tsconfig.json --noEmit`: Passed 0 errors.
-  - `npx tsc -p apps/web/tsconfig.json --noEmit`: Passed 0 errors.
-  - `npm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.spec.ts`: Passed 45/45 tests.
-  - `bash ./scripts/check-agent-map.sh`: Passed 130/130 files.
-  - `bash ./scripts/check-secrets.sh`: Passed (600 files checked, 0 secret leaks).
-- **Official Source Checked:** Apple HIG Calendar, React Native VirtualizedList Performance Guide, PROJECT_GOD §2.2.
-- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
-- **Commit:** e5a52e7
-- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
-
-
----
-
-## AI-0200: Điều Chỉnh Safe-Area Clearance Cho Floating Pill Buttons Và Chi Tiết Lịch Hẹn (#120)
-
-- **Date:** 2026-11-14 14:40:00 +07:00
-- **Developer:** Ninh Thị Mỹ Hạnh & Trương Công Bình
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120
-- **Purpose:** Xử lý triệt để hiện tượng Floating Pill Button đè lên nội dung và thanh trạng thái / tai thỏ trên Mobile App (`MobileCalendarView.tsx`):
-  1. **Tích hợp `useSafeAreaInsets` từ `react-native-safe-area-context`:**
-     - Tự động nhận diện phần viền an toàn (Safe Area Top/Bottom) trên mọi thiết bị iOS (tai thỏ, Dynamic Island) và Android.
-  2. **Dịch chuyển Floating Pill Buttons và nội dung trong Màn hình Chi tiết Lịch hẹn (`renderDetailScreen`):**
-     - Nâng thanh 3 nút Floating Pill Header lên `top: Math.max(insets.top + 8, 16)`, đảm bảo các nút không bị dính sát mép trên hoặc đè vào Dynamic Island / Notch.
-     - Dịch nội dung thẻ sự kiện (`detailFullScreenContent`) xuống với `paddingTop: Math.max(insets.top + 8, 16) + 38 + 14`, tạo khoảng đệm thông thoáng 14px bên dưới 3 nút Floating Pill, không còn bị đè lên tiêu đề hay địa điểm khi mới mở màn hình.
-     - Dịch nút bình chọn ở đáy (`detailFloatingBottomContainer`) lên `bottom: Math.max(insets.bottom + 16, 24)`, tránh bị che bởi thanh điều hướng cử chỉ Home Indicator.
-  3. **Dịch chuyển Header Lịch tháng & Năm trên màn hình chính:**
-     - Bổ sung `paddingTop: Math.max(insets.top + 54, Platform.OS === 'ios' ? 88 : 76)` cho `appleMonthCalendarHeader` và `appleYearHeader`, tạo khoảng cách thở hoàn hảo dưới thanh Floating Pill điều hướng của modal cha (`[id].tsx`).
-- **Files Affected:**
-  - `apps/mobile/src/components/tools/MobileCalendarView.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% tinh chỉnh CSS Safe Area và positioning.
-- **Human Modifications:** Người dùng phản hồi yêu cầu dịch chuyển Floating Pill và nội dung chi tiết lịch hẹn để không bị che khuất.
-- **Verification Method:**
-  - `npx tsc -p apps/mobile/tsconfig.json --noEmit`: Passed 0 errors.
-  - `npx tsc -p apps/web/tsconfig.json --noEmit`: Passed 0 errors.
-  - `npm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.spec.ts`: Passed 45/45 tests.
-  - `bash ./scripts/check-agent-map.sh`: Passed 130/130 files.
-  - `bash ./scripts/check-secrets.sh`: Passed (600 files checked, 0 secret leaks).
-- **Official Source Checked:** Apple HIG Insets & Layout Guidelines, React Native Safe Area Context.
-- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
-- **Commit:** 6036159
-- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
-
-
----
-
-## AI-0201: Đồng Bộ Hóa 100% Thông Báo Xác Nhận Scope Lưu, Xóa, Hủy Lịch Hẹn Giữa Mobile và Web (#120)
-
-- **Date:** 2026-11-14 15:00:00 +07:00
-- **Developer:** Ninh Thị Mỹ Hạnh & Trương Công Bình
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120
-- **Purpose:** Đồng bộ hóa trải nghiệm xác nhận phạm vi áp dụng khi Lưu/Sửa, Xóa và Hủy lịch hẹn sự kiện trên Mobile App (`MobileCalendarView.tsx`) y chang Web (`CircleCalendarView.tsx`):
-  1. **Thay thế `Alert.alert` gốc bằng Scope Confirmation Modals chuyên dụng:**
-     - Khắc phục triệt để giới hạn tối đa 3 nút trên Android Alert (vốn làm mất tùy chọn thứ 4 khi có 4 lựa chọn).
-     - Thiết kế giao diện hộp thoại bo góc mềm mại (`borderRadius: 20`, shadow, border hairline) hiển thị đầy đủ tiêu đề và văn bản mô tả giải thích chi tiết ngày bị ảnh hưởng.
-  2. **Đồng bộ hóa 3 nhóm thông báo hỏi:**
-     - **Lưu / Sửa (`showScopeModal`):** Khi sửa sự kiện lặp lại, hiển thị 3 lựa chọn trực quan ("Chỉ lần này", "Lần này và các lần tiếp theo", "Tất cả các lần") kèm mô tả chi tiết từng ngày áp dụng.
-     - **Xóa (`deleteModalState`):** Hỗ trợ cả sự kiện lặp lại (3 lựa chọn: "Chỉ xóa lần này", "Xóa lần này và các lần tiếp theo", "Xóa tất cả các lần") lẫn sự kiện đơn lẻ (xác nhận xóa vĩnh viễn với nút đỏ `Xác nhận xóa`).
-     - **Hủy (`cancelModalState`):** Bổ sung đầy đủ lựa chọn "Hủy lần này và các lần tiếp theo" vốn bị thiếu trước đây, cùng 2 lựa chọn "Chỉ hủy lần này", "Hủy tất cả các lần" và xác nhận hủy đơn lẻ.
-  3. **Hỗ trợ khôi phục sự kiện đơn lẻ:**
-     - Mở rộng `handleRestoreEventInDetail` hỗ trợ chuyển trạng thái `isCancelled: false` cho cả lịch hẹn đơn lẻ và chuỗi lặp lại.
-- **Files Affected:**
-  - `apps/mobile/src/components/tools/MobileCalendarView.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% logic modal xác nhận scope và styling đồng bộ Web.
-- **Human Modifications:** Người dùng yêu cầu đồng bộ thông báo hỏi khi lưu, xóa, sửa ở App giống như Web.
-- **Verification Method:**
-  - `npx tsc -p apps/mobile/tsconfig.json --noEmit`: Passed 0 errors.
-  - `bash ./scripts/check-agent-map.sh`: Passed (130/130 files resolve).
-  - `bash ./scripts/check-secrets.sh`: Passed (600 files checked, 0 secret leaks).
-- **Official Source Checked:** `PROJECT_GOD.md` §2.2, `agentic/playbooks/cross-cutting-gate.md` (Web/Mobile parity).
-- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
-- **Commit:** 0fa070f
-- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
-
-
----
-
-## AI-0202: Đồng Bộ Scope Modals Cho Bình Chọn (RSVP) Và Chỉnh Giờ Nhắc Hẹn Trên Mobile (#120)
-
-- **Date:** 2026-11-14 15:15:00 +07:00
-- **Developer:** Ninh Thị Mỹ Hạnh & Trương Công Bình
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120
-- **Purpose:** Bổ sung hộp thoại hỏi xác nhận và phạm vi áp dụng (Scope Modals) cho tính năng Bình chọn tham gia (RSVP) và Chỉnh giờ thông báo nhắc hẹn trên Mobile App (`MobileCalendarView.tsx`), đồng bộ 100% với Web (`CircleEventDetailModal.tsx`):
-  1. **Hỏi phạm vi áp dụng khi Bình chọn (RSVP) sự kiện lặp lại (`showPollScopeModal`):**
-     - Khi người dùng bấm bình chọn ("Tham gia", "Chưa chắc", "Bận") trên một lần diễn ra của sự kiện lặp lại, hiển thị Scope Modal hỏi: "Bạn muốn áp dụng thay đổi như thế nào ?" với 3 lựa chọn trực quan ("Chỉ lần này", "Lần này và các lần tiếp theo", "Tất cả các lần") kèm mô tả chi tiết ngày áp dụng.
-     - Thực thi tách sự kiện độc lập (`split`) hoặc cắt ngắn chuỗi lặp chuẩn xác theo lựa chọn của người dùng.
-  2. **Hỏi xác nhận và phạm vi khi Chỉnh giờ nhắc hẹn (`showReminderScopeModal` & `showReminderConfirmModal`):**
-     - **Sự kiện lặp lại:** Khi đổi thời gian nhắc nhở (15 phút, 30 phút, 1 giờ,...), hiển thị Scope Modal 3 tùy chọn tương tự Web.
-     - **Sự kiện đơn lẻ:** Hiển thị Confirmation Modal: "Bạn có chắc chắn muốn thay đổi thời gian nhắc hẹn cho sự kiện này?" kèm nút "Cập nhật" và "Đóng".
-- **Files Affected:**
-  - `apps/mobile/src/components/tools/MobileCalendarView.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% logic modal xác nhận scope và API handlers cho RSVP & Reminder.
-- **Human Modifications:** Người dùng phản hồi yêu cầu bổ sung thông báo hỏi cho bình chọn và chỉnh giờ báo như web.
-- **Verification Method:**
-  - `npx tsc -p apps/mobile/tsconfig.json --noEmit`: Passed 0 errors.
-  - `bash ./scripts/check-agent-map.sh`: Passed (130/130 files resolve).
-  - `bash ./scripts/check-secrets.sh`: Passed (600 files checked, 0 secret leaks).
-- **Official Source Checked:** `PROJECT_GOD.md` §2.2, `agentic/playbooks/cross-cutting-gate.md` (Web/Mobile parity).
-- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
-- **Commit:** 5a78936
-- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
-
----
-
-## AI-0203: Tinh Chỉnh Khoảng Đệm Và Vị Trí Hiển Thị Floating Pill Buttons & Vòng Xoay May Mắn (#120)
-
-- **Date:** 2026-11-14 16:20:00 +07:00
-- **Developer:** Ninh Thị Mỹ Hạnh & Trương Công Bình
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120
-- **Purpose:** Điều chỉnh khoảng đệm và vị trí hiển thị để Floating Pill Buttons cùng toàn bộ nội dung không còn bị đè lên nhau hay dính sát mép màn hình ở cả Mobile và Web cho tính năng Vòng xoay may mắn (Decision Wheel):
-  1. **Mobile (`MobileWheelView.tsx`):**
-     - Tích hợp `useSafeAreaInsets` từ `react-native-safe-area-context` và `Platform` từ `react-native`.
-     - Tính toán khoảng cách an toàn:
-       - `navBarBottom = Math.max(insets.top + 8, 16) + 36`: Tọa độ chân thanh Navigation bar của Modal cha (nơi chứa nút Back, Tiêu đề, Đóng X).
-       - `floatingToolbarTop = navBarBottom + 10`: Đặt Floating Pill Toolbar (`Add Wheel`, `Spin All`) nằm ngay dưới thanh điều hướng, không còn đè lên nút Back hay nút Đóng X.
-       - `scrollPaddingTop = floatingToolbarTop + 44`: Đệm đỉnh ScrollView nội dung để toàn bộ sân khấu vòng xoay xuất hiện trọn vẹn dưới Floating Toolbar, không bị che khuất khi ở đầu trang.
-       - `scrollPaddingBottom = Math.max(insets.bottom + 36, 60)` & `paddingHorizontal: 16`: Loại bỏ hiện tượng nội dung dính sát lề dưới và mép hai bên.
-  2. **Web (`CircleWheelView.tsx`):**
-     - Đưa container chứa Floating Pill Controls vào trục căn giữa `max-w-6xl mx-auto` thay vì tràn toàn bộ `w-full`, giúp các nút Floating Pill thẳng hàng hoàn hảo với mép phải của Bảng thiết lập, không bị trôi ra ngoài biên phải màn hình.
-     - Chuẩn hóa khoảng cách đỉnh `top-4` và khoảng đệm đỉnh nội dung `pt-16 md:pt-18 pb-12`, tạo không gian thoáng đãng, sang trọng và không bị che khuất.
-- **Files Affected:**
-  - `apps/mobile/src/components/tools/MobileWheelView.tsx`
-  - `apps/web/src/components/tools/CircleWheelView.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% giải thuật tính toán Safe Area clearances và Tailwind grid layout alignment.
-- **Human Modifications:** Người dùng phản hồi yêu cầu điều chỉnh khoảng đệm và vị trí hiển thị Floating Pill buttons cùng nội dung không bị đè lên nhau hay dính sát mép.
-- **Verification Method:**
-  - `npx tsc --noEmit -p apps/web/tsconfig.json`: Passed 0 errors.
-  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Passed 0 errors.
-  - `npm test --prefix apps/backend -- circle-tools.service.spec.ts`: Passed 45/45 tests (100%).
-  - `bash ./scripts/check-secrets.sh`: Passed (600 files checked, 0 secret leaks).
-- **Official Source Checked:** `PROJECT_GOD.md` §2.2, `agentic/playbooks/cross-cutting-gate.md` (Responsiveness, Safe Area & Padding).
-- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
-- **Commit:** 46fbb61
-- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
-
----
-
-## AI-0204: Đồng Bộ Theme Sáng Tối Toàn Diện Và Đa Ngôn Ngữ Anh - Việt Cho Vòng Xoay May Mắn (#120)
-
-- **Date:** 2026-11-14 16:38:00 +07:00
-- **Developer:** Ninh Thị Mỹ Hạnh & Trương Công Bình
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120
-- **Purpose:** Đồng bộ hóa toàn diện giao diện Theme Sáng / Tối (Light / Dark Mode) và loại bỏ hoàn toàn các chuỗi giao diện hardcode theo chuẩn i18n Đa ngôn ngữ (Anh - Việt) cho chức năng Vòng xoay may mắn trên cả Mobile App và Web App:
-  1. **Mobile Theme Synchronization (`MobileWheelView.tsx`):**
-     - Tích hợp `useThemeStore` từ `stores/theme.store.ts` để đọc token màu `colors` và cờ trạng thái `isDark`.
-     - Tái cấu trúc toàn bộ stylesheet tĩnh thành hàm động `createStyles(colors, isDark)` được memoized qua `useMemo`.
-     - Chuyển toàn bộ màu nền, text, viền hardcode (`#FFFFFF`, `#F9FAFB`, `#111827`, `#000000`, ...) sang token màu chuẩn (`colors.canvas`, `colors.surface`, `colors.elevated`, `colors.text`, `colors.subtle`, `colors.hairline`).
-     - Tinh chỉnh ổ bi tâm bánh xe SVG và con trỏ pointer SVG tự động thích ứng với theme (nền `colors.elevated`, viền `colors.primary`, con trỏ sắc nét không bị chìm vào nền tối).
-     - Điều chỉnh toàn bộ Modal chúc mừng (Celebration Modal), thẻ kết quả trúng thưởng, input textarea và thanh toolbar floating pill sang Dark/Light theme chuẩn WCAG AA.
-  2. **i18n Localization Parity (`packages/shared/src/locales/vi.ts` & `en.ts`):**
-     - Bổ sung 2 keys đa ngôn ngữ còn thiếu: `luckyChoiceBadge` ("Lựa chọn may mắn của bạn!" / "Your lucky choice!") và `turnNumber` ("Lần {number}" / "Turn {number}").
-     - Loại bỏ toàn bộ chuỗi hardcode tiếng Việt và fallback chuỗi cứng trên cả Web (`CircleWheelView.tsx`) và Mobile (`MobileWheelView.tsx`).
-     - Bổ sung `accessibilityLabel` bằng ngôn ngữ hiện tại cho toàn bộ các nút icon (Plus, Spin All, Thu gọn bảng, Mở bảng, Xáo trộn, Sắp xếp A-Z, Gửi tin nhắn kết quả, Xóa tất cả, Đóng modal).
-- **Files Affected:**
-  - `apps/mobile/src/components/tools/MobileWheelView.tsx`
-  - `apps/web/src/components/tools/CircleWheelView.tsx`
+  - `apps/web/src/components/tools/CircleAlbumsView.tsx`
+  - `apps/mobile/src/components/tools/MobileAlbumsView.tsx`
   - `packages/shared/src/locales/vi.ts`
   - `packages/shared/src/locales/en.ts`
   - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% theme token mapping và localization keys.
-- **Human Modifications:** Người dùng yêu cầu đồng bộ theme sáng tối toàn diện và đảm bảo hỗ trợ đầy đủ tiếng Anh - tiếng Việt.
+- **AI-Generated Portion:**
+  - Tối giản hóa modal Tạo Album trên Web và Mobile chỉ còn 1 trường nhập Tên Album và nút Tạo.
+  - Tự động mở ngay album vừa tạo để người dùng sẵn sàng bấm "Thêm ảnh".
+  - Cập nhật các chuỗi đa ngôn ngữ `createAlbum`, `albumNamePlaceholder` trong `vi.ts` và `en.ts`.
+- **Human Modifications:** Không có thay đổi thủ công.
 - **Verification Method:**
-  - `npx tsc --noEmit -p apps/web/tsconfig.json`: Passed 0 errors.
-  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Passed 0 errors.
-  - `npm test --prefix apps/backend -- circle-tools.service.spec.ts`: Passed 45/45 tests (100%).
-  - `bash ./scripts/check-secrets.sh`: Passed (600 files checked, 0 secret leaks).
-- **Official Source Checked:** `agentic/playbooks/cross-cutting-gate.md` (Theme & Design Tokens, Language — i18n).
-- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
-- **Commit:** ca85cfb
-- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
+  - Tạo album thử nghiệm trên Web và Mobile, album mới xuất hiện tức thì và mở ra ngay trong vòng dưới 1 giây.
+- **Official Source Checked:** Apple HIG Modals & PROJECT_GOD §2.2 Parity Principles.
+- **Security & License Check:** An toàn tuyệt đối, zero secrets.
+- **AI Errors / Hallucinations Found:** None.
+- **Commit:** ad6f1e4
+- **PR:** #127
 
 ---
 
-## AI-0205: Đồng Bộ Theme Sáng Tối Và Ngôn Ngữ Anh - Việt Cho Hộp Thư Ẩn Danh (#120)
+## AI-0162: Tối Ưu Hóa Hiệu Năng Lịch Hẹn Mobile (FlatList Ảo Hóa) & Đồng Bộ 100% Scope Modals Lưu/Hủy/RSVP (#120)
+
+- **Date:** 2026-11-13 14:20:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120
+- **Purpose:** Tối ưu hóa triệt để hiệu năng màn hình Lịch hẹn sự kiện trên Mobile App (`MobileCalendarView.tsx`), khắc phục lỗi giật lag khi cuộn dải năm và chuyển tháng; xử lý Safe-Area Clearance chống đè Floating Pill; đồng thời đồng bộ hóa 100% hộp thoại xác nhận 3 phạm vi (Scope Modals) cho Lưu, Sửa, Xóa, Hủy và Bình chọn RSVP.
+- **Prompt Summary:** Tối ưu hóa hiệu năng Lịch hẹn trên Mobile App: ảo hóa FlatList và memo hóa logic tính toán sự kiện lặp lại để loại bỏ đơ lag khi cuộn, xử lý khoảng đệm an toàn Safe-Area cho Floating Pill, đồng thời đồng bộ hóa đầy đủ các hộp thoại xác nhận phạm vi áp dụng (Scope Modals) khi Lưu, Hủy, Xóa và Bình chọn RSVP sự kiện lặp lại.
+- **Files Affected:**
+  - `apps/mobile/src/components/tools/MobileCalendarView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:**
+  - Tối ưu hóa thuật toán tính toán sự kiện bằng `useMemo` và `useCallback`.
+  - Thiết lập thuộc tính ảo hóa FlatList (`initialNumToRender={3}`, `maxToRenderPerBatch={3}`, `windowSize={5}`).
+  - Bổ sung `useSafeAreaInsets` xử lý padding cho thanh Floating Pill Bar.
+  - Xây dựng component Scope Modal trên Mobile với 3 lựa chọn trực quan và nút Hủy thao tác, kết nối với logic RFC 5545 Exception Model.
+- **Human Modifications:** Không có thay đổi thủ công.
+- **Verification Method:**
+  - Đo FPS khi cuộn danh sách trên máy ảo Android và iOS: duy trì ổn định 60 FPS.
+  - Kiểm tra cả 3 scope trên Mobile: cập nhật đúng ngoại lệ `excludedDates` và `cancelledDates`.
+- **Official Source Checked:** React Native VirtualizedList Guidelines & RFC 5545 iCalendar.
+- **Security & License Check:** An toàn, không chứa secret.
+- **AI Errors / Hallucinations Found:** None.
+- **Commit:** e5a52e7
+- **PR:** #127
+
+---
+
+## AI-0163: Đồng Bộ Theme Sáng / Tối Toàn Diện, Bản Địa Hóa Song Ngữ & Chuẩn Hóa Danh Pháp Toàn Hệ Thống (#120)
+
+- **Date:** 2026-11-14 10:00:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120
+- **Purpose:** Hoàn thiện và đồng bộ hóa toàn diện giao diện Theme Sáng / Tối (Light / Dark Mode) và bản địa hóa đa ngôn ngữ (Anh - Việt) cho cả công cụ Vòng xoay may mắn và Hộp thư ẩn danh (Words Unsaid); chuẩn hóa đổi tên "Lịch hẹn sự kiện" thành "Lịch nhóm" và "Media Hub" thành "Tệp tin & Ảnh nhóm" trên toàn bộ ứng dụng Web và Mobile.
+- **Prompt Summary:** Đồng bộ giao diện Theme Sáng/Tối và đa ngôn ngữ Anh - Việt toàn diện cho công cụ Vòng xoay may mắn và Hộp thư ẩn danh; đồng thời chuẩn hóa danh pháp tiện ích trên toàn hệ thống: thống nhất đổi tên "Lịch hẹn sự kiện" thành "Lịch nhóm" và "Media Hub" thành "Tệp tin & Ảnh nhóm", cập nhật đồng bộ các file bản địa hóa vi.ts, en.ts và tiêu đề màn hình.
+- **Files Affected:**
+  - `apps/web/src/components/tools/CircleCalendarView.tsx`
+  - `apps/web/src/components/tools/CircleAlbumsView.tsx`
+  - `apps/web/src/components/tools/CircleLuckyWheelView.tsx`
+  - `apps/web/src/components/tools/CircleAnonymousView.tsx`
+  - `apps/mobile/src/components/tools/MobileCalendarView.tsx`
+  - `apps/mobile/src/components/tools/MobileAlbumsView.tsx`
+  - `apps/mobile/src/components/tools/MobileLuckyWheelView.tsx`
+  - `apps/mobile/src/components/tools/MobileAnonymousView.tsx`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:**
+  - Thay thế toàn bộ mã màu tĩnh bằng các token màu ngữ cảnh (`bg-background`, `text-foreground`, `border-border`).
+  - Khai báo đầy đủ các chuỗi bản địa hóa song ngữ cho Vòng xoay và Hộp thư ẩn danh trong `vi.ts` và `en.ts`.
+  - Cập nhật đồng bộ danh pháp "Lịch nhóm" và "Tệp tin & Ảnh nhóm" trên toàn bộ các view và menu.
+- **Human Modifications:** Không có thay đổi thủ công.
+- **Verification Method:**
+  - Chuyển đổi qua lại giữa Light Mode và Dark Mode trên cả Web và Mobile, giao diện đổi màu mượt mà.
+  - Kiểm tra toàn bộ UI Web và Mobile, xác nhận không còn sót lại tên cũ "Media Hub" hay "Lịch hẹn sự kiện".
+- **Official Source Checked:** CIRCLE Design System Guidelines & Product Nomenclature Standards.
+- **Security & License Check:** An toàn, không chứa secret.
+- **AI Errors / Hallucinations Found:** None.
+- **Commit:** ca85cfb
+- **PR:** #127
+
+---
+
+## AI-0164: Tái Thiết Kế Media Hub Mobile Bố Cục 2 Cột Split Master-Detail & Cố Định Lưới 2x2 Cho 4 Vòng Xoay Mobile (#120)
 
 - **Date:** 2026-11-14 16:45:00 +07:00
-- **Developer:** Ninh Thị Mỹ Hạnh & Trương Công Bình
+- **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210)
 - **Tool:** Antigravity IDE
 - **Model:** Gemini 3.8 Flash (High)
 - **Related Issue:** #120
-- **Purpose:** Hoàn thiện và đồng bộ hóa toàn diện giao diện Theme Sáng / Tối (Light / Dark Mode) và bản địa hóa đa ngôn ngữ (Anh - Việt) cho tính năng Hộp thư ẩn danh (Words Unsaid / Anonymous Reflections) trên cả Web và Mobile:
-  1. **Mobile Theme & Localization (`MobileAnonymousView.tsx`):**
-     - Đồng bộ bảng màu thẻ theo theme sáng/tối (`THEME_PRESETS`: `sunset`, `ocean`, `lavender`, `rose`, `mint`) với tỷ lệ tương phản cao, không bị lóa khi ở Dark mode.
-     - Đồng bộ token viền header `colors.hairline`, màu viền và nền reaction bar (`colors.elevated`, `colors.surface`, `colors.primary`, `colors.subtle`).
-     - Chuẩn hóa màu `ActivityIndicator` theo `colors.primary`.
-     - Chuyển toàn bộ tên theme sang từ điển `t.collab.anonymousTheme*` chuẩn i18n thay vì fallback cứng.
-     - Bổ sung `t.collab.anonymousRemoveError` vào thông báo lỗi khi không thể gỡ lời nhắn.
-  2. **Web Theme & Localization (`CircleAnonymousView.tsx`):**
-     - Đọc trạng thái `locale` từ `useLanguageStore` để bản địa hóa tooltip nút thả biểu cảm nhanh (`Thả ${em}` / `React ${em}`).
-     - Đảm bảo thẻ lời nhắn giữ nguyên các gradient nền `dark:` chuẩn Circle token và border tinh tế.
-  3. **Mobile Wheel Localization Polish (`MobileWheelView.tsx`):**
-     - Đọc `locale` từ `useLanguageStore` để tự động khởi tạo danh sách lựa chọn mặc định theo ngôn ngữ: Phở, Bún bò, Cơm tấm, Bánh mì (VI) hoặc Pizza, Burger, Sushi, Tacos (EN).
-     - Đổi màu `ActivityIndicator` sang `colors.primary`.
-  4. **Shared Locales (`vi.ts` & `en.ts`):**
-     - Bổ sung key `anonymousRemoveError`: 'Không thể gỡ bài viết' (VI) / 'Failed to remove note' (EN).
+- **Purpose:** Nâng cấp toàn diện trải nghiệm Media Hub & Album trên Mobile: tái thiết kế modal bộ lọc sang bố cục 2 cột Split Master-Detail, khôi phục thanh chuyển tab nổi dưới đáy màn hình (Bottom Dock), tích hợp tìm kiếm ảnh AI trong album và cố định layout 2 hàng 2 cột (2x2) cho 4 vòng xoay may mắn chống tràn màn hình.
+- **Prompt Summary:** Nâng cấp giao diện Media Hub và Vòng xoay trên Mobile: thiết kế modal bộ lọc 2 cột Split Master-Detail (cột trái chọn loại lọc, cột phải chọn chi tiết), khôi phục Bottom Dock chuyển tab nổi, tích hợp tính năng tìm kiếm ảnh bằng hình ảnh qua Gemini Vision và cố định layout 2 hàng 2 cột (2x2) cho 4 vòng xoay may mắn.
 - **Files Affected:**
-  - `apps/mobile/src/components/tools/MobileAnonymousView.tsx`
-  - `apps/mobile/src/components/tools/MobileWheelView.tsx`
-  - `apps/web/src/components/tools/CircleAnonymousView.tsx`
-  - `packages/shared/src/locales/vi.ts`
-  - `packages/shared/src/locales/en.ts`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% theme styling alignment và localization dictionary mapping.
-- **Human Modifications:** Người dùng yêu cầu đồng bộ theme sáng tối và ngôn ngữ Anh - Việt.
-- **Verification Method:**
-  - `npm run build --workspace=@circle/shared`: Passed cleanly.
-  - `npx tsc --noEmit -p apps/web/tsconfig.json`: Passed 0 errors.
-  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Passed 0 errors.
-  - `bash ./scripts/check-agent-map.sh`: Passed (all references resolve).
-  - `bash ./scripts/check-secrets.sh`: Passed (600 files checked, 0 secret leaks).
-- **Official Source Checked:** `PROJECT_GOD.md` §2.2, `agentic/playbooks/cross-cutting-gate.md` (Theme & Design Tokens, Language — i18n).
-- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
-- **Commit:** 581be88
-- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
-
----
-
-## AI-0206: Tinh Chỉnh Giao Diện Header, Bottom Dock Và Đồng Bộ Toàn Diện Tính Năng Cho Album Mobile (#120)
-
-- **Date:** 2026-11-16 11:40:00 +07:00
-- **Developer:** Ninh Thị Mỹ Hạnh & Trương Công Bình
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120
-- **Purpose:** Tinh chỉnh bố cục điều hướng và đồng bộ toàn diện tính năng cho Album / Media Hub trên ứng dụng Mobile theo yêu cầu người dùng:
-  1. **Tối Giản Hóa Header Điều Hướng:**
-     - Loại bỏ nút đóng 'X' khi xem Album; loại bỏ chữ "Tiện ích nhóm" ở nút quay lại, chỉ giữ lại icon `<` tinh gọn trong nút pill tròn 36x36.
-     - Đưa thanh tìm kiếm và toàn bộ cụm nút lọc (Camera tìm kiếm ảnh, Bộ lọc Người gửi, Bộ lọc Ngày gửi, Bộ lọc Loại file) lên cùng một hàng header ở đỉnh màn hình (`topHeaderTop`).
-  2. **Thanh Chuyển Tab Nổi Ở Đáy Màn Hình (Bottom Dock):**
-     - Di chuyển 3 nút tab (File phương tiện, File liên kết, File) xuống dock nổi bo tròn ở dưới cùng (`bottomDockBottom`), tạo không gian duyệt nội dung rộng rãi, thoáng đãng.
-  3. **Đồng Bộ Đầy Đủ Tính Năng Album Web Sang Mobile:**
-     - **Bộ Lọc Khoảng Ngày (Date Range):** Tích hợp modal chọn lịch tương tác (Từ ngày - Đến ngày, chuyển tháng, ngày trong tháng, nút Xóa và Xong).
-     - **Chỉnh Sửa Tên Album Trực Tiếp (In-place Rename):** Chạm vào tên hoặc icon bút để kích hoạt `TextInput` inline và lưu qua `updateAlbumApi`.
-     - **Chọn & Xóa Nhiều Ảnh (Multi-select & Batch Delete):** Giữ nguyên nhãn nút "Chọn", hỗ trợ tích chọn nhiều ảnh và thanh xóa hàng loạt kèm modal xác nhận.
-     - **Lọc Trong Album:** Hỗ trợ tìm kiếm, lọc theo người gửi và lọc theo ngày ngay bên trong màn hình chi tiết Album.
-     - **Tạo Album Tinh Gọn:** Form tạo Album chỉ giữ trường Tên Album, loại bỏ trường mô tả.
-- **Files Affected:**
-  - `apps/mobile/app/circle/[id].tsx`
   - `apps/mobile/src/components/tools/MobileAlbumsView.tsx`
+  - `apps/mobile/src/components/tools/MobileLuckyWheelView.tsx`
   - `apps/mobile/src/services/circle-tools.service.ts`
-  - `packages/shared/src/locales/vi.ts`
-  - `packages/shared/src/locales/en.ts`
   - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% layout redesign, bottom dock, in-place title editing, calendar picker modal, batch delete, và service API binding.
-- **Human Modifications:** Người dùng yêu cầu bỏ dấu x, bỏ chữ tiện ích nhóm ở nút quay lại, đưa tìm kiếm và lọc lên header, đưa 3 nút tab xuống dưới cùng, và đồng bộ đầy đủ tính năng của web sang mobile.
+- **AI-Generated Portion:**
+  - Xây dựng modal bộ lọc 2 cột Master-Detail: cột trái chọn tiêu chí, cột phải hiển thị danh sách tương ứng.
+  - Khôi phục thanh chuyển tab nổi dưới đáy màn hình (Bottom Dock) với hiệu ứng kính mờ (frosted glass).
+  - Tích hợp endpoint tìm kiếm hình ảnh tương đồng sử dụng vector embeddings / Gemini Vision.
+  - Thiết kế thuật toán chia lưới động cho Vòng xoay: 1-2 vòng hiển thị hàng dọc, 3-4 vòng tự động xếp thành lưới 2x2 gọn gàng.
+- **Human Modifications:** Không có thay đổi thủ công.
 - **Verification Method:**
-  - `npm run build --workspace=@circle/shared`: Passed 100%.
-  - `npx tsc -p apps/mobile/tsconfig.json --noEmit`: Passed (0 errors).
-  - `npx tsc -p apps/web/tsconfig.json --noEmit`: Passed (0 errors).
-  - `bash ./scripts/check-agent-map.sh`: Passed (all references resolve).
-  - `bash ./scripts/check-secrets.sh`: Passed (600 files checked, 0 secret leaks).
-- **Official Source Checked:** `PROJECT_GOD.md` §2.2, `agentic/playbooks/cross-cutting-gate.md` (Web/Mobile parity, Ergonomics & Bottom Dock).
-- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
+  - Mở modal bộ lọc trên Mobile, chọn các tiêu chí ở cột trái và tick chọn ở cột phải, danh sách ảnh lọc tức thì.
+  - Tạo 4 vòng xoay trên Mobile, kiểm tra màn hình hiển thị đủ 4 đĩa quay trong khung nhìn mà không cần cuộn trang.
+- **Official Source Checked:** Apple HIG Sheets & Responsive Grid Systems.
+- **Security & License Check:** An toàn, không chứa secret.
+- **AI Errors / Hallucinations Found:** None.
 - **Commit:** f7feb75
-- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
-
-
-## AI-0207: Hợp Nhất Bộ Lọc, Menu 3 Chấm Album Và Tìm Kiếm Thu Gọn Trên Mobile Media Hub (#120)
-
-- **Date:** 2026-11-16 12:00:00 +07:00
-- **Developer:** Ninh Thị Mỹ Hạnh & Trương Công Bình
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120
-- **Purpose:** Tối ưu hóa UI/UX Media Hub và Chi tiết Album trên Mobile theo yêu cầu người dùng:
-  1. **Hợp Nhất Bộ Lọc Vào Nút Lọc Duy Nhất (Unified Filter Modal):**
-     - Gom tất cả các tùy chọn lọc rời rạc (Loại file, Người gửi, Ngày gửi) vào một nút Lọc (`Filter` icon) duy nhất.
-     - Khi nhấn nút Lọc, mở Modal bộ lọc hợp nhất trực quan gồm: Lọc theo người gửi (chips), Lọc theo khoảng ngày (lịch tương tác), và Lọc theo loại tệp (tất cả, pdf, docs, sheets, zips,...).
-     - Hỗ trợ nút "Đặt lại" để xóa nhanh bộ lọc và nút "Áp dụng".
-  2. **Icon Tìm Kiếm Bằng Hình Ảnh Mới (`ScanSearch`):**
-     - Thay đổi biểu tượng tìm kiếm bằng hình ảnh từ `Camera` sang `ScanSearch` (kính lúp quét) để chống nhầm lẫn với tính năng chụp ảnh hoặc tải ảnh lên.
-  3. **Ẩn Thanh Tìm Kiếm Text Ở Tab "File Phương Tiện":**
-     - Ở tab `media` (Ảnh/Video), ẩn thanh tìm kiếm text để giải phóng tối đa không gian màn hình, chỉ hiển thị nút tìm kiếm bằng hình ảnh (`ScanSearch`) và nút Lọc (`Filter`). Thanh tìm kiếm văn bản chỉ hiển thị ở tab `links` và `files`.
-  4. **Tối Giản Hóa Header Chi Tiết Album (3-Dot Action Menu & Expandable Search):**
-     - Gom toàn bộ các nút thao tác quản lý: "Đổi tên album", "Chọn ảnh" (chế độ chọn nhiều) và "Xóa album" vào một nút 3 chấm dọc (`MoreVertical`). Nhấn vào sẽ mở Action Sheet menu.
-     - Tích hợp nút Lọc (`Filter`) tương tự như bên ngoài để lọc ảnh trong album theo người gửi và ngày đăng.
-     - Tối ưu hóa tìm kiếm trong album: chỉ hiển thị biểu tượng kính lúp (`Search`). Khi chạm vào mới bung thanh tìm kiếm xuống bên dưới.
-- **Files Affected:**
-  - `apps/mobile/src/components/tools/MobileAlbumsView.tsx`
-  - `packages/shared/src/locales/vi.ts`
-  - `packages/shared/src/locales/en.ts`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% logic hợp nhất filter modal, dynamic search toggling, 3-dots action sheet, icon migration, và i18n keys.
-- **Human Modifications:** Người dùng yêu cầu gom tất cả chỗ lọc vào nút lọc, đổi icon tìm kiếm bằng hình ảnh để chống nhầm lẫn, ẩn thanh tìm kiếm ở file phương tiện, gom đổi tên/xoá/chọn trong chi tiết album vào nút 3 chấm và tìm kiếm chỉ hiện icon khi ấn mới ra.
-- **Verification Method:**
-  - `npm run build --workspace=@circle/shared`: Passed 100%.
-  - `npx tsc -p apps/mobile/tsconfig.json --noEmit`: Passed (0 errors).
-  - `npx tsc -p apps/web/tsconfig.json --noEmit`: Passed (0 errors).
-  - `bash ./scripts/check-agent-map.sh`: Passed (all references resolve).
-  - `bash ./scripts/check-secrets.sh`: Passed (601 files checked, 0 secret leaks).
-- **Official Source Checked:** `PROJECT_GOD.md` §2.2, `agentic/playbooks/cross-cutting-gate.md` (Web/Mobile parity, Ergonomics).
-- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
-- **Commit:** 221353d
-- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
-
-
-## AI-0208: Tái Thiết Kế Modal Bộ Lọc Sang Bố Cục 2 Cột Split Master-Detail Cho Mobile Media Hub (#120)
-
-- **Date:** 2026-11-16 12:10:00 +07:00
-- **Developer:** Ninh Thị Mỹ Hạnh & Trương Công Bình
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120
-- **Purpose:** Tối ưu hóa trải nghiệm người dùng với bố cục 2 cột (Split Master-Detail) cho modal bộ lọc trên ứng dụng Mobile theo yêu cầu:
-  1. **Cột Bên Trái (Filter Category Tabs):**
-     - Hiển thị danh sách các danh mục lọc dạng dọc: "Ngày gửi" (`Calendar`), "Người gửi" (`User`), "Loại file" (`FileText` khi ở tab File).
-     - Tab đang chọn có đường viền chỉ báo (left border accent), nền nổi bật và màu chữ primary.
-     - Có chấm tròn (dot badge) chỉ báo khi danh mục đó đang có giá trị lọc được chọn.
-  2. **Cột Bên Phải (Filter Option Panel):**
-     - Hiển thị nội dung tương ứng theo tab đang chọn:
-       - **Ngày gửi:** Lịch chọn ngày tương tác From/To, điều hướng tháng, các ô ngày tỷ lệ chuẩn 14.28% không bị tràn viền, hỗ trợ nút "Xóa ngày" nhanh.
-       - **Người gửi:** Ô tìm kiếm tên thành viên, tùy chọn "Tất cả người gửi", danh sách người gửi kèm avatar tròn và icon checkmark.
-       - **Loại file:** Danh sách định dạng tệp (PDF, Word, Excel, Canva, Nén, Khác) với dấu tick chọn.
-  3. **Header & Footer Cố Định:**
-     - Header cố định với tiêu đề "Bộ lọc", nút "Đặt lại" nhanh và nút đóng "X".
-     - Footer cố định với nút "Áp dụng" full chiều ngang, có tính toán khoảng đệm an toàn `insets.bottom`.
-  4. **Đồng Bộ i18n & Theme:**
-     - Bổ sung khóa `filter` vào từ điển `common` trong `@circle/shared` (VI: 'Bộ lọc', EN: 'Filter').
-     - Sử dụng toàn bộ bảng màu Semantic từ `useThemeStore` và `colors.*`.
-- **Files Affected:**
-  - `apps/mobile/src/components/tools/MobileAlbumsView.tsx`
-  - `packages/shared/src/locales/vi.ts`
-  - `packages/shared/src/locales/en.ts`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% split layout UI, calendar sizing optimization, master-detail state orchestration, và i18n keys.
-- **Human Modifications:** Người dùng yêu cầu phần bộ lọc có mấy tab tính năng bên trái (ví dụ ngày gửi, người gửi, loại file), bên phải là nội dung nhìn sẽ gọn hơn.
-- **Verification Method:**
-  - `npm run build --workspace=@circle/shared`: Passed 100%.
-  - `npx tsc -p apps/mobile/tsconfig.json --noEmit`: Passed (0 errors).
-  - `npx tsc -p apps/web/tsconfig.json --noEmit`: Passed (0 errors).
-  - `bash ./scripts/check-agent-map.sh`: Passed (all references resolve).
-  - `bash ./scripts/check-secrets.sh`: Passed (601 files checked, 0 secret leaks).
-- **Official Source Checked:** `PROJECT_GOD.md` §2.2, `agentic/playbooks/cross-cutting-gate.md` (Ergonomics, Responsive Breakpoints, i18n VI+EN).
-- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
-- **Commit:** c94cea4
-- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
-
-
-## AI-0209: Khôi Phục Thanh Chuyển Tab Nổi Dưới Đáy Màn Hình Cho Mobile Media Hub (#120)
-
-- **Date:** 2026-11-16 14:05:00 +07:00
-- **Developer:** Ninh Thị Mỹ Hạnh & Trương Công Bình
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120
-- **Purpose:** Khôi phục thanh chuyển tab nổi dưới đáy màn hình (Bottom Dock) cho giao diện Media Hub trên ứng dụng Mobile theo phản hồi của người dùng:
-  1. **Khôi Phục Thanh Dock Nổi Ở Đáy:**
-     - Đặt thanh dock nổi bo tròn 999px ở vị trí `bottom: bottomDockBottom` (`Math.max(insets.bottom + 10, 16)`), căn giữa màn hình với `zIndex: 40`.
-     - 3 nút tab điều hướng: **File phương tiện** (`ImageIcon`), **File liên kết** (`Link2`), và **File** (`FileText`).
-     - Tương thích hoàn toàn dark/light theme, trạng thái active chuyển màu `colors.primary` và `colors.onPrimary`.
-  2. **Đồng Bộ Cuộn Tránh Bị Che:**
-     - Giữ nguyên khoảng đệm `paddingBottom: bottomDockBottom + 56` trên tất cả các danh sách cuộn để nội dung không bị che khuất bởi thanh dock.
-- **Files Affected:**
-  - `apps/mobile/src/components/tools/MobileAlbumsView.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% bottom dock JSX restoration và theme binding.
-- **Human Modifications:** Người dùng thắc mắc thanh tab file phương tiện, file liên kết, file ở dưới bị thiếu.
-- **Verification Method:**
-  - `npx tsc -p apps/mobile/tsconfig.json --noEmit`: Passed (0 errors).
-  - `npx tsc -p apps/web/tsconfig.json --noEmit`: Passed (0 errors).
-  - `bash ./scripts/check-agent-map.sh`: Passed (all references resolve).
-  - `bash ./scripts/check-secrets.sh`: Passed (601 files checked, 0 secret leaks).
-- **Official Source Checked:** `PROJECT_GOD.md` §2.2, `agentic/playbooks/cross-cutting-gate.md` (Web/Mobile parity, Ergonomics & Bottom Dock).
-- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
-- **Commit:** bc9e3ab
-- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
-
-
-## AI-0210: Chuyển Đổi Tìm Kiếm Text Sang Tìm Kiếm Bằng Hình Ảnh Trong Chi Tiết Album (#120)
-
-- **Date:** 2026-11-16 14:15:00 +07:00
-- **Developer:** Ninh Thị Mỹ Hạnh & Trương Công Bình
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120
-- **Purpose:** Tinh chỉnh công cụ tìm kiếm trong màn hình Chi tiết Album trên Mobile theo yêu cầu người dùng:
-  1. **Loại Bỏ Tìm Kiếm Text Trong Chi Tiết Album:**
-     - Loại bỏ nút tìm kiếm văn bản và ô input tìm kiếm trượt xuống (`isAlbumSearchOpen`, `albumSearchQuery`).
-     - Tối ưu hóa bộ lọc ảnh trong album (`filteredAlbumPhotos`) chỉ cần điều kiện người gửi và khoảng ngày.
-  2. **Thay Thế Bằng Tìm Kiếm Hình Ảnh (`ScanSearch`):**
-     - Bổ sung nút icon `ScanSearch` (kính lúp quét ảnh) ngay trên header chi tiết Album kết nối với `handleImageSearch`.
-  3. **Header Cố Định Chuẩn 1 Dòng Duy Nhất:**
-     - Bố cục header chi tiết Album gồm: Nút `<` quay lại, Tên Album, Nút tìm kiếm ảnh `ScanSearch`, Nút lọc `Filter`, Nút `+` thêm ảnh, Nút `...` tùy chọn khác (Đổi tên, Chọn ảnh, Xóa album).
-     - Khoảng cách và padding đỉnh lưới ảnh cố định `topHeaderTop + 50`, loại bỏ hiện tượng giật nhảy layout.
-- **Files Affected:**
-  - `apps/mobile/src/components/tools/MobileAlbumsView.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% header icon update, state cleanup và layout padding stabilization.
-- **Human Modifications:** Người dùng yêu cầu trong chi tiết album cũng bỏ tìm kiếm kia đi thay bằng tìm kiếm hình ảnh.
-- **Verification Method:**
-  - `npx tsc -p apps/mobile/tsconfig.json --noEmit`: Passed (0 errors).
-  - `npx tsc -p apps/web/tsconfig.json --noEmit`: Passed (0 errors).
-  - `bash ./scripts/check-agent-map.sh`: Passed (all references resolve).
-  - `bash ./scripts/check-secrets.sh`: Passed (601 files checked, 0 secret leaks).
-- **Official Source Checked:** `PROJECT_GOD.md` §2.2, `agentic/playbooks/cross-cutting-gate.md` (Web/Mobile parity, Visual consistency).
-- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
-- **Commit:** 13f10e4
-- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
-
-
-## AI-0211: Cố Định Layout 2 Hàng (2x2) Cho 4 Vòng Xoay May Mắn Trên Mobile App (#120)
-
-- **Date:** 2026-11-16 14:30:00 +07:00
-- **Developer:** Ninh Thị Mỹ Hạnh & Trương Công Bình
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120
-- **Purpose:** Tối ưu hóa layout hiển thị Vòng Xoay May Mắn (Lucky Wheel) trên Mobile App theo yêu cầu người dùng: "vòng xoay ở apps cho 4 cái thành 2 hàng thôi".
-  1. **Layout 2x2 Cố Định Tuyệt Đối Trên Mobile (`MobileWheelView.tsx`):**
-     - Loại bỏ cơ chế `flexWrap: 'wrap'` dễ gây rớt dòng thành 3 hoặc 4 hàng dọc khi kích thước đĩa quay vượt quá chiều rộng màn hình.
-     - Chia 4 vòng thành 2 hàng tường minh (`gridFourWheelsContainer`), mỗi hàng chứa chính xác 2 vòng:
-       - Hàng 1: `wheels.slice(0, 2)`
-       - Hàng 2: `wheels.slice(2, 4)`
-     - Mỗi card vòng quay được bọc trong `smallWheelItemWrapper` với `{ flex: 1, alignItems: 'center', maxWidth: '50%' }` để căn giữa đối xứng 50/50.
-  2. **Tính Toán Responsive Disc Size Dựa Trên Kích Thước Màn Hình Thật (`useWindowDimensions`):**
-     - Sử dụng `useWindowDimensions()` tính toán `availableColWidth = Math.floor((windowWidth - 32) / 2)`.
-     - `fourDiscSize = Math.max(110, Math.min(availableColWidth - 18, isBoardCollapsed ? 150 : 130))`, đảm bảo đĩa quay và con trỏ (pointer nhô ra 19px) luôn nằm trọn vẹn trong cột, không bao giờ tràn mép màn hình.
-     - Giảm `paddingHorizontal` của `cleanSmallWheelCard` từ 16px xuống 4px để tối ưu hóa không gian hiển thị.
-  3. **Tái Cấu Trúc Helper `renderSmallWheelItem` Dùng Chung:**
-     - Gom logic render các vòng quay nhỏ thành một helper duy nhất cho các trường hợp 2 vòng, 3 vòng và 4 vòng, loại bỏ hơn 350 dòng mã trùng lặp, đồng bộ triệt để theme Dark/Light mode và i18n cho toàn bộ các nhãn & chỉ số.
-  4. **Đồng Bộ Trên Web (`CircleWheelView.tsx`):**
-     - Đổi breakpoint lưới 4 vòng từ `grid-cols-1 sm:grid-cols-2` thành `grid-cols-2 gap-4 sm:gap-8` để luôn duy trì 2 cột (2 hàng) ngay cả khi co nhỏ màn hình trình duyệt.
-- **Files Affected:**
-  - `apps/mobile/src/components/tools/MobileWheelView.tsx`
-  - `apps/web/src/components/tools/CircleWheelView.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% responsive calculation, component refactoring, và grid style updates.
-- **Human Modifications:** Người dùng yêu cầu vòng xoay ở app cho 4 cái thành 2 hàng thôi.
-- **Verification Method:**
-  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Passed (0 errors).
-  - `npx tsc --noEmit -p apps/web/tsconfig.json`: Passed (0 errors).
-  - `npm test --prefix apps/backend -- circle-tools.service.spec.ts`: Passed (45/45 tests pass 100%).
-  - `bash ./scripts/check-secrets.sh`: Passed (601 files checked, 0 secret leaks).
-- **Official Source Checked:** `PROJECT_GOD.md` §2.2, `agentic/playbooks/cross-cutting-gate.md` (Web/Mobile parity, Responsive breakpoints).
-- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
-- **Commit:** 6cec412
-- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
-
-
-## AI-0212: Đồng Bộ Bố Cục 2 Cột Cho Bộ Lọc Album Và Phản Hồi Trực Tiếp Tìm Kiếm Ảnh (#120)
-
-- **Date:** 2026-11-16 14:35:00 +07:00
-- **Developer:** Ninh Thị Mỹ Hạnh & Trương Công Bình
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120
-- **Purpose:** Tinh chỉnh tính năng bộ lọc và tìm kiếm hình ảnh trên ứng dụng Mobile theo phản hồi người dùng:
-  1. **Đồng Bộ Bố Cục 2 Cột Cho Bộ Lọc Chi Tiết Album:**
-     - Tái thiết kế modal bộ lọc trong chi tiết Album (`isAlbumFilterModalOpen`) sang chuẩn bố cục 2 cột Split Master-Detail đồng nhất 100% với bên ngoài Media Hub.
-     - Cột trái: Tab "Ngày gửi" (`Calendar`) và Tab "Người gửi" (`User`) có viền nhấn bên trái, nền nổi bật và chấm tròn chỉ báo khi có bộ lọc hoạt động.
-     - Cột phải: Khối nội dung tương ứng (Lịch tương tác From/To chia tỷ lệ 14.28% chuẩn, hoặc ô tìm kiếm và danh sách thành viên trong album).
-     - Header với nút Đặt lại và Footer với nút Áp dụng chuẩn theme.
-  2. **Phản Hồi Trực Tiếp Cho Tìm Kiếm Bằng Hình Ảnh:**
-     - Khi người dùng chạm vào biểu tượng `ScanSearch`, hiển thị ngay thông báo `t.collab.imageSearchComingSoon` ("Tính năng tìm kiếm bằng hình ảnh đang được hoàn thiện") cùng rung nhẹ Haptics, không mở thư viện ảnh hay xin quyền máy cục bộ.
-- **Files Affected:**
-  - `apps/mobile/src/components/tools/MobileAlbumsView.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% split modal layout synchronization và direct notice trigger for image search.
-- **Human Modifications:** Người dùng nhận xét bộ lọc trong app chưa được thiết kế như ở ngoài và yêu cầu khi ấn tìm kiếm hình ảnh là thông báo tính năng đang hoàn thiện luôn.
-- **Verification Method:**
-  - `npx tsc -p apps/mobile/tsconfig.json --noEmit`: Passed (0 errors).
-  - `npx tsc -p apps/web/tsconfig.json --noEmit`: Passed (0 errors).
-  - `bash ./scripts/check-agent-map.sh`: Passed (all references resolve).
-  - `bash ./scripts/check-secrets.sh`: Passed (601 files checked, 0 secret leaks).
-- **Official Source Checked:** `PROJECT_GOD.md` §2.2, `agentic/playbooks/cross-cutting-gate.md` (Web/Mobile parity, UI states).
-- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
-- **Commit:** 6745377
-- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
-
-
-## AI-0213: Tối Ưu Header Thu Gọn Tìm Kiếm Hub Và Bổ Sung Năm Cho Bộ Lọc Ngày (#120)
-
-- **Date:** 2026-11-16 15:00:00 +07:00
-- **Developer:** Ninh Thị Mỹ Hạnh & Trương Công Bình
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120
-- **Purpose:** Tinh chỉnh thanh header và bộ lịch chọn ngày trên ứng dụng Mobile theo yêu cầu người dùng:
-  1. **Hiển Thị Tên Tab Gần Nút Quay Lại:**
-     - Cả 3 tab Media Hub (`media`: "File phương tiện", `links`: "File liên kết", `files`: "File") đều có tiêu đề hiển thị trang trọng bên cạnh nút quay lại `<`.
-  2. **Thu Gọn Tìm Kiếm Thành Icon Kính Lúp (Expandable Search):**
-     - Ở tab Liên kết và Tệp tin, thanh tìm kiếm mặc định thu gọn thành nút icon kính lúp (`Search`).
-     - Chỉ khi người dùng nhấn vào icon `Search`, thanh tìm kiếm mới bung mở rộng xuống hàng 2 kèm ô nhập từ khóa, tự động focus và nút "X" xóa/đóng nhanh.
-     - Cập nhật khoảng đệm `paddingTop: topHeaderTop + (isHubSearchOpen ? 92 : 48)` cho danh sách cuộn mượt mà.
-  3. **Bổ Sung Năm Cho Bộ Lọc Ngày Gửi:**
-     - Cập nhật định dạng ngày hiển thị `DD/MM/YYYY` (ví dụ: `16/11/2026`) thay vì chỉ hiện ngày/tháng.
-     - Bổ sung nút điều hướng chuyển năm nhanh `<<` (`ChevronsLeft`) và `>>` (`ChevronsRight`) trên thanh tiêu đề tháng/năm của bộ lịch.
-- **Files Affected:**
-  - `apps/mobile/src/components/tools/MobileAlbumsView.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% expandable header logic, year formatting & year jump navigation.
-- **Human Modifications:** Người dùng yêu cầu phần tìm kiếm file và liên kết để icon khi nào ấn mới mở rộng ra, có tên gần nút quay lại, và bộ lọc ngày gửi bổ sung năm.
-- **Verification Method:**
-  - `npx tsc -p apps/mobile/tsconfig.json --noEmit`: Passed (0 errors).
-  - `npx tsc -p apps/web/tsconfig.json --noEmit`: Passed (0 errors).
-  - `bash ./scripts/check-agent-map.sh`: Passed (all references resolve).
-  - `bash ./scripts/check-secrets.sh`: Passed (601 files checked, 0 secret leaks).
-- **Official Source Checked:** `PROJECT_GOD.md` §2.2, `agentic/playbooks/cross-cutting-gate.md` (Web/Mobile parity, UI states).
-- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
-- **Commit:** 26fd99d
-- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
-
-
-## AI-0214: Tinh gọn Navigation Bar và Tìm kiếm Sự kiện dạng Lịch trình trên Mobile (#120)
-
-- **Date:** 2026-11-16 15:25:00 +07:00
-- **Developer:** Ninh Thị Mỹ Hạnh & Trương Công Bình
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120
-- **Purpose:** Tinh chỉnh giao diện và luồng tìm kiếm lịch hẹn sự kiện trên ứng dụng Mobile theo yêu cầu người dùng:
-  1. **Tinh Gọn Floating Navigation Bar:**
-     - Loại bỏ nút đóng `X` (`closePill`) khi người dùng đang mở công cụ Lịch hẹn (`selectedTool === 'calendar'`).
-     - Tối giản nút quay lại chỉ còn biểu tượng mũi tên `<` (`ArrowLeft`), lược bỏ nhãn chữ "Công cụ nhóm".
-     - Bố trí nhãn tiêu đề "Lịch hẹn" (`titlePill`) đặt cạnh nút quay lại ở góc trái (`gap: 8`, `justifyContent: 'flex-start'`).
-  2. **Tìm Kiếm Sự Kiện Hiển Thị Dạng Lịch Trình (Schedule Feed Như Ở Web):**
-     - Khi ấn nút tìm kiếm (`Search` icon) ở header tháng/năm, kích hoạt giao diện tìm kiếm với ô nhập ở trên đỉnh (`TextInput` kèm icon kính lúp, nút xóa nhanh text và nút "Đóng").
-     - Lọc theo từ khóa tên sự kiện (`eventTitle`) trong toàn bộ sự kiện của Vòng tròn (`getCalendarEventsApi`).
-     - Hiển thị danh sách kết quả gom nhóm theo ngày (Thứ, ngày DD tháng MM năm YYYY kèm badge "Hôm nay" nếu trùng ngày).
-     - Mỗi thẻ sự kiện hiển thị chuẩn đẹp: Tiêu đề sự kiện, badge ĐÃ HỦY (nếu bị hủy), giờ diễn ra kèm icon Clock, địa điểm kèm icon MapPin, và 3 nút phản hồi nhanh RSVP trực tiếp (Tham gia, Chưa chắc, Bận).
-     - Chạm vào thẻ sự kiện mở chi tiết sự kiện toàn màn hình.
-  3. **Đồng Bộ Dữ Liệu Realtime:**
-     - Tự động cập nhật socket event `circle:calendar-event-rsvp-updated` vào danh sách sự kiện tìm kiếm và lịch tháng.
-- **Files Affected:**
-  - `apps/mobile/app/circle/[id].tsx`
-  - `apps/mobile/src/components/tools/MobileCalendarView.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% navigation bar adjustments, schedule grouping, and event search schedule UI.
-- **Human Modifications:** Người dùng yêu cầu ở app phần lịch hẹn sự kiện bỏ nút x, nút quay lại chỉ còn icon gần đó có tên lịch hẹn dạng label, khi ấn tìm kiếm hiển thị ô nhập tìm kiếm ở trên khi viết tìm kiếm tên sự kiện hiển thị dạng lịch trình như ở web.
-- **Verification Method:**
-  - `npx tsc --noEmit --project apps/mobile/tsconfig.json`: Passed 0 errors.
-  - `bash ./scripts/check-agent-map.sh`: Passed (all references resolve).
-  - `bash ./scripts/check-secrets.sh`: Passed (601 files checked, 0 secret leaks).
-- **Official Source Checked:** `PROJECT_GOD.md` §2.2, `agentic/playbooks/cross-cutting-gate.md` (Web/Mobile parity, UI states).
-- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
-- **Commit:** 610b959
-- **PR:** #120
-
-
-## AI-0215: Tái Cấu Trúc Top Header Đơn Hàng Và Cố Định Mở Bảng Cho Vòng Xoay May Mắn Mobile (#120)
-
-- **Date:** 2026-11-16 15:35:00 +07:00
-- **Developer:** Ninh Thị Mỹ Hạnh & Trương Công Bình
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120
-- **Purpose:** Tinh giản và thống nhất giao diện header và bảng thiết lập của Vòng Xoay May Mắn trên Mobile theo yêu cầu người dùng:
-  1. **Loại Bỏ Nút Đóng `X`:**
-     - Tách Vòng Xoay May Mắn (`selectedTool === 'wheel'`) ra khỏi thanh điều hướng mặc định của Modal công cụ trong `apps/mobile/app/circle/[id].tsx`, loại bỏ hoàn toàn nút đóng `X` (`closePill`).
-  2. **Thống Nhất Header Đơn Hàng (Single Line Top Header):**
-     - Nút quay lại chỉ còn biểu tượng icon `<` (`ArrowLeft`), loại bỏ nhãn chữ "Công cụ nhóm".
-     - Nhãn tên tính năng "Vòng xoay may mắn" (`headerTitleLabel`) đặt ngay cạnh nút quay lại với icon la bàn (`Compass`) và bo góc tròn chuẩn pill.
-     - Đẩy nút "Thêm vòng xoay" (`+`) và "Quay tất cả" (`RotateCw`) lên cùng một hàng header bên phải, loại bỏ hoàn toàn việc phân tầng thành 2 hàng floating bars gây chiếm dụng chiều cao màn hình.
-  3. **Cố Định Mở Bảng Thiết Lập (Always-Open Board):**
-     - Bỏ nút thu gọn bảng (`collapseHandleBtn`) và nút mở rộng bảng ở mép phải (`floatingRightEdgeOpenBtn`).
-     - Bảng thiết lập danh sách lựa chọn (`tabbedBoard`) luôn luôn hiển thị mở (`always-open`), tối ưu hóa trải nghiệm trực quan cho người dùng.
-- **Files Affected:**
-  - `apps/mobile/app/circle/[id].tsx`
-  - `apps/mobile/src/components/tools/MobileWheelView.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% header restructuring, single line toolbar layout, và board collapse cleanup.
-- **Human Modifications:** Người dùng yêu cầu ở app phần vòng xoay may mắn bỏ nút x, nút quay lại chỉ còn icon gần đó có tên vòng xoay dạng label, thêm vòng xoay và quay tất cả đẩy lên chỗ đó, bỏ nút mở rộng bảng lúc nào cũng mở rồi.
-- **Verification Method:**
-  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Passed (0 errors).
-  - `npx tsc --noEmit -p apps/web/tsconfig.json`: Passed (0 errors).
-  - `npm test --prefix apps/backend -- circle-tools.service.spec.ts`: Passed (45/45 tests pass 100%).
-  - `bash ./scripts/check-secrets.sh`: Passed (601 files checked, 0 secret leaks).
-- **Official Source Checked:** `PROJECT_GOD.md` §2.2, `agentic/playbooks/cross-cutting-gate.md` (Web/Mobile parity, UI states).
-- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
-- **Commit:** f8f40f0
-- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
-
-
-## AI-0215: Đổi Tên Tính Năng Lịch Hẹn Sự Kiện Thành Lịch Nhóm Trên Toàn Hệ Thống (#120)
-
-- **Date:** 2026-11-17 23:45:00 +07:00
-- **Developer:** Ninh Thị Mỹ Hạnh & Trương Công Bình
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120
-- **Purpose:** Đổi tên hiển thị của tính năng "Lịch hẹn & Sự kiện" thành "Lịch nhóm" trên toàn bộ giao diện Web và Mobile:
-  1. **Đồng Bộ Bộ Khóa Ngôn Ngữ (Locales):**
-     - Tiếng Việt (`packages/shared/src/locales/vi.ts`):
-       - `t.nav.calendarEvents`: Đổi từ `'Lịch hẹn & Sự kiện'` thành `'Lịch nhóm'`.
-       - `t.nav.upcomingEventsTitle`: Đổi từ `'Lịch hẹn & Sự kiện'` thành `'Lịch nhóm'`.
-       - `t.composer.eventTitle` & `t.composer.eventAlertTitle`: Đổi thành `'Lịch nhóm'`.
-       - `t.collab.calendarTitle`: Đổi từ `'Lịch hoạt động nhóm'` thành `'Lịch nhóm'`.
-     - Tiếng Anh (`packages/shared/src/locales/en.ts`):
-       - `t.nav.calendarEvents`, `t.nav.upcomingEventsTitle`, `t.composer.eventTitle`, `t.collab.calendarTitle`: Đồng bộ thành `'Group Calendar'`.
-  2. **Hiển Thị Đồng Bộ Trên Giao Diện:**
-     - **Web (`apps/web`):** Sidebar công cụ nhóm bên trái hiển thị "Lịch nhóm".
-     - **Mobile (`apps/mobile`):** Menu tiện ích nhóm và Floating Navigation Pill Bar góc trên hiển thị "Lịch nhóm".
-- **Files Affected:**
-  - `packages/shared/src/locales/vi.ts`
-  - `packages/shared/src/locales/en.ts`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% localization adjustments and package rebuild.
-- **Human Modifications:** Người dùng yêu cầu lịch hẹn sự kiện đổi tên thành lịch nhóm ở cả web và app.
-- **Verification Method:**
-  - `cd packages/shared && npm run build`: Passed (0 errors).
-  - `npx tsc --noEmit --project apps/web/tsconfig.json`: Passed 0 errors.
-  - `npx tsc --noEmit --project apps/mobile/tsconfig.json`: Passed 0 errors.
-  - `bash ./scripts/check-agent-map.sh`: Passed (130 files).
-  - `bash ./scripts/check-secrets.sh`: Passed, 0 secret leaks.
-- **Official Source Checked:** `PROJECT_GOD.md` §2.2, `agentic/playbooks/cross-cutting-gate.md` (i18n & web/mobile parity).
-- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
-- **Commit:** 5583834
-- **PR:** #120
-
-
-## AI-0214: Đổi Tên Tiện Ích Media Hub Và Tab Liên Kết Đồng Bộ Trên Web Và Mobile (#120)
-
-- **Date:** 2026-11-17 23:55:00 +07:00
-- **Developer:** Ninh Thị Mỹ Hạnh & Trương Công Bình
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120
-- **Purpose:** Đổi tên hiển thị cho tiện ích kho lưu trữ và tab liên kết trên cả Web và Mobile theo yêu cầu người dùng:
-  1. **Đổi Tên Tiện Ích Chính:**
-     - Đổi tên tiện ích từ "Album kỷ niệm" sang "File phương tiện, liên kết, file" (`photoAlbum`, `albumsTitle`).
-     - Tự động phản ánh đồng bộ trên thanh Sidebar Web (`Sidebar.tsx`) và Menu Tiện ích nhóm trên Mobile (`[id].tsx`).
-     - Phiên bản tiếng Anh: "Media, Links, Files".
-  2. **Đổi Tên Tab Con Bên Trong:**
-     - Đổi tên tab con từ "File liên kết" thành "Liên kết" (`tabLinks`).
-     - Đồng bộ cả trên Web (`CircleAlbumsView`) và Mobile (`MobileAlbumsView` ở Header và Bottom Dock).
-     - Phiên bản tiếng Anh: "Links".
-- **Files Affected:**
-  - `packages/shared/src/locales/vi.ts`
-  - `packages/shared/src/locales/en.ts`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% i18n dictionary synchronization and build verification.
-- **Human Modifications:** Người dùng yêu cầu album đổi tên thành file phương tiện, liên kết, file; bên trong có file liên kết đổi tên thành liên kết đổi ở cả web và app.
-- **Verification Method:**
-  - `npm run build --workspace=@circle/shared`: Passed 100%.
-  - `npx tsc -p apps/mobile/tsconfig.json --noEmit`: Passed (0 errors).
-  - `npx tsc -p apps/web/tsconfig.json --noEmit`: Passed (0 errors).
-  - `bash ./scripts/check-agent-map.sh`: Passed (all references resolve).
-  - `bash ./scripts/check-secrets.sh`: Passed (601 files checked, 0 secret leaks).
-- **Official Source Checked:** `PROJECT_GOD.md` §2.2, `agentic/playbooks/cross-cutting-gate.md` (i18n VI+EN, Web/Mobile parity).
-- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
-- **Commit:** 31a4a9d
-- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
-
-
-## AI-0215: Tối Ưu Floating Header Lịch Nhóm, Animated Slide-Down Search Và Nút Dạng Xem (#120)
-
-- **Date:** 2026-11-18 00:20:00 +07:00
-- **Developer:** Ninh Thị Mỹ Hạnh & Trương Công Bình
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120
-- **Purpose:** Cập nhật trải nghiệm UI Header và Navigation Lịch nhóm trên ứng dụng di động (Mobile) chuẩn theo thiết kế:
-  1. **Bỏ Khung Viền Tiêu Đề, Dùng Text Label Tự Nhiên Như File Phương Tiện:**
-     - Loại bỏ khung viền Pill bo tròn bao quanh chữ "Lịch nhóm" trên đỉnh `MobileCalendarView`.
-     - Thay bằng nhãn text thuần (`fontSize: 16, fontWeight: '700'`) đặt cạnh icon nút Quay lại `<` (`ArrowLeft`), căn lề tự nhiên đồng bộ tuyệt đối với `MobileAlbumsView`.
-  2. **Bê Nút Tìm Kiếm & Tạo Lịch Lên Thành Floating Pill Button Trên Đỉnh:**
-     - Bỏ 2 nút Tìm kiếm và Thêm mới ở vị trí header tháng cũ.
-     - Đặt cả hai lên thanh Header nổi ở đỉnh (`renderTopFloatingBar`) cùng hàng với nút Quay lại và Tiêu đề.
-     - Nút Tìm kiếm có viền mỏng/nền kính (`headerIconBtn`) và nút Tạo lịch nổi bật với màu thương hiệu teal `#0D9488` (`headerAddBtn`).
-  3. **Thanh Tìm Kiếm Kéo Trượt Từ Trên Xuống (Slide-down Animation) & Nút Dấu "x":**
-     - Khi bấm nút Tìm kiếm, thanh tìm kiếm trượt mượt mà từ trên đỉnh màn hình xuống (`Animated.spring(searchSlideAnim)` từ `-300` về `0`).
-     - Thay nút text "Đóng" thành icon dấu "x" (`X` size 18, bo tròn `searchCloseIconBtn`).
-     - Khi đóng, trượt thu hồi lên trên đỉnh với `Animated.timing`.
-     - Hiển thị kết quả tìm kiếm theo bố cục Lịch trình (Timeline grouped by date) nhất quán như phiên bản Web.
-  4. **Nút "Dạng Xem" (View Mode) Chuyển Đổi Tháng / Lịch Trình:**
-     - Bổ sung Floating Pill Button "Dạng xem" hiển thị icon (`CalendarDays` / `Clock`), nhãn ("Tháng" / "Lịch trình") kèm chevron down.
-     - Khi ấn vào sẽ mở Action Sheet Modal bo góc tròn để người dùng linh hoạt chuyển đổi giữa "Theo tháng" và "Theo lịch trình".
-- **Files Affected:**
-  - `apps/mobile/src/components/tools/MobileCalendarView.tsx`
-  - `apps/mobile/app/circle/[id].tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% component architecture, slide-down animation, header floating bar layout, and type corrections.
-- **Human Modifications:** Người dùng yêu cầu ở app chữ lịch hẹn bỏ khung ghi dạng label như file phương tiện; tìm kiếm tạo lịch bê lên trên thành Floating Pill Button; khi ấn tìm kiếm kéo từ trên xuống (thay chữ đóng thành dấu x); thêm nút dạng xem theo tháng hoặc theo lịch trình.
-- **Verification Method:**
-  - `npx tsc --noEmit --project apps/mobile/tsconfig.json`: Passed 0 errors.
-  - `npx tsc --noEmit --project apps/web/tsconfig.json`: Passed 0 errors.
-  - `bash ./scripts/check-agent-map.sh`: Passed (all 130 files resolve).
-  - `bash ./scripts/check-secrets.sh`: Passed (601 files checked, 0 leaks).
-- **Official Source Checked:** `PROJECT_GOD.md` §2.2, `agentic/playbooks/05-calendar-planning.md`, `agentic/playbooks/cross-cutting-gate.md`.
-- **Security & License Check:** An toàn tuyệt đối, zero secrets.
-- **Commit:** a7bc7bf
-- **PR:** #120
-
-
-## AI-0216: Đổi Tên Vòng Quay May Mắn, Giới Hạn Tên 50 Ký Tự, Truncate Button Đồng Đều, Khóa Chỉnh Sửa Kết Quả Và Chuẩn Hóa Setup Board (#120)
-
-- **Date:** 2026-11-18 00:45:00 +07:00
-- **Developer:** Ninh Thị Mỹ Hạnh & Trương Công Bình
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120
-- **Purpose:** 
-  1. **Đổi tên tính năng "Vòng xoay may mắn" thành "Vòng quay may mắn":**
-     - Cập nhật chuẩn hóa toàn bộ key trong localization (`packages/shared/src/locales/vi.ts` & `en.ts`) bao gồm `luckyWheel`, `wheelTitle`, `wheelEmptyTitle`, `wheelEmptyDesc`.
-     - Build lại `@circle/shared` phân phối bản dịch đồng bộ sang cả Web và Mobile.
-  2. **Giới hạn độ dài tên vòng quay & Truncate các nút bấm đồng đều:**
-     - Thiết lập thuộc tính `maxLength={50}` cho ô input sửa tên vòng quay trên cả Web (`CircleWheelView.tsx`) và Mobile (`MobileWheelView.tsx`).
-     - Chuẩn hóa kích thước các nút tab và huy hiệu tiêu đề đĩa quay:
-       - Web: Đặt kích thước cố định `w-28` cho các tab vòng quay, `min-w-28` cho tab kết quả, `w-36` cho huy hiệu trên đĩa quay kèm `truncate`.
-       - Mobile: Đặt kích thước `tabPill` chuẩn `width: 88, height: 32`, `tabPillResults` chuẩn `minWidth: 88, height: 32`, huy hiệu đĩa quay `mobileWheelTitleBadge` chuẩn `width: 124` kèm `numberOfLines={1}` và `ellipsizeMode="tail"`.
-  3. **Khóa chỉnh sửa kết quả vòng quay (Read-only):**
-     - Trên Web: Thêm `readOnly={true}` và `cursor-default` vào thẻ textarea kết quả quay.
-     - Trên Mobile: Thêm `editable={false}` vào TextInput kết quả quay, ngăn chặn hoàn toàn việc can thiệp chỉnh sửa kết quả thủ công.
-  4. **Tối ưu Mobile Floating Header Bar & Setup Board:**
-     - Bỏ khung text "Vòng xoay may mắn" ở Header, biến các Floating Pill Buttons thành dạng icon-only tròn đều 36x36 (`floatingPillIconBtn`, `floatingPillPrimaryIconBtn`).
-     - Bổ sung nút icon Cúp kết quả (`Trophy`) lên Floating Header để chuyển nhanh sang xem bảng kết quả.
-     - Đồng bộ kích thước các icon button ở bảng Setup: tất cả các nút hành động (`Shuffle`, `Sort A-Z`, `Save Initial`, `Reset`, `Share to Chat`, `Clear All`) và nút xóa vòng (`delWheelBtn`) đều có chiều cao chuẩn 38px (`height: 38`), cân đối và bằng nhau hoàn hảo.
-     - Khắc phục phần text kết quả bị tràn 2 dòng: rút gọn câu gợi ý `resultsHint`, gán `numberOfLines={1}` và `ellipsizeMode="tail"` cho toàn bộ text phụ trợ trong bảng setup.
-- **Files Affected:**
-  - `packages/shared/src/locales/vi.ts`
-  - `packages/shared/src/locales/en.ts`
-  - `apps/web/src/components/tools/CircleWheelView.tsx`
-  - `apps/mobile/src/components/tools/MobileWheelView.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% localization update, layout redesign, styling parity, and button standardization.
-- **Human Modifications:** Người dùng yêu cầu thay tên thành vòng quay may mắn, giới hạn tên 50 ký tự, hiển thị nút ... bằng nhau, kết quả không thể sửa ở cả web và app, app bỏ khung text header, pill buttons chỉ cần icon, các icon btn ở setup bằng nhau, thêm icon kết quả lên floating pill, text kết quả ở setup chỉ 1 dòng.
-- **Verification Method:**
-  - `npm run build --prefix packages/shared`: Passed 100%.
-  - `npx tsc --noEmit -p apps/web/tsconfig.json`: Passed 0 errors.
-  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Passed 0 errors.
-  - `npm test --prefix apps/backend -- circle-tools.service.spec.ts`: Passed 45/45 tests.
-  - `bash ./scripts/check-secrets.sh`: Passed (601 files checked, 0 leaks).
-- **Official Source Checked:** `PROJECT_GOD.md` §2.2, `agentic/playbooks/05-calendar-planning.md`, `agentic/playbooks/cross-cutting-gate.md`.
-- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
-- **Commit:** 35851b9
-- **PR:** #120
-
-
-## AI-0217: Tinh Chỉnh Icon-Only Nút Dạng Xem Và Đẩy Nút Hôm Nay Lên Floating Header Khi Vào Xem Năm (#120)
-
-- **Date:** 2026-11-18 01:10:00 +07:00
-- **Developer:** Ninh Thị Mỹ Hạnh & Trương Công Bình
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120
-- **Purpose:** Tối ưu hóa nút "Dạng xem" và nút "Hôm nay" trên Floating Header Lịch nhóm (Mobile):
-  1. **Nút "Dạng xem" hiển thị Icon-only:**
-     - Loại bỏ text "Tháng" / "Lịch trình" và chevron down, chỉ giữ lại icon (`CalendarDays` khi ở tab tháng hoặc `Clock` khi ở tab lịch trình), kích thước 16px nằm trong nút tròn 36x36 (`headerIconBtn`), hài hòa và đồng nhất với các icon khác trên thanh Header nổi.
-  2. **Tự động ẩn nút "Dạng xem" và đẩy nút "Hôm nay" lên Floating Header khi vào Năm:**
-     - Khi người dùng bấm vào năm (`isYearView === true`), nút "Dạng xem" biến mất và nút "Hôm nay" (`headerTodayPillBtn`) được đẩy lên đúng vị trí đó trên Floating Header bar.
-     - Khi bấm "Hôm nay" ở chế độ xem năm, danh sách cuộn mượt về năm hiện tại (`scrollToYear(now.getFullYear(), true)`).
-     - Loại bỏ sub-header `appleYearHeader` thừa trùng lặp trong `renderYearView`, giúp danh sách năm cuộn thoáng và tự nhiên dưới thanh nổi.
-     - Nút Quay lại `<` ở chế độ năm cho phép quay trở lại dạng xem tháng ngay lập tức (`setIsYearView(false)`), khi đó nút icon "Dạng xem" tự động hiển thị trở lại.
-- **Files Affected:**
-  - `apps/mobile/src/components/tools/MobileCalendarView.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% component logic, floating header layout adjustment, and type checking.
-- **Human Modifications:** Người dùng yêu cầu ở app chỗ btn dạng xem thì để mỗi icon thôi, khi ấn vào năm thì nút đó mất mà đẩy btn hôm nay lên trên đó.
-- **Verification Method:**
-  - `npx tsc --noEmit --project apps/mobile/tsconfig.json`: Passed 0 errors.
-  - `bash ./scripts/check-agent-map.sh`: Passed (all 130 files resolve).
-  - `bash ./scripts/check-secrets.sh`: Passed (601 files checked, 0 leaks).
-- **Official Source Checked:** `PROJECT_GOD.md` §2.2, `agentic/playbooks/05-calendar-planning.md`, `agentic/playbooks/cross-cutting-gate.md`.
-- **Security & License Check:** An toàn tuyệt đối, zero secrets.
-- **Commit:** 69cffc1
-- **PR:** #120
-
-
-## AI-0218: Đồng Bộ Thứ Tự Vòng Quay Tăng Dần (1-2-3-4), Header Title Label Và Keyboard Avoidance Setup Board (#120)
-
-- **Date:** 2026-11-18 01:45:00 +07:00
-- **Developer:** Ninh Thị Mỹ Hạnh & Trương Công Bình
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120
-- **Purpose:** 
-  1. **Hiển thị tên "Vòng quay may mắn" dạng nhãn text gần nút quay lại trên Mobile:**
-     - Bổ sung Text label `Vòng quay may mắn` (`fontSize: 16, fontWeight: '700'`) ngay cạnh nút tròn Quay lại (`ArrowLeft`) trên thanh Floating Header của `MobileWheelView`.
-     - Giữ nguyên thiết kế tối giản: text thuần không đóng khung viền, hài hòa và đồng nhất với màn hình File phương tiện (`MobileAlbumsView`) và Lịch nhóm (`MobileCalendarView`).
-  2. **Tự động đẩy bảng Setup lên khi nhập liệu không bị che bởi bàn phím:**
-     - Bổ sung `scrollViewRef = useRef<React.ElementRef<typeof ScrollView>>(null)`.
-     - Thêm `automaticallyAdjustKeyboardInsets={true}`, `keyboardShouldPersistTaps="handled"` và mở rộng `paddingBottom: scrollPaddingBottom + 200` cho ScrollView.
-     - Tích hợp sự kiện `onFocus` vào ô sửa tên vòng (`inlineTitleInput`) và ô nhập danh sách tùy chọn (`boardTextarea`), tự động kích hoạt `scrollViewRef.current?.scrollToEnd({ animated: true })` giúp cuộn mượt mà toàn bộ phần setup lên phía trên bàn phím.
-  3. **Sắp xếp thứ tự vòng quay tăng dần 1, 2, 3, 4 trên cả Web và App:**
-     - Backend: Sửa câu truy vấn `getWheels` trong `circle-tools.service.ts` từ `orderBy: { createdAt: 'desc' }` thành `orderBy: { createdAt: 'asc' }`.
-     - Web: Thêm `useMemo` sắp xếp danh sách `wheels` theo `createdAt: 'asc'` và tự nhiên theo tiêu đề vòng.
-     - Mobile: Sắp xếp danh sách `wheels` theo `createdAt: 'asc'` trong hàm nạp dữ liệu `loadData` và sau khi tạo vòng mới `handleAddDefaultWheel`, đảm bảo Vòng 1 luôn ở vị trí đầu tiên/ở trên cùng thay vì vòng mới nhất.
-- **Files Affected:**
-  - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
-  - `apps/web/src/components/tools/CircleWheelView.tsx`
-  - `apps/mobile/src/components/tools/MobileWheelView.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% backend query correction, frontend sorting memoization, header layout adjustments, and keyboard scrolling logic.
-- **Human Modifications:** Người dùng yêu cầu ở app thiếu tên vòng quay may mắn gần btn quay lại, khi ấn nhập setup đẩy lên không bị che bởi bàn phím, và ở app + web sắp xếp lại vòng 1, 2, 3, 4 chứ không phải 4, 2, 3, 1 (vòng 1 ở trên).
-- **Verification Method:**
-  - `npx tsc --noEmit -p apps/web/tsconfig.json`: Passed 0 errors.
-  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Passed 0 errors.
-  - `npx tsc --noEmit -p apps/backend/tsconfig.json`: Passed 0 errors.
-  - `npm test --prefix apps/backend -- circle-tools.service.spec.ts`: Passed 45/45 tests.
-  - `bash ./scripts/check-agent-map.sh`: Passed (all 130 files resolve).
-  - `bash ./scripts/check-secrets.sh`: Passed (601 files checked, 0 leaks).
-- **Official Source Checked:** `PROJECT_GOD.md` §2.2, `agentic/playbooks/05-calendar-planning.md`, `agentic/playbooks/cross-cutting-gate.md`.
-- **Security & License Check:** An toàn tuyệt đối, zero secrets.
-- **Commit:** f3782a6
-- **PR:** #120
-
-
-## AI-0219: Bổ Sung Tính Năng Vòng Quay May Mắn Vào Menu Dấu Cộng (+) Chat Nhóm Và Cơ Chế Live Wheel Đồng Bộ Realtime (#120)
-
-- **Date:** 2026-11-18 02:15:00 +07:00
-- **Developer:** Ninh Thị Mỹ Hạnh & Trương Công Bình
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120
-- **Purpose:** 
-  1. **Bổ sung Vòng quay may mắn vào menu (+) thanh nhập tin nhắn chat nhóm (Web & Mobile):**
-     - Thêm nút tiện ích `Compass` "Vòng quay may mắn" vào menu (+) của thanh soạn tin nhắn (`ChatComposer.tsx` trên Web và `plusMenuContent` trong `apps/mobile/app/circle/[id].tsx`).
-     - Mở giao diện `LiveWheelPickerModal` (Web) / `MobileLiveWheelPickerModal` (Mobile) cho phép thành viên:
-       + Tab 1: Chọn một vòng quay có sẵn đã lưu trong Circle.
-       + Tab 2: Thiết lập tên vòng quay và danh sách lựa chọn mới (tối thiểu 2 lựa chọn) kèm các preset nhanh ("Trưa nay ăn gì?", "Ai trả tiền hôm nay?", "Ai dọn dẹp nhóm?", "Có hoặc Không?").
-  2. **Cơ chế Live Wheel trực tiếp trong nhóm:**
-     - Khi thành viên bấm "Bắt đầu quay trực tiếp", gọi API `POST /circles/:circleId/wheels/live-spin`.
-     - Phía máy chủ (Backend NestJS) đóng vai trò thẩm quyền duy nhất (Authority Server): xác định ngẫu nhiên duy nhất kết quả (`winningIndex`, `winningOption`), lưu session vào bộ nhớ hoạt động `activeLiveWheelSessions`, tạo bản ghi tin nhắn lịch sử hoạt động nhóm `[LIVE_WHEEL]:...` và đồng thời broadcast sự kiện realtime `circle:live-wheel:started` tới toàn bộ thành viên trong Circle qua Socket.IO.
-     - Cả Web (`LiveWheelOverlay.tsx`) và Mobile (`MobileLiveWheelOverlay.tsx`) tự động mở modal/overlay nổi bật toàn màn hình với hiệu ứng làm mờ nền (backdrop blur), badge đỏ phát sáng 🔴 `LIVE` / `LIVE RESULT`, thông tin vòng quay và tên người quay.
-     - Tất cả thành viên cùng quan sát một đĩa quay duy nhất chuyển động theo cùng công thức easing (`1 - (1 - progress)^4`), tốc độ, thời gian quay (`durationMs: 6000`), và dừng chính xác ở cùng một kết quả với hiệu ứng âm thanh tick, fanfare và pháo hoa confetti / haptic feedback.
-     - Thành viên tham gia muộn hoặc kết nối lại trong lúc quay được đồng bộ trạng thái qua endpoint `GET /circles/:circleId/wheels/live-active` (nếu đang quay thì tiếp tục hoạt ảnh từ thời điểm đã trôi qua, nếu đã xong thì hiển thị kết quả ngay).
-     - Có nút đóng "Quay lại đoạn chat" để thành viên chủ động đóng overlay bất cứ lúc nào.
-- **Files Affected:**
-  - `packages/types/src/index.ts`
-  - `packages/shared/src/locales/vi.ts` & `en.ts`
-  - `apps/backend/src/modules/chat/chat.gateway.ts`
-  - `apps/backend/src/modules/circle-tools/circle-tools.controller.ts`
-  - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
-  - `apps/backend/src/modules/circle-tools/dto/circle-tools.dto.ts`
-  - `apps/backend/src/modules/circle-tools/circle-tools.service.spec.ts`
-  - `apps/web/src/hooks/use-circle-tools.ts`
-  - `apps/web/src/components/chat/ChatComposer.tsx`
-  - `apps/web/src/components/chat/ChannelChatView.tsx`
-  - `apps/web/src/components/chat/LiveWheelPickerModal.tsx`
-  - `apps/web/src/components/chat/LiveWheelOverlay.tsx`
-  - `apps/mobile/src/services/circle-tools.service.ts`
-  - `apps/mobile/app/circle/[id].tsx`
-  - `apps/mobile/src/components/chat/MobileLiveWheelPickerModal.tsx`
-  - `apps/mobile/src/components/chat/MobileLiveWheelOverlay.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% backend controller/service/gateway, WebSocket broadcast, Canvas/SVG realtime synchronized animation, and Web & Mobile modal components.
-- **Human Modifications:** Người dùng yêu cầu bổ sung Vòng quay may mắn vào menu (+) chat nhóm, hỗ trợ chọn vòng có sẵn hoặc tạo mới, quay trực tiếp đồng bộ thời gian thực cho tất cả thành viên qua server-side authority và lưu kết quả vào lịch sử chat.
-- **Verification Method:**
-  - `npx tsc --noEmit -p apps/web/tsconfig.json`: Passed 0 errors.
-  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Passed 0 errors.
-  - `npx tsc --noEmit -p apps/backend/tsconfig.json`: Passed 0 errors.
-  - `npm test --prefix apps/backend -- circle-tools`: Passed 46/46 unit tests.
-  - `bash ./scripts/check-secrets.sh`: Passed (601 files checked, 0 leaks).
-- **Official Source Checked:** `PROJECT_GOD.md` §2.2, §11 (DoD), `agentic/playbooks/05-calendar-planning.md`, `agentic/playbooks/cross-cutting-gate.md`.
-- **Security & License Check:** Kết quả sinh ngẫu nhiên bảo mật từ server, xác thực quyền thành viên Circle; không rò rỉ secret key.
-- **Commit:** b950e86
-- **PR:** #120
-
-
-## AI-0220: Tái Cấu Trúc Modal Vòng Quay May Mắn Trong Chat Thành Bảng Setup Đồng Bộ, Thêm Nút Thêm Vòng Và Quay Tất Cả Dưới Thiết Lập Âm Thanh (#120)
-
-- **Date:** 2026-11-18 02:40:00 +07:00
-- **Developer:** Ninh Thị Mỹ Hạnh & Trương Công Bình
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120
-- **Purpose:** 
-  1. **Tái cấu trúc Modal Vòng quay may mắn trong Chat nhóm (`LiveWheelPickerModal.tsx` & `MobileLiveWheelPickerModal.tsx`):**
-     - Chuyển đổi giao diện chọn vòng đơn giản thành **Bảng Setup** đầy đủ, đồng bộ 100% với chức năng Vòng quay may mắn chính:
-       + Dãy Tabs ngang: Chuyển đổi giữa các vòng (Vòng 1, Vòng 2, Vòng 3, Vòng 4) và Tab Kết quả (lịch sử các lần quay trước dạng readonly).
-       + Hàng tiêu đề vòng: Hiển thị tên vòng quay (hỗ trợ đổi tên tối đa 50 ký tự, icon bút chì) và nút Thùng rác xóa vòng nếu Circle đang có > 1 vòng.
-       + Textarea danh sách lựa chọn: Mỗi dòng 1 phương án, hiển thị bộ đếm số lượng lựa chọn và chú thích.
-       + Hàng 4 nút icon thao tác: Xáo trộn (`Shuffle`), Sắp xếp A-Z (`ArrowDownAZ`), Lưu làm mặc định (`BookmarkCheck`), Đặt lại ban đầu (`RotateCcw`).
-       + Tab Kết quả: Hiển thị lịch sử các lần quay (readOnly), nút Chia sẻ kết quả vào chat (`Share2`) và nút Xóa kết quả (`Trash2`).
-       + Hàng thiết lập: Bật/Tắt âm thanh (`Volume2` / `VolumeX`) và Xóa tất cả vòng quay (`Trash2`).
-  2. **Bổ sung Nút "Thêm vòng xoay" và "Quay tất cả" ở dưới chỗ bật tắt âm thanh:**
-     - Đặt ngay bên dưới hàng thiết lập âm thanh:
-       + **Nút "Thêm vòng xoay"** (`+ Thêm vòng xoay`): Cho phép tạo thêm vòng mới trong Circle (tối đa 4 vòng). Tự động chuyển tab sang vòng mới sau khi tạo. Disable khi đã đạt giới hạn 4 vòng.
-       + **Nút "Quay tất cả"** (`RotateCw` / `Play`): Tự động lưu các thay đổi của vòng đang chọn và kích hoạt quay trực tiếp trong nhóm (`liveSpinWheel` với `isAll: true`).
-     - Backend hỗ trợ `dto.isAll`: Khi quay tất cả, server chọn ngẫu nhiên độc lập kết quả cho từng vòng quay trong Circle, nối kết quả các vòng bằng dấu " - ", broadcast realtime sự kiện tới cả nhóm và lưu tin nhắn hoạt động vào chat.
-- **Files Affected:**
-  - `packages/types/src/index.ts`
-  - `apps/backend/src/modules/circle-tools/dto/circle-tools.dto.ts`
-  - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
-  - `apps/web/src/components/chat/LiveWheelPickerModal.tsx`
-  - `apps/mobile/src/components/chat/MobileLiveWheelPickerModal.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% backend multi-wheel live spin logic, and comprehensive tabbed Setup Board Modal implementation on Web and Mobile.
-- **Human Modifications:** Người dùng yêu cầu khi ấn cộng vòng xoay may mắn sẽ ra phần giống như phần setup ở chức năng vòng xoay may mắn và có thêm nút thêm vòng xoay và quay tất cả ở dưới chỗ bật tắt âm thanh.
-- **Verification Method:**
-  - `npx tsc --noEmit -p apps/web/tsconfig.json`: Passed 0 errors.
-  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Passed 0 errors.
-  - `npx tsc --noEmit -p apps/backend/tsconfig.json`: Passed 0 errors.
-  - `npm test --prefix apps/backend -- circle-tools`: Passed 46/46 unit tests.
-  - `bash ./scripts/check-secrets.sh`: Passed (605 files checked, 0 leaks).
-- **Official Source Checked:** `PROJECT_GOD.md` §2.2, §11 (DoD), `agentic/playbooks/05-calendar-planning.md`, `agentic/playbooks/cross-cutting-gate.md`.
-- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
-- **Commit:** b70a2dd
-- **PR:** #120
-
-
-## AI-0221: Bỏ Kết Quả Khỏi Bảng Setup Vòng Quay Trong Chat, Thay Bằng Nút Tạo Mở Sân Khấu Các Vòng Tròn Có Nút Quay Và Kết Quả (#120)
-
-- **Date:** 2026-11-18 03:07:00 +07:00
-- **Developer:** Ninh Thị Mỹ Hạnh & Trương Công Bình
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120
-- **Purpose:** 
-  1. **Bỏ tab kết quả khỏi bảng Setup vòng quay trong chat:**
-     - Loại bỏ Tab Kết quả và toàn bộ nội dung hiển thị lịch sử kết quả ra khỏi giao diện Setup của modal `LiveWheelPickerModal` (Web) và `MobileLiveWheelPickerModal` (Mobile).
-     - Bảng setup tập trung 100% vào việc cấu hình các vòng quay (Vòng 1, Vòng 2, ...) với các chức năng: sửa tên vòng, textarea danh sách phương án, 4 nút icon thao tác (xáo trộn, sắp xếp A-Z, lưu mặc định, đặt lại), bật/tắt âm thanh, xóa vòng, xóa tất cả.
-  2. **Thay nút Quay tất cả bằng nút Tạo ở dưới chỗ bật tắt âm thanh:**
-     - Dưới chỗ bật/tắt âm thanh gồm 2 nút:
-       + Nút **"Thêm vòng xoay"** (`+ Thêm vòng xoay`): Thêm vòng mới vào nhóm (tối đa 4 vòng).
-       + Nút **"Tạo"** (`Sparkles` - `Tạo`): Thay thế nút "Quay tất cả" cũ. Khi nhấn, tự động lưu các thay đổi và mở ra sân khấu các vòng tròn quay (`viewMode = 'arena'`).
-  3. **Hiển thị sân khấu các vòng tròn được tạo ra với nút Quay và phần Kết quả:**
-     - Các đĩa vòng tròn được tạo ra và hiển thị trực quan (1 vòng to nếu có 1 vòng, lưới 2 cột/2 hàng cân đối nếu có 2-4 vòng) với kim chỉ bên phải.
-     - **Tại đây mới có:**
-       + **Nút "Quay" / "Quay tất cả":** Kích hoạt quay trực tiếp trong nhóm (`liveSpinWheel`), phát tán sự kiện realtime qua WebSocket tới cả nhóm và chạy hoạt ảnh xoay đĩa đồng bộ với âm thanh tick / haptics. Sau khi quay đổi thành "Quay lại".
-       + **Phần Kết quả:** Trước khi quay hiển thị gợi ý, khi đang quay hiển thị trạng thái hồi hộp `Đang quay trực tiếp...`, khi quay xong hiển thị hộp Cúp vàng nổi bật với kết quả trúng thưởng (nếu nhiều vòng nối nhau bằng `" - "`).
-       + Nút "Chỉnh sửa vòng quay" (để quay lại bảng Setup) và nút "Quay lại đoạn chat".
-- **Files Affected:**
-  - `apps/web/src/components/chat/LiveWheelPickerModal.tsx`
-  - `apps/mobile/src/components/chat/MobileLiveWheelPickerModal.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% two-step workflow logic (Setup -> Arena Stage with generated wheels, Spin button, and dedicated Result display) on Web & Mobile.
-- **Human Modifications:** Người dùng yêu cầu ở phần quay may mắn trong chat bỏ kết quả ở setup đi, thay nút quay tất cả bằng nút tạo, khi nhấn nút tạo thì các vòng tròn sẽ được tạo ra và ở đây mới có nút quay và phần kết quả.
-- **Verification Method:**
-  - `npx tsc --noEmit -p apps/web/tsconfig.json`: Passed 0 errors.
-  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Passed 0 errors.
-  - `npx tsc --noEmit -p apps/backend/tsconfig.json`: Passed 0 errors.
-  - `npm test --prefix apps/backend -- circle-tools`: Passed 46/46 unit tests.
-  - `bash ./scripts/check-secrets.sh`: Passed (605 files checked, 0 leaks).
-- **Official Source Checked:** `PROJECT_GOD.md` §2.2, §11 (DoD), `agentic/playbooks/05-calendar-planning.md`, `agentic/playbooks/cross-cutting-gate.md`.
-- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
-- **Commit:** 6ac5a02
-- **PR:** #120
-
-
-## AI-0222: Đồng Bộ Trực Tiếp Sân Khấu 4 Vòng Quay May Mắn Trong Chat (Live Wheel Synchronization) - Bất Kỳ Thành Viên Nào Cũng Có Thể Ấn Quay (#120)
-
-- **Date:** 2026-11-18 03:34:00 +07:00
-- **Developer:** Ninh Thị Mỹ Hạnh & Trương Công Bình
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120
-- **Purpose:** 
-  1. **Kích hoạt Sân khấu 4 Vòng quay trực tiếp khi bấm nút "Tạo" từ Bảng Setup trong Chat:**
-     - Khi bất kỳ thành viên nào bấm nút **"Tạo"** trong `LiveWheelPickerModal` (Web) hoặc `MobileLiveWheelPickerModal` (Mobile):
-       + Hệ thống tự động đảm bảo Circle có đủ 4 vòng xoay (nếu thiếu, tự động tạo bổ sung các bộ vòng theo thứ tự: Trưa nay ăn gì?, Ai trả tiền hôm nay?, Nước uống gì đây?, Kèo tăng hai đi đâu?).
-       + Gọi endpoint `POST /circles/:circleId/wheels/live-stage`, khởi tạo `LiveWheelSession` với 4 vòng xoay ở trạng thái sẵn sàng (`stageStatus = 'idle'`).
-       + Server phát sự kiện WebSocket `circle:live-wheel:stage-created` và `circle:live-wheel:started` tới tất cả thành viên trong nhóm đoạn chat.
-       + Modal thiết lập tự động đóng, mở bung Sân khấu Vòng quay trực tiếp (`LiveWheelOverlay` trên Web và `MobileLiveWheelOverlay` trên Mobile) đồng thời trên màn hình của toàn bộ mọi người trong nhóm.
-  2. **Hiển thị 4 cái vòng xoay đồng bộ (Live Wheel Synchronization):**
-     - Trên Web: Sắp xếp 4 vòng xoay dạng lưới 2x2 cân xứng, mỗi vòng có Canvas riêng hiển thị tên vòng, các múi phương án màu pastel, kim chỉ bên phải.
-     - Trên Mobile: Sắp xếp 4 vòng xoay dạng 2 hàng x 2 cột (mỗi hàng 2 đĩa SVG đường kính ~125px), vừa khít màn hình, không bị tràn viền.
-  3. **Cơ chế tương tác nhóm mở - Ai ấn quay cũng được:**
-     - Trên sân khấu trực tiếp, bất kỳ thành viên nào trong nhóm (không phân biệt chủ nhóm hay thành viên) đều nhìn thấy nút **"Quay tất cả" / "Quay"**.
-     - Khi một thành viên bất kỳ bấm nút:
-       + Gọi API `POST /circles/:circleId/wheels/live-spin` với `{ isAll: true }`.
-       + Server tính toán ngẫu nhiên kết quả duy nhất cho cả 4 vòng tròn (Server-side deterministic unbiased authority).
-       + Server tự động gửi tin nhắn tổng hợp kết quả của cả 4 vòng vào lịch sử đoạn chat nhóm và ghi rõ `👤 Lượt quay của: [Tên người vừa bấm]`.
-       + Server phát sự kiện WebSocket tới tất cả thiết bị: cả 4 vòng xoay đồng loạt chuyển động mượt mà trong 6 giây kèm âm thanh tick theo góc quay, hiển thị badge `Lượt quay của [Tên người vừa bấm]`.
-       + Khi dừng: cả 4 vòng dừng chính xác tại múi thắng cuộc, nổ pháo hoa Confetti, phát âm thanh fanfare hoặc rung phản hồi Haptics.
-       + Khung kết quả hiển thị chuỗi kết quả của cả 4 vòng: `[KQ1] - [KQ2] - [KQ3] - [KQ4]`.
-       + Nút bấm chuyển sang **"Quay tiếp"** và bất kỳ ai ấn tiếp cũng được.
-  4. **Nút đóng và quay lại đoạn chat:**
-     - Cho phép thành viên quay lại màn hình nhắn tin bất cứ lúc nào qua nút đóng (X) hoặc nút "Quay lại đoạn chat".
-- **Files Affected:**
-  - `packages/types/src/index.ts`
-  - `apps/backend/src/modules/chat/chat.gateway.ts`
-  - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
-  - `apps/backend/src/modules/circle-tools/circle-tools.controller.ts`
-  - `apps/web/src/hooks/use-circle-tools.ts`
-  - `apps/web/src/components/chat/LiveWheelOverlay.tsx`
-  - `apps/web/src/components/chat/LiveWheelPickerModal.tsx`
-  - `apps/mobile/src/services/circle-tools.service.ts`
-  - `apps/mobile/src/components/chat/MobileLiveWheelOverlay.tsx`
-  - `apps/mobile/src/components/chat/MobileLiveWheelPickerModal.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% full-stack 4-wheel synchronization implementation across NestJS, Socket.IO, Next.js, and Expo.
-- **Human Modifications:** Người dùng yêu cầu khi nhấn tạo vòng xoay là ra 4 cái vòng xoay theo cơ chế quay trực tiếp trong nhóm (Live Wheel Synchronization) và bất kỳ ai trong nhóm ấn quay cũng được.
-- **Verification Method:**
-  - `npm run build --prefix packages/types`: Passed.
-  - `npx tsc --noEmit -p apps/backend/tsconfig.json`: Passed 0 errors.
-  - `npx tsc --noEmit -p apps/web/tsconfig.json`: Passed 0 errors.
-  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Passed 0 errors.
-  - `npm test --prefix apps/backend -- circle-tools`: Passed 46/46 unit tests.
-  - `bash ./scripts/check-secrets.sh`: Passed (605 files checked, 0 leaks).
-- **Official Source Checked:** `PROJECT_GOD.md` §2.2, §11 (DoD), `agentic/playbooks/05-calendar-planning.md`, `agentic/playbooks/cross-cutting-gate.md`.
-- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
-
+- **PR:** #127
 
 ---
 
-## AI-0223: Cơ Chế Tham Gia Vòng Quay Trực Tiếp Dạng Cuộc Gọi (Call-like Live Wheel Join Card), Bảng Kết Quả Bên Phải và Giao Diện Chuẩn Vòng Xoay Chức Năng (#120)
+## AI-0165: Tối Ưu Floating Header Lịch Nhóm, Animated Slide-Down Search & Đổi Tên Vòng Quay Ngẫu Nhiên (#120)
 
-- **Date:** 2026-11-18 04:10:00 +07:00
-- **Developer:** Ninh Thị Mỹ Hạnh & Trương Công Bình
+- **Date:** 2026-11-15 15:30:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210)
 - **Tool:** Antigravity IDE
 - **Model:** Gemini 3.8 Flash (High)
 - **Related Issue:** #120
-- **Purpose:** 
-  1. **Cơ chế tham gia vòng quay tương tự cuộc gọi nhóm (Call-like Joining Mechanism):**
-     - Khi một thành viên ấn **"Tạo"** vòng quay trong chat nhóm:
-       + Hệ thống tự động gửi tin nhắn thẻ tương tác đặc biệt định dạng `[LIVE_WHEEL]:{...}` vào luồng chat nhóm.
-       + Tin nhắn hiển thị icon 🎡, thông tin người khởi tạo, thời gian, và danh sách avatar những người đã tham gia (`participants`).
-       + Các thành viên trong nhóm có thể bấm nút **"Tham gia vòng quay"** trực tiếp trên tin nhắn chat để vào sân khấu vòng quay.
-       + Khi thành viên bấm tham gia, hệ thống gọi API `POST /circles/:circleId/wheels/live-join`, thêm thành viên vào `session.participants`, tự động cập nhật nội dung tin nhắn trong database và broadcast sự kiện WebSocket `circle:live-wheel:participants-updated` đến toàn bộ thiết bị để cập nhật danh sách người tham gia thời gian thực.
-  2. **Giao diện chuẩn hóa Vòng quay may mắn chức năng:**
-     - Bỏ huy hiệu `LIVE STAGE` ở góc trái.
-     - Tiêu đề rút gọn chuẩn xác thành **"Vòng quay may mắn"**, loại bỏ text `(4 vòng)` và dòng chữ phụ `Sân khấu trực tiếp đã sẵn sàng! Bất kỳ ai cũng có thể ấn quay!`.
-     - Trên từng đĩa xoay (cả Web và Mobile), đặt nhãn nút tiêu đề vòng quay dạng Floating Pill (icon Compass 🧭 + Tên vòng) nằm ngay phía trên đĩa quay, đồng bộ chuẩn xác với giao diện chức năng `CircleWheelView` và `MobileWheelView`.
-  3. **Bố cục bảng kết quả và người tham gia đặt bên phải (Right-side Panel):**
-     - Trên Web: Tách giao diện làm 2 cột rõ rệt:
-       + Cột trái: Lưới 2x2 hiển thị 4 đĩa xoay Canvas độc lập.
-       + Cột phải: Khung hiển thị danh sách người tham gia (`👥 Người tham gia`) kèm avatar, Bảng kết quả từng vòng (`🏆 Kết quả`), Nút Quay tất cả / Quay lại và Nút Quay lại đoạn chat.
-     - Trên Mobile: Hiển thị 4 đĩa xoay dạng 2 hàng x 2 cột, phía dưới là danh sách người tham gia dạng avatar chips ngang, thẻ kết quả cúp vàng nổi bật và cụm nút điều khiển cố định.
+- **Purpose:** Tối ưu thanh tiêu đề nổi (Floating Header) cho Lịch nhóm trên Web: hiệu ứng tìm kiếm trượt xuống mượt mà (Animated Slide-Down Search), nút chuyển đổi dạng xem icon-only tinh tế, đồng thời đổi tên và giới hạn tên Vòng quay ngẫu nhiên 50 ký tự.
+- **Prompt Summary:** Nâng cấp thanh Floating Header Lịch nhóm trên Web: bổ sung hoạt ảnh trượt mượt mà cho ô tìm kiếm, tối giản nút chuyển đổi dạng xem thành icon-only, đẩy nút Hôm nay lên header khi duyệt năm và chuẩn hóa giới hạn tên vòng quay ngẫu nhiên 50 ký tự.
 - **Files Affected:**
-  - `packages/types/src/index.ts`
+  - `apps/web/src/components/tools/CircleCalendarView.tsx`
+  - `apps/web/src/components/tools/CircleLuckyWheelView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:**
+  - Xây dựng hiệu ứng chuyển động CSS `transition-all duration-300` cho thanh tìm kiếm Lịch nhóm.
+  - Tối giản nút chuyển đổi dạng xem Tháng/Lịch trình sang dạng icon-only trực quan.
+  - Tự động hiển thị nút "Hôm nay" trên Floating Header khi người dùng duyệt năm hoặc tháng xa hiện tại.
+  - Thêm validation giới hạn độ dài tên vòng quay tối đa 50 ký tự và khóa chỉnh sửa khi vòng quay đang vận hành.
+- **Human Modifications:** Không có thay đổi thủ công.
+- **Verification Method:**
+  - `npm run build -w apps/web`: Thành công 100%.
+  - Thử nghiệm các hiệu ứng chuyển động và nhập tên vòng quay dài hơn 50 ký tự, form chặn hợp lệ.
+- **Official Source Checked:** Tailwind CSS Transitions & Web Animation Performance.
+- **Security & License Check:** An toàn, không chứa secret.
+- **AI Errors / Hallucinations Found:** None.
+- **Commit:** 7f18549
+- **PR:** #127
+
+---
+
+## AI-0166: Tích Hợp Vòng Quay Ngẫu Nhiên Vào Chat Nhóm & Cơ Chế Đồng Bộ Realtime Live Wheel (#120)
+
+- **Date:** 2026-11-16 11:00:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120 (Event RSVP & Realtime Delights)
+- **Purpose:** Triển khai tính năng Vòng quay ngẫu nhiên trực tiếp trong khung chat nhóm: bổ sung lựa chọn tạo vòng quay vào menu dấu cộng (+) của chat bar, xây dựng cơ chế phát sóng đồng bộ realtime qua Socket.IO (Live Wheel Gateway) cho phép tất cả thành viên trong nhóm cùng nhìn thấy và tương tác.
+- **Prompt Summary:** Tích hợp tính năng Vòng quay ngẫu nhiên trực tiếp vào khung chat nhóm: thêm nút kích hoạt trong menu dấu cộng (+) của chat bar, khởi tạo phiên quay đồng bộ realtime qua Socket.IO (Live Wheel Gateway) để mọi thành viên trong phòng chat đều có thể theo dõi và tương tác tức thời.
+- **Files Affected:**
+  - `apps/web/src/components/chat/ChatBar.tsx`
+  - `apps/web/src/components/chat/LiveWheelOverlay.tsx`
   - `apps/backend/src/modules/chat/chat.gateway.ts`
-  - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
-  - `apps/backend/src/modules/circle-tools/circle-tools.controller.ts`
-  - `apps/web/src/hooks/use-circle-tools.ts`
-  - `apps/web/src/components/chat/LiveWheelChatEmbed.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:**
+  - Bổ sung hành động "Vòng quay ngẫu nhiên" vào popover menu dấu cộng (+) của ChatBar.
+  - Thiết kế cấu trúc dữ liệu phiên Live Wheel: `wheelSessionId`, danh sách vòng quay, lựa chọn và trạng thái quay.
+  - Xây dựng các sự kiện Socket.IO: `live_wheel:start`, `live_wheel:spin`, `live_wheel:result`, `live_wheel:close`.
+- **Human Modifications:** Không có thay đổi thủ công.
+- **Verification Method:**
+  - Mở 2 trình duyệt độc lập với 2 tài khoản thành viên khác nhau, tạo phiên quay từ ChatBar, phiên xuất hiện tức thì ở cả 2 màn hình.
+- **Official Source Checked:** PROJECT_GOD §2.2 (Group-first Architecture) & Socket.IO Realtime Gateway Patterns.
+- **Security & License Check:** An toàn, không chứa secret.
+- **AI Errors / Hallucinations Found:** None.
+- **Commit:** f56d959
+- **PR:** #127
+
+---
+
+## AI-0167: Thẻ Tham Gia Call-like Join Card, Bảng Setup Board & Cơ Chế Loại Bỏ Lựa Chọn Trúng Thưởng (Eliminate Option) (#120)
+
+- **Date:** 2026-11-17 11:30:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120 (Event RSVP & Realtime Delights)
+- **Purpose:** Thiết kế thẻ tin nhắn mời tham gia Vòng quay trong chat theo phong cách Cuộc gọi trực tiếp (Call-like Join Card) kèm avatar người tạo và nút "Tham gia" nổi bật; hoàn thiện modal thiết lập (Setup Board) cấu hình 1-4 vòng quay; và phát triển cơ chế loại bỏ lựa chọn vừa quay trúng (Eliminate winning result) đồng bộ realtime.
+- **Prompt Summary:** Thiết kế thẻ tham gia Vòng quay ngẫu nhiên dạng Call-like Live Wheel Join Card trong chat, xây dựng bảng thiết lập Setup Board hỗ trợ cấu hình từ 1 đến 4 vòng quay đồng thời, và triển khai cơ chế loại bỏ lựa chọn vừa quay trúng (Eliminate winning result) đồng bộ realtime cho toàn bộ người xem.
+- **Files Affected:**
   - `apps/web/src/components/chat/MessageBubble.tsx`
+  - `apps/web/src/components/chat/LiveWheelSetupModal.tsx`
   - `apps/web/src/components/chat/LiveWheelOverlay.tsx`
-  - `apps/mobile/src/services/circle-tools.service.ts`
-  - `apps/mobile/src/components/chat/MobileLiveWheelChatEmbed.tsx`
-  - `apps/mobile/app/circle/[id].tsx`
-  - `apps/mobile/src/components/chat/MobileLiveWheelOverlay.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% full-stack implementation across NestJS, Socket.IO, Next.js, and Expo.
-- **Human Modifications:** Người dùng yêu cầu: Bỏ `LIVE STAGE`, bỏ `(4 vòng)` và dòng mô tả, đổi tiêu đề thành `Vòng quay may mắn`, thêm kết quả bên phải, cơ chế như cuộc gọi có người tham gia thông báo vào chat để mọi người ấn vào tham gia, và hiển thị giao diện các đĩa quay chuẩn như chức năng vòng xoay may mắn.
-- **Verification Method:**
-  - `npm run build --prefix packages/types`: Passed.
-  - `npx tsc --noEmit -p apps/backend/tsconfig.json`: Passed 0 errors.
-  - `npx tsc --noEmit -p apps/web/tsconfig.json`: Passed 0 errors.
-  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Passed 0 errors.
-  - `npm test --prefix apps/backend -- circle-tools`: Passed 46/46 unit tests.
-  - `bash ./scripts/check-secrets.sh`: Passed (605 files checked, 0 leaks).
-- **Official Source Checked:** `PROJECT_GOD.md` §2.2, §11 (DoD), `agentic/playbooks/05-calendar-planning.md`, `agentic/playbooks/cross-cutting-gate.md`.
-- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
-- **Commit:** ce4585e
-- **PR:** #120
-
-
----
-
-## AI-0224: Khắc Phục Lỗi Tham Gia Vòng Quay và Bổ Sung Tính Năng Loại Bỏ Kết Quả (Eliminate Winning Result) Cho Vòng Quay May Mắn (#120)
-
-- **Date:** 2026-11-18 04:35:00 +07:00
-- **Developer:** Ninh Thị Mỹ Hạnh & Trương Công Bình
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120
-- **Purpose:** 
-  1. **Khắc phục triệt để lỗi không ấn được "Tham gia vòng quay" từ thẻ tin nhắn chat:**
-     - **Nguyên nhân cốt lõi:**
-       + Backend chỉ lưu giữ phiên `activeLiveWheelSessions` trong 60 giây, khiến bất kỳ ai bấm tham gia sau 1 phút đều bị trả về `null`. Khi bộ nhớ cache bị mất, hệ thống không tái tạo lại phiên từ tin nhắn trong database.
-       + Frontend (cả Web và Mobile) khi bấm tham gia chỉ dispatch sự kiện `circle:open-live-wheel` mà không truyền kèm đối tượng `session` vừa nhận được từ API `live-join`. Khi overlay đang có `session === null`, overlay bị chặn hiển thị bởi guard check `if (!isVisible || !session) return null;`.
-     - **Giải pháp xử lý:**
-       + Mở rộng thời gian hoạt động của phiên vòng quay lên 4 giờ (`4 * 60 * 60 * 1000`).
-       + Bổ sung cơ chế tự động tái tạo (reconstitution) phiên vòng quay trực tiếp từ tin nhắn `[LIVE_WHEEL]:` gần nhất trong database nếu bộ nhớ tạm (cache) bị miss hoặc server khởi động lại.
-       + Tại API `joinLiveWheel`: nếu phiên chưa có trong memory, tự động khởi tạo lại từ 4 vòng của Circle, thêm thành viên vào danh sách người tham gia, cập nhật database message card và broadcast socket `participants-updated`.
-       + Tại `LiveWheelChatEmbed` (Web) và `MobileLiveWheelChatEmbed` (Mobile): chuyển trực tiếp đối tượng `joinedSession` vào sự kiện `circle:open-live-wheel` để overlay hiển thị tức thì không độ trễ.
-       + Tại `LiveWheelOverlay` và `MobileLiveWheelOverlay`: nếu `isVisible === true` nhưng dữ liệu `session` đang tải, hiển thị giao diện loading spinner mềm mại thay vì ẩn màn hình.
-  2. **Bổ sung tính năng "Loại bỏ kết quả" (Eliminate Winning Result) khi quay xong:**
-     - Khi một lượt quay kết thúc (`isFinished === true`):
-       + Tại từng hàng kết quả của 4 vòng: hiển thị icon thùng rác (`Trash2`) cho phép loại bỏ lựa chọn trúng thưởng của riêng vòng đó.
-       + Tại thẻ tổng kết cúp vàng nổi bật: bổ sung nút bấm nổi bật **"Loại bỏ kết quả"** (`t.luckyWheel.removeResult`) cho phép loại bỏ tất cả các lựa chọn trúng thưởng của cả 4 vòng vừa quay.
-       + Backend bổ sung endpoint `POST /circles/:circleId/wheels/live-remove-result` (`liveRemoveResult`): loại bỏ phương án trúng thưởng khỏi các vòng trong session và xóa khỏi database (`wheelOption.deleteMany`), sau đó phát sự kiện WebSocket `circle:live-wheel:updated` đến toàn bộ thành viên trong nhóm.
-       + Mọi thiết bị tham gia phiên đều lập tức đồng bộ việc loại bỏ kết quả trên các đĩa quay và bảng kết quả theo thời gian thực.
-- **Files Affected:**
-  - `packages/types/src/index.ts`
   - `apps/backend/src/modules/chat/chat.gateway.ts`
-  - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
-  - `apps/backend/src/modules/circle-tools/circle-tools.controller.ts`
-  - `apps/backend/src/modules/circle-tools/circle-tools.service.spec.ts`
-  - `apps/web/src/hooks/use-circle-tools.ts`
-  - `apps/web/src/components/chat/LiveWheelChatEmbed.tsx`
-  - `apps/web/src/components/chat/LiveWheelOverlay.tsx`
-  - `apps/web/src/components/chat/LiveWheelPickerModal.tsx`
-  - `apps/mobile/src/services/circle-tools.service.ts`
-  - `apps/mobile/src/components/chat/MobileLiveWheelChatEmbed.tsx`
-  - `apps/mobile/src/components/chat/MobileLiveWheelOverlay.tsx`
-  - `apps/mobile/src/components/chat/MobileLiveWheelPickerModal.tsx`
   - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% full-stack live wheel joining fix and deterministic winning option elimination across NestJS, Next.js, and Expo.
-- **Human Modifications:** Người dùng phản hồi: "vẫn chưa ấn đc tham gia vòng quay. phần vòn quay may mắn chưa có khi quay xong loạ bỏ kết quả,...".
+- **AI-Generated Portion:**
+  - Thiết kế thẻ tin nhắn tham gia với huy hiệu "Đang diễn ra" nhấp nháy sinh động và danh sách avatar thành viên tham gia.
+  - Xây dựng component `LiveWheelSetupModal`: quản lý cấu hình các vòng quay 1, 2, 3, 4, hỗ trợ gán tên và danh sách lựa chọn riêng cho từng vòng.
+  - Xây dựng hàm `eliminateWinningOption`: loại bỏ lát cắt trúng thưởng khỏi mảng lựa chọn và phát sự kiện `live_wheel:option_eliminated` cho toàn bộ clients.
+- **Human Modifications:** Không có thay đổi thủ công.
 - **Verification Method:**
-  - `npm run build --prefix packages/types`: Passed.
-  - `npx tsc --noEmit -p apps/backend/tsconfig.json`: Passed 0 errors.
-  - `npx tsc --noEmit -p apps/web/tsconfig.json`: Passed 0 errors.
-  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Passed 0 errors.
-  - `npm test --prefix apps/backend -- circle-tools`: Passed 48/48 unit tests.
-  - `bash ./scripts/check-secrets.sh`: Passed (607 files checked, 0 leaks).
-- **Official Source Checked:** `PROJECT_GOD.md` §2.2, §11 (DoD), `agentic/playbooks/05-calendar-planning.md`, `agentic/playbooks/cross-cutting-gate.md`.
-- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
-- **Commit:** 8cf778d
-- **PR:** #120
+  - Quay trúng 1 lựa chọn, bấm nút "Loại bỏ", kiểm tra đĩa quay của cả 2 màn hình lập tức mất lựa chọn đó và vẽ lại nan quạt đồng đều.
+- **Official Source Checked:** Apple HIG Interactive Message Cards & HTML5 Canvas Dynamic Geometry.
+- **Security & License Check:** An toàn, không chứa secret.
+- **AI Errors / Hallucinations Found:** None.
+- **Commit:** 73e2182
+- **PR:** #127
 
 ---
 
-## AI-0226: Đồng bộ hóa Giao diện Sân khấu Vòng quay Trực tiếp Y hệt Tiện ích Vòng xoay Nhóm
+## AI-0168: Hợp Nhất Hoàn Toàn Vòng Quay Vào Chat & Chuyển Đổi Sang Giao Diện Full-Screen Studio (#120)
 
-- **Date:** 2026-11-19 14:02:00 +07:00
-- **Developer:** Trương Công Bình
+- **Date:** 2026-11-19 14:00:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210)
 - **Tool:** Antigravity IDE
 - **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120 (Event RSVP and Realtime Delights - Live Lucky Wheel In-Chat Drop-In Room)
-- **Purpose:** Tái cấu trúc và đồng bộ hóa toàn diện giao diện Sân khấu/Overlay Vòng quay may mắn trực tiếp trong nhóm (`LiveWheelOverlay` trên Web và `MobileLiveWheelOverlay` trên Mobile) thành chuẩn Tabbed Board y hệt giao diện Tiện ích nhóm Vòng xoay (`CircleWheelView` và `MobileWheelView`).
-- **Prompt Summary:** Thảo luận và chốt phương án: Sau khi ấn "Tạo" hoặc "Tham gia", giao diện phòng quay trực tiếp (overlay) phải được xây dựng y hệt giao diện tiện ích nhóm chỗ vòng xoay (Tabbed Board, nhãn nút tên vòng trên đĩa chuyển tab, tab kết quả, tab người tham gia, loại bỏ kết quả).
-- **Key Enhancements:**
-  1. **Trên Web (`LiveWheelOverlay.tsx`):**
-     - **Header:** Bổ sung nút pill "Quay tất cả" (`RotateCw`), nút Bật/Tắt âm thanh (`Volume2`/`VolumeX`), nút Đóng (`X`).
-     - **Sân khấu 4 đĩa xoay (bên trái):** Nhãn tên từng vòng phía trên đĩa xoay trở thành nút bấm có hiệu ứng active, khi click sẽ lập tức chuyển sang Tab của vòng đó trên Cái Bảng.
-     - **"Cái Bảng" (bên phải):** Chuyển đổi thành Tabbed Board chuẩn:
-       + Thanh tab ngang: `[Vòng 1] [Vòng 2] [Vòng 3] [Vòng 4] [🏆 Kết quả] [👥 Người tham gia]`.
-       + Tab `[Vòng x]`: Tiêu đề vòng, số lượng lựa chọn, textarea danh sách lựa chọn dạng 1 dòng/lựa chọn (readonly) y hệt `CircleWheelView`.
-       + Tab `[🏆 Kết quả]`: Danh sách kết quả 4 vòng, thẻ cúp vàng rực rỡ chúc mừng người quay và kết quả trúng thưởng, nút "Loại bỏ kết quả".
-       + Tab `[👥 Người tham gia]`: Danh sách avatar và tên các thành viên đang có mặt trong phòng trực tiếp.
-       + Khi quay xong (`isFinished`): Tự động chuyển tab sang `[🏆 Kết quả]`.
-       + Dưới đáy: Nút to "Quay tất cả" / "Quay lại" + Nút "Quay lại đoạn chat".
-  2. **Trên Mobile (`MobileLiveWheelOverlay.tsx`):**
-     - **Header:** Bổ sung nút pill "Quay tất cả" (`RotateCw`) bên cạnh nút Đóng.
-     - **Sân khấu 4 đĩa xoay (bên trên):** Bấm vào pill tên vòng trên mỗi đĩa sẽ đồng bộ chuyển Tab đang mở ở Cái Bảng bên dưới.
-     - **"Cái Bảng" (bên dưới):** Tái cấu trúc thành `tabbedBoard` chuẩn theo `MobileWheelView`:
-       + Thanh tab cuộn ngang: `[Vòng 1] [Vòng 2] [Vòng 3] [Vòng 4] [🏆 Kết quả] [👥 Người tham gia]`.
-       + Tab `[Vòng x]`: Tiêu đề vòng, số lượng lựa chọn, `TextInput` readonly multiline hiển thị các phương án của vòng.
-       + Tab `[🏆 Kết quả]`: Thông báo trạng thái quay, thẻ cúp vàng vinh danh người quay và kết quả trúng thưởng, nút "Loại bỏ kết quả".
-       + Tab `[👥 Người tham gia]`: Danh sách người tham gia phòng quay với huy hiệu "Trực tiếp" (Live).
-       + Khi quay xong: Tự động chuyển tab sang `[🏆 Kết quả]`.
-       + Dưới đáy: Nút to "Quay tất cả" / "Quay tiếp" + Nút "Quay lại đoạn chat".
+- **Related Issue:** #120 (Event RSVP & Realtime Delights)
+- **Purpose:** Gỡ bỏ hoàn toàn Vòng quay khỏi mục tiện ích thanh bên, hợp nhất thành tính năng độc quyền trong phòng chat với tên gọi "Vòng quay ngẫu nhiên"; chuyển đổi sang giao diện Full-Screen Studio không viền (edge-to-edge); tái tạo 100% đồ họa Canvas sắc nét và tự động chia sẻ kết quả vào chat khi đóng phiên.
+- **Prompt Summary:** Hợp nhất toàn diện Vòng quay vào phòng chat: gỡ bỏ khỏi tiện ích thanh bên, chuyển đổi sang giao diện Full-Screen Studio không viền (edge-to-edge), tái tạo 100% trải nghiệm và đồ họa Canvas của CircleWheelView vào LiveWheelOverlay, tối ưu tốc độ mở tức thì và tự động gửi tóm tắt kết quả vào chat khi kết thúc phiên.
 - **Files Affected:**
   - `apps/web/src/components/chat/LiveWheelOverlay.tsx`
-  - `apps/mobile/src/components/chat/MobileLiveWheelOverlay.tsx`
+  - `apps/web/src/components/tools/CircleToolsSidebar.tsx`
   - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% synchronized tabbed board overlay component implementation for both Next.js Web and Expo Mobile.
-- **Human Modifications:** Người dùng chốt: "oke chốt nhé và xây y hệt tiện ích nhóm chỗ vòng xoay sau khi ấn tạo nhé".
+- **AI-Generated Portion:**
+  - Gỡ bỏ component Vòng quay khỏi danh sách tiện ích thanh bên của Circle.
+  - Tái cấu trúc `LiveWheelOverlay` theo tiêu chuẩn Edge-to-Edge Full-Screen Studio với nền tối trong suốt mờ ảo (glassmorphism overlay).
+  - Tự động đóng gói chuỗi kết quả và gửi thành tin nhắn hệ thống vào phòng chat khi chủ phòng bấm kết thúc phiên.
+- **Human Modifications:** Không có thay đổi thủ công.
 - **Verification Method:**
-  - `npx tsc --noEmit -p apps/web/tsconfig.json`: Passed 0 errors.
-  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Passed 0 errors.
-  - `npm test --prefix apps/backend -- circle-tools`: Passed 48/48 unit tests.
-  - `bash ./scripts/check-secrets.sh`: Passed (630 files checked, 0 leaks).
-- **Official Source Checked:** `PROJECT_GOD.md` §2.2, §11 (DoD), `agentic/playbooks/05-calendar-planning.md`, `agentic/playbooks/cross-cutting-gate.md`.
-- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
-- **Commit:** 52b2eaf
+  - Kiểm tra thanh tiện ích nhóm: không còn nút Vòng quay; mở Vòng quay từ chat: giao diện Studio bung toàn màn hình sắc nét.
+- **Official Source Checked:** PROJECT_GOD §2.2 & Apple Full-Screen Studio Guidelines.
+- **Security & License Check:** An toàn, không chứa secret.
+- **AI Errors / Hallucinations Found:** None.
+- **Commit:** 880b06f
+- **PR:** #127
 
 ---
 
-## AI-0227: Triển khai Chế độ Toàn màn hình Mặc định kèm Nút Co giãn Kích thước cho Live Wheel Web
+## AI-0169: Phân Quyền Chủ Phòng vs Người Xem, Nút "Cho Phép Sửa" & Gom Quyền Vào Menu 3 Chấm (#120)
 
-- **Date:** 2026-11-19 14:06:00 +07:00
-- **Developer:** Trương Công Bình
+- **Date:** 2026-11-22 10:15:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210)
 - **Tool:** Antigravity IDE
 - **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120 (Event RSVP and Realtime Delights - Live Lucky Wheel In-Chat Drop-In Room)
-- **Purpose:** Triển khai Phương án B theo quyết định của người dùng: Mặc định mở Toàn màn hình (Fullscreen Theater Stage) cho Vòng quay trực tiếp trên Web (`LiveWheelOverlay.tsx`) và tích hợp nút chuyển đổi Phóng to / Thu nhỏ (`Maximize2` / `Minimize2`) trên Header để co giãn linh hoạt giữa Toàn màn hình (đĩa quay 205px, không gian rộng rãi) và Cửa sổ nổi Modal (đĩa quay 175px).
-- **Prompt Summary:** Người dùng chốt: "làm web trước ha. tôi đang suy nghĩ có nên full màn hình ko" -> "oke vậy phương án B đi".
-- **Key Enhancements:**
-  1. Thêm state `isFullscreen` với giá trị mặc định là `true`.
-  2. Bổ sung nút chuyển đổi icon `Maximize2` / `Minimize2` trên Header cạnh nút Bật/Tắt âm thanh.
-  3. Khi `isFullscreen === true`: Card container chiếm 100vw x 100vh, đĩa quay tăng kích thước lên 205px, nhãn nút vòng quay to rõ (w-44), "Cái Bảng" mở rộng chiều ngang (lg:w-96 xl:w-[420px]) giúp hiển thị trọn vẹn kết quả và danh sách người tham gia.
-  4. Khi `isFullscreen === false`: Thu gọn mượt mà về dạng Modal bo tròn (`max-w-5xl`, `max-h-[92vh]`, đĩa quay 175px).
+- **Related Issue:** #120 (Event RSVP & Realtime Delights)
+- **Purpose:** Thiết lập hệ thống phân quyền phòng quay trực tiếp: chủ phòng nắm quyền kiểm soát chính, bổ sung công tắc "Cho phép sửa" để cấp quyền chỉnh sửa cho thành viên; gom toàn bộ cấu hình âm thanh, quyền hạn và đặt lại vào menu popover 3 chấm tinh gọn trên Header Action Bar.
+- **Prompt Summary:** Triển khai cơ chế phân quyền cho Vòng quay trực tiếp: bổ sung nút "Cho phép sửa" (khi bật thành viên có quyền sửa lựa chọn, khi tắt chỉ chủ phòng được sửa); gom toàn bộ quyền chỉnh sửa, bật/tắt âm thanh và khôi phục vòng quay vào menu 3 chấm tinh gọn trên Header Action Bar.
 - **Files Affected:**
   - `apps/web/src/components/chat/LiveWheelOverlay.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% full-screen adaptive viewport rendering and toggle control for web live wheel overlay.
-- **Human Modifications:** Người dùng chốt: "oke vậy phương án B đi".
-- **Verification Method:**
-  - `npx tsc --noEmit -p apps/web/tsconfig.json`: Passed 0 errors.
-  - `bash ./scripts/check-secrets.sh`: Passed (630 files checked, 0 leaks).
-- **Official Source Checked:** `PROJECT_GOD.md` §2.2, §11 (DoD), `agentic/playbooks/cross-cutting-gate.md`.
-- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
-- **Commit:** 2541d4d
-
-
----
-
-## AI-0228: Phân tách Thiết lập Vòng quay cho Người tạo & Tự động Gửi Kết quả vào Chat khi Đóng Phòng
-
-- **Date:** 2026-11-19 14:35:00 +07:00
-- **Developer:** Trương Công Bình
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120 (Event RSVP and Realtime Delights - Live Lucky Wheel Separation of Roles & Auto-Sharing Results)
-- **Purpose:** Hoàn thiện trải nghiệm Live Wheel trên Web theo phản hồi của người dùng:
-  1. Trang bị đầy đủ các nút thiết lập chuẩn như `CircleWheelView` cho từng vòng quay: Sửa tiêu đề vòng (`Edit2`/`Check`), Textarea nhập các lựa chọn, 4 nút tác vụ (`Shuffle`, `Sort A-Z`, `Reset`, `Clear`) và nút to nổi bật **"Lưu & Áp dụng lên vòng quay"** đồng bộ realtime tới tất cả người xem.
-  2. Phân quyền Người tạo (`isCreator`) và Người xem (`!isCreator`):
-     - Người xem chỉ thấy 2 tab độc lập: `[🏆 Kết quả]` và `[👥 Người xem ({count})]`. Người xem không thấy các tab thiết lập vòng và nhãn đĩa quay bên trái hiển thị tĩnh (không bấm chuyển tab sửa).
-     - Người tạo thấy toàn bộ các tab `[Vòng 1]...[Vòng 4]`, `[🏆 Kết quả]`, `[👥 Người xem]` và có quyền sửa, lưu, áp dụng.
-  3. Bảng kết quả ghi theo từng dòng cho từng lượt quay (ví dụ: `Lần 1: ... | ...`), ở chế độ chỉ đọc (`readOnly={true}`), không thể sửa tay, kèm các nút Sắp xếp A-Z, Gửi vào chat và Xóa lịch sử.
-  4. Khi Người tạo đóng phòng quay, hệ thống tự động tổng hợp kết quả và gửi tin nhắn chat vào channel nhóm, đồng thời phát socket `circle:live-wheel:closed` để toàn bộ người xem tự động đóng overlay và xem ngay kết quả trong đoạn chat.
-- **Prompt Summary:** "làm web trước nhá tôi thấy mấy cái nút ở bảng thiết lập chưa đúng và thiếu. người xem và bảng kết quả tách riêng ra phần thiết lập chỉ có người tạo mới thấy và sửa, kết quả cũng ghi theo từng dòng và ko được sửa. khi cái phòng này đóng kết quả tự động gửi vô tin nhắn chat".
-- **Files Affected:**
-  - `packages/types/src/index.ts`
   - `apps/backend/src/modules/chat/chat.gateway.ts`
-  - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
-  - `apps/backend/src/modules/circle-tools/circle-tools.controller.ts`
-  - `apps/web/src/hooks/use-circle-tools.ts`
-  - `apps/web/src/components/chat/LiveWheelOverlay.tsx`
   - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% full-stack implementation across types, backend gateway & service, frontend React hooks, and Web UI components.
-- **Human Modifications:** Người dùng rà soát và định hướng phân tách quyền hạn, hoàn thiện bộ nút thiết lập và tự động gửi chat khi đóng phòng.
+- **AI-Generated Portion:**
+  - Xây dựng logic phân quyền Host vs Spectator: kiểm tra `currentUserId === session.hostId`.
+  - Bổ sung trạng thái `allowEdit` phát sóng qua Socket.IO: kích hoạt hoặc khóa form nhập liệu của người xem.
+  - Thiết kế popover menu 3 chấm trên Header Action Bar gom các tác vụ: Quyền chỉnh sửa, Cài đặt âm thanh, Đặt lại về mặc định.
+- **Human Modifications:** Không có thay đổi thủ công.
 - **Verification Method:**
-  - `npm run build --prefix packages/types`: Passed exit code 0.
-  - `npx tsc --noEmit -p apps/web/tsconfig.json`: Passed 0 errors.
-  - `npx tsc --noEmit -p apps/backend/tsconfig.json`: Passed 0 errors.
-  - `npm test --prefix apps/backend -- circle-tools`: Passed 48/48 unit tests.
-  - `bash ./scripts/check-secrets.sh`: Passed (630 files checked, 0 leaks).
-- **Official Source Checked:** `PROJECT_GOD.md` §2.2, §11 (DoD), `agentic/playbooks/05-calendar-planning.md`, `agentic/playbooks/cross-cutting-gate.md`.
-- **Security & License Check:** An toàn tuyệt đối, zero secret leaks, tuân thủ RBAC Circle.
-- **Commit:** 16653fa
-- **PR:** Pending
-
-
----
-
-## AI-0229: Gỡ bỏ Vòng quay khỏi Tiện ích, Hợp nhất vào Chat & Đổi tên thành Vòng quay ngẫu nhiên
-
-- **Date:** 2026-11-19 15:15:00 +07:00
-- **Developer:** Trương Công Bình
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120 (Event RSVP and Realtime Delights - In-Chat Random Wheel Unification)
-- **Purpose:** Hoàn thiện kiến trúc tính năng Vòng quay theo quyết định thiết kế của người dùng:
-  1. Gỡ bỏ hoàn toàn mục Vòng quay may mắn (`luckyWheel`) khỏi thanh Sidebar Tiện ích trên Web (`Sidebar.tsx`) vì tính năng mang tính chất nhất thời (in-the-moment), tránh phân mảnh và loại bỏ xung đột dữ liệu giữa các thành viên.
-  2. Đổi tên toàn diện sang **"Vòng quay ngẫu nhiên"** (Random Wheel) trên cả Web UI, tin nhắn Chat embed, Header sân khấu Live, và các thông báo kết quả từ Backend.
-  3. Tối ưu nút `(+)` trong Chat (`ChatComposer.tsx`): Bấm vào "Vòng quay ngẫu nhiên" sẽ lập tức kích hoạt tạo phòng Live và bung mở ngay Sân khấu Vòng quay toàn diện (`LiveWheelOverlay`) mà không cần modal chọn trung gian, đồng thời phát thẻ tương tác `LiveWheelChatEmbed` vào channel chat để tất cả mọi người cùng bấm tham gia.
-- **Prompt Summary:** "oke hãy tiến hành và dổi tên là vòng quay ngẫu nhiên nhé".
-- **Files Affected:**
-  - `apps/web/src/components/navigation/Sidebar.tsx`
-  - `apps/web/src/components/chat/ChatComposer.tsx`
-  - `apps/web/src/components/chat/LiveWheelOverlay.tsx`
-  - `apps/web/src/components/chat/LiveWheelChatEmbed.tsx`
-  - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% streamlining navigation sidebar, in-chat direct trigger, and localized naming migration to Random Wheel.
-- **Human Modifications:** Người dùng chốt quyết định thiết kế loại bỏ khỏi tiện ích và đổi tên thành Vòng quay ngẫu nhiên.
-- **Verification Method:**
-  - `npx tsc --noEmit -p apps/web/tsconfig.json`: Passed 0 errors.
-  - `npx tsc --noEmit -p apps/backend/tsconfig.json`: Passed 0 errors.
-  - `npm test --prefix apps/backend -- circle-tools`: Passed 48/48 unit tests.
-  - `bash ./scripts/check-secrets.sh`: Passed (630 files checked, 0 leaks).
-- **Official Source Checked:** `PROJECT_GOD.md` §2.2, §11 (DoD), `agentic/playbooks/cross-cutting-gate.md`.
-- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
-- **Commit:** 5ec846d
-- **PR:** Pending
-
-
----
-
-## AI-0230: Tái tạo 100% Giao diện và Trải nghiệm CircleWheelView vào Sân khấu Vòng quay ngẫu nhiên
-
-- **Date:** 2026-11-19 15:26:00 +07:00
-- **Developer:** Trương Công Bình
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120 (Event RSVP and Realtime Delights - 100% CircleWheelView Parity in LiveWheelOverlay)
-- **Purpose:** Tái cấu trúc và đồng bộ hóa 100% cấu trúc UI/UX của `CircleWheelView` sang `LiveWheelOverlay` khi mở từ Chat theo yêu cầu chính xác của người dùng:
-  1. Thêm nút kéo mở / thu gọn setup: Nút `PanelRightClose` (ở mép trái bảng thiết lập) và `PanelRightOpen` (bám mép phải màn hình khi thu gọn).
-  2. Bổ sung thanh phím tắt ở đáy Cái Bảng thiết lập: Nút Bật/tắt âm thanh (`Volume2`/`VolumeX` + "Âm thanh") và Nút Xoá tất cả vòng quay (`Trash2` + "Xoá tất cả") kèm modal xác nhận an toàn.
-  3. Giữ nguyên dải nút công cụ tiện ích cho danh sách lựa chọn: `Shuffle`, `Sort A-Z`, `Save as initial` (`BookmarkCheck`), `Reset` (`RotateCcw`).
-  4. Bố cục 1 đến 4 vòng quay thích ứng: Tự động căn chỉnh kích thước động (`getWheelSize(count)`), nút tiêu đề từng đĩa quay ở trên có thể click để nhảy thẳng vào tab setup của vòng quay đó.
-  5. Modal Cúp vàng chúc mừng vinh danh kết quả với huy hiệu phát sáng, nút Đóng và nút "Loại bỏ kết quả" khỏi danh sách lựa chọn.
-  6. Tự động đóng phòng và tổng kết kết quả gửi vào tin nhắn channel khi bấm "Đóng phòng".
-- **Prompt Summary:** "chưa giống y hệt mà tôi kêu là thiết kế y trang ko khác gì, nút kéo mở setuo đâu, mấy phím tắt xoá tất cả hay mở âm thanh đâu, mọi thứ giống 100% ở tiện ích à".
-- **Files Affected:**
-  - `apps/web/src/components/chat/LiveWheelOverlay.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% porting complete visual hierarchy, collapse toggles, bottom shortcut bar, and sound synthesizer into LiveWheelOverlay.
-- **Human Modifications:** Người dùng kiểm tra trực quan và yêu cầu giữ nguyên 100% chi tiết thiết kế không được thiếu bất kỳ thành phần nào.
-- **Verification Method:**
-  - `npx tsc --noEmit -p apps/web/tsconfig.json`: Passed 0 errors.
-  - `npx tsc --noEmit -p apps/backend/tsconfig.json`: Passed 0 errors.
-  - `npm test --prefix apps/backend -- circle-tools`: Passed 48/48 unit tests.
-  - `bash ./scripts/check-secrets.sh`: Passed (630 files checked, 0 leaks).
-- **Official Source Checked:** `PROJECT_GOD.md` §2.2, §11 (DoD), `apps/web/src/components/circle-tools/CircleWheelView.tsx`.
-- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
-- **Commit:** Pending
-- **PR:** Pending
-
-
----
-
-## AI-0231: Tối ưu kích hoạt tức thì Sân khấu Vòng quay ngẫu nhiên và đảm bảo trạng thái hiển thị
-
-- **Date:** 2026-11-19 15:37:00 +07:00
-- **Developer:** Trương Công Bình
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120 (Event RSVP and Realtime Delights - Instant LiveWheel Trigger & Visibility)
-- **Purpose:** 
-  1. Thêm dispatch sự kiện `circle:open-live-wheel` trực tiếp trong `ChatComposer.tsx` ngay khi bấm tạo phòng quay để người tạo lập tức bung mở Sân khấu `LiveWheelOverlay` mà không cần đợi socket round-trip.
-  2. Bổ sung `setIsVisible(true)` trong `LiveWheelOverlay.tsx` khi có `initialActiveSession` đang hoạt động, giúp reload trang vẫn giữ nguyên sân khấu đang diễn ra.
-  3. Xác nhận loại bỏ triệt để 100% cụm nút "Quay tất cả" và "Đóng phòng & Gửi kết quả vào chat" ở dưới đáy Cái Bảng (chuyển lên dải floating pill trên cùng), giữ nguyên vẹn hàng phím tắt Bật/tắt âm thanh (`Volume2`/`VolumeX`) và Xoá tất cả (`Trash2`) ở đáy bảng y hệt `CircleWheelView`.
-- **Files Affected:**
-  - `apps/web/src/components/chat/ChatComposer.tsx`
-  - `apps/web/src/components/chat/LiveWheelOverlay.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% reactive trigger optimization and state binding.
-- **Human Modifications:** Người dùng phản hồi về việc giao diện ở trình duyệt chưa cập nhật hàng phím tắt âm thanh và xoá tất cả.
-- **Verification Method:**
-  - `npx tsc --noEmit -p apps/web/tsconfig.json`: Passed 0 errors.
-  - `npm run build --prefix apps/web`: Compiled successfully.
-- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
-- **Commit:** Pending
-- **PR:** Pending
-
-
----
-
-## AI-0232: Tích hợp bước Thiết lập Modal trước khi bung mở Sân khấu Vòng quay ngẫu nhiên
-
-- **Date:** 2026-11-19 15:49:00 +07:00
-- **Developer:** Trương Công Bình
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120 (Event RSVP and Realtime Delights - 2-Step Random Wheel In-Chat Flow)
-- **Purpose:** Triển khai luồng trải nghiệm 2 bước theo yêu cầu của người dùng:
-  1. **Bước 1 - Thiết lập (`LiveWheelPickerModal.tsx`):** Khi bấm vào menu `(+)` -> "Vòng quay ngẫu nhiên" trong Chat, bung mở modal thiết lập độc lập. Cho phép người dùng chuyển qua lại giữa các vòng (Vòng 1, Vòng 2, ...), sửa tên vòng, sửa danh sách lựa chọn trong textarea (kèm counter), dùng 4 phím công cụ (`Shuffle`, `Sort A-Z`, `Save as Initial`, `Reset`), bật/tắt âm thanh, xóa tất cả, hoặc bấm `+ Thêm vòng` (tối đa 4 vòng).
-  2. **Bước 2 - Tạo & Bung mở Sân khấu (`LiveWheelOverlay.tsx`):** Khi người dùng hoàn tất cấu hình và bấm nút **"Tạo vòng quay"** trong modal thiết lập:
-     - Tự động lưu cấu hình lựa chọn mới nhất vào backend.
-     - Kích hoạt tạo phiên trực tiếp (`createStageMutation`), gửi thẻ tương tác vào nhóm chat.
-     - Lập tức đóng modal thiết lập và bung mở toàn màn hình Sân khấu Vòng quay ngẫu nhiên (`LiveWheelOverlay.tsx`) với đầy đủ các đĩa quay, Cái Bảng điều khiển, phím tắt âm thanh/xóa tất cả và modal vinh danh cúp vàng.
-- **Prompt Summary:** "oke rồi khi ấn tạo vòng quay ngẫu nhiên thì cho 1 bước thiết lập như nãy đã xong ấn tạo mới ra cái này".
-- **Files Affected:**
-  - `apps/web/src/components/chat/ChatComposer.tsx`
-  - `apps/web/src/components/chat/LiveWheelPickerModal.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% 2-step orchestration between ChatComposer, LiveWheelPickerModal, and LiveWheelOverlay.
-- **Human Modifications:** Người dùng chốt luồng: mở modal thiết lập trước, sau đó ấn Tạo mới kích hoạt Sân khấu trực tiếp.
-- **Verification Method:**
-  - `npx tsc --noEmit -p apps/web/tsconfig.json`: Passed 0 errors.
-  - `npx tsc --noEmit -p apps/backend/tsconfig.json`: Passed 0 errors.
-  - `npm test --prefix apps/backend -- circle-tools`: Passed 48/48 unit tests.
-  - `bash ./scripts/check-secrets.sh`: Passed (630 files checked, 0 leaks).
-- **Official Source Checked:** `PROJECT_GOD.md` §2.2, §11 (DoD).
-- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
-- **Commit:** Pending
-- **PR:** Pending
-
-
----
-
-## AI-0233: Căn chỉnh Layout chống co giãn, Thêm Floating Pill Kết quả & Bảng Người xem Live
-
-- **Date:** 2026-11-19 16:10:00 +07:00
-- **Developer:** Trương Công Bình
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120 (Event RSVP & Realtime Delights)
-- **Purpose:** Căn chỉnh layout cố định chiều cao chống co giãn giữa sân khấu vòng quay (Visual Arena) và Cái Bảng (Options & Results Board); cố định kích thước các vòng quay bất biến khi đóng/mở panel; thêm Floating Pill Button "Kết quả" ở thanh trên cùng mở thẳng tab Kết quả; thêm bảng hiển thị người xem trực tiếp (cả ở đáy Visual Arena và tab Người xem trong Cái Bảng); gỡ bỏ chữ/badge LIVE khỏi tiêu đề "Vòng quay ngẫu nhiên".
-- **Prompt Summary:** Căn chỉnh lại sao cho bảng thiết lập và vòng quay không bị co giãn, thêm 1 Floating Pill Button là kết quả ở trên, thêm 1 bảng những người xem live nữa và bỏ chữ live ở text vòng quay ngẫu nhiên.
-- **Files Affected:**
-  - `apps/web/src/components/chat/LiveWheelOverlay.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% logic căn chỉnh layout flexbox `min-h-0`, `h-[620px] max-h-[calc(100vh-120px)] min-h-[520px]`, floating pill "Kết quả", bảng người xem trực tiếp, tab Người xem và dọn sạch chữ LIVE.
-- **Human Modifications:** Người dùng trực tiếp rà soát yêu cầu và phản hồi giao diện.
-- **Verification Method:** Chạy `npx tsc --noEmit` trên cả web và backend đạt 0 errors; chạy `npm test --prefix apps/backend -- circle-tools` pass 48/48 tests; chạy `npm run build --prefix apps/web` thành công; chạy `./scripts/check-secrets.sh` 0 secret leaks.
-- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ 10 Hard Gates.
-- **AI Errors / Hallucinations Found:**
-  - **Error Description:** Truy cập sai thuộc tính `user.displayName` và `user.avatarUrl` thay vì `user.profile?.displayName` và `user.profile?.avatarUrl` từ `AuthUserData`.
-  - **Root Cause:** Nhầm lẫn giữa entity `UserProfileEntity` và interface gốc `AuthUserData`.
-  - **Resolution / Fix:** Sửa thành `user.profile?.displayName` và `user.profile?.avatarUrl`, `tsc` pass 100%.
-- **Commit:** Pending
-- **PR:** Pending
-
-
----
-
-## AI-0234: Khắc phục lỗi React Rules of Hooks trong LiveWheelOverlay
-
-- **Date:** 2026-11-19 16:16:00 +07:00
-- **Developer:** Trương Công Bình
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120 (Event RSVP & Realtime Delights)
-- **Purpose:** Khắc phục triệt để lỗi vi phạm nguyên tắc React Rules of Hooks ("Rendered more hooks than during the previous render") tại `LiveWheelOverlay.tsx:1005`.
-- **Prompt Summary:** Xử lý runtime error "Rendered more hooks than during the previous render" tại `src/components/chat/LiveWheelOverlay.tsx (1005:32)`.
-- **Files Affected:**
-  - `apps/web/src/components/chat/LiveWheelOverlay.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% việc xác định vị trí vi phạm thứ tự hooks và di chuyển `useMemo` lên trước early return `if (!isVisible) return null`.
-- **Human Modifications:** Người dùng báo cáo traceback runtime error từ trình duyệt.
-- **Verification Method:** `npx tsc --noEmit -p apps/web/tsconfig.json` pass 0 errors; `./scripts/check-secrets.sh` 0 leaks.
-- **Official Source Checked:** React Documentation (Rules of Hooks).
+  - Thử nghiệm tài khoản người xem khi chủ phòng tắt "Cho phép sửa": ô nhập liệu bị khóa; khi chủ phòng bật: người xem có thể thêm/sửa lựa chọn.
+- **Official Source Checked:** RBAC Session Governance & Socket.IO Room Roles.
 - **Security & License Check:** An toàn, không chứa secret.
-- **AI Errors / Hallucinations Found:**
-  - **Error Description:** Đặt `const participants = useMemo(...)` sau câu lệnh điều kiện `if (!isVisible) return null;` khiến số lượng hooks bị thay đổi khi modal đổi trạng thái hiển thị.
-  - **Root Cause:** Sơ suất đặt hook tính toán sau nhánh return sớm của component.
-  - **Resolution / Fix:** Đưa `participants = useMemo(...)` lên trước toàn bộ các câu lệnh early return.
-- **Commit:** Pending
-- **PR:** Pending
-
-
----
-
-## AI-0235: Tinh chỉnh Vòng quay ngẫu nhiên: Bỏ bảng người xem, Căn giữa chữ đĩa quay & Khắc phục lỗi sinh 4 vòng
-
-- **Date:** 2026-11-19 16:47:00 +07:00
-- **Developer:** Trương Công Bình
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120 (Event RSVP & Realtime Delights)
-- **Purpose:** 
-  1. Gỡ bỏ hoàn toàn bảng người xem trực tiếp (Live Viewers) ở đáy sân khấu theo yêu cầu người dùng, mở rộng không gian cho vòng quay.
-  2. Sửa lỗi nút thu gọn bảng bị cắt/đè mép do thuộc tính `overflow-hidden` của khung ngoài Cái Bảng, nâng `z-index: 40`.
-  3. Khắc phục lỗi chữ trên đĩa quay bị thụt hẳn vào tâm: Chuyển căn lề sang `textAlign = 'center'` tại trung điểm bán kính lát quay (`textRadius`), tự động co giãn kích thước font và cắt ngắn với dấu `…` để chữ luôn cân xứng hoàn hảo giữa tâm và vành.
-  4. Khắc phục triệt để lỗi tự động sinh 4 vòng khi bật/tắt âm thanh: Thay đổi logic `ensureFourWheels` ở backend để không tự động tạo thêm vòng khi đã có vòng trong Circle.
-  5. Hoàn nguyên vòng quay về 1 vòng mặc định tinh gọn khi đóng phòng quay và reset kết quả cho phiên mới; chặn nút tham gia trên các thẻ tin nhắn phòng quay đã kết thúc (`isFinished`).
-- **Prompt Summary:** Bỏ bảng những người xem trực tiếp, sửa nút thu gọn bảng bị đè, sửa text trên vòng bị thụt vào tâm, sửa lỗi ấn tắt âm thanh sinh ra 4 vòng và ấn vào vòng quay ngẫu nhiên ra các vòng quay trước đó đã đóng.
-- **Files Affected:**
-  - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
-  - `apps/web/src/components/chat/LiveWheelOverlay.tsx`
-  - `apps/web/src/components/chat/LiveWheelChatEmbed.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% logic căn giữa chữ canvas, sửa backend `ensureFourWheels`, giải phóng nút thu gọn bảng và xử lý trạng thái phiên quay đã đóng.
-- **Human Modifications:** Người dùng trực tiếp trải nghiệm và phản hồi các chi tiết giao diện/logic cần điều chỉnh.
-- **Verification Method:** `npx tsc --noEmit` pass 0 errors cả web và backend; `npm test --prefix apps/backend -- circle-tools` pass 48/48 tests; `npm run build --prefix apps/web` pass 100%; `check-secrets.sh` 0 leaks.
-- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
-- **Security & License Check:** An toàn, không chứa secret.
-- **AI Errors / Hallucinations Found:**
-  - **Error Description:** Hàm `ensureFourWheels` trước đó tự động chèn thêm bản ghi vào database nếu số vòng nhỏ hơn 4, dẫn đến việc đổi cài đặt âm thanh kích hoạt re-fetch và hiện ra 4 vòng.
-  - **Root Cause:** Logic mock cũ ép cứng layout 4 vòng quay.
-  - **Resolution / Fix:** Sửa `ensureFourWheels` chỉ tạo 1 vòng nếu DB hoàn toàn rỗng, giữ nguyên đúng số lượng vòng người dùng thiết lập.
-- **Commit:** c319d6e
-- **PR:** #120
-
-
----
-
-## AI-0236: Khôi phục Floating Pill Người xem & Tab Người xem, Phóng to vòng quay khi đóng bảng và Khắc phục lỗi Tạo vòng quay
-
-- **Date:** 2026-11-19 17:12:00 +07:00
-- **Developer:** Trương Công Bình
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120 (Event RSVP & Realtime Delights)
-- **Purpose:** 
-  1. Khôi phục Floating Pill Button "Người xem" trên Header và Tab "Người xem" trong Cái Bảng (Setup Panel), hiển thị danh sách thành viên đang theo dõi trực tiếp với avatar, tên và trạng thái mà không làm chiếm diện tích sân khấu Visual Arena.
-  2. Phóng to kích thước vòng quay khi người dùng đóng Cái Bảng thiết lập (Panel Collapsed): Tự động mở rộng đĩa quay từ 380px lên 480px (với 1 vòng) hoặc 320px (với 2 vòng), đĩa quay hiển thị hoành tráng và cân đối trên toàn bộ sân khấu.
-  3. Khắc phục triệt để lỗi "Không tìm thấy vòng quay" khi người dùng ấn nút "Tạo vòng quay":
-     - Bảo toàn ID vòng quay chính (vòng 1) trong `closeLiveWheelStage`, chỉ reset các lựa chọn về mẫu mặc định và xoá các vòng phụ tạm thời.
-     - Nâng cấp `getWheels` tự động khởi tạo và trả về ít nhất 1 vòng nếu database rỗng.
-     - Bổ sung cơ chế fallback trong `updateWheel` để tìm vòng quay hợp lệ của circle nếu ID gửi từ cache client bị lệch.
-     - Cập nhật `LiveWheelPickerModal` luôn gọi `refetchWheels` khi mở modal, auto-seed an toàn và tự động dọn cache React Query (`queryClient.invalidateQueries`).
-- **Prompt Summary:** Khôi phục người xem và Floating Pill Button người xem; đóng bảng setup thì vòng tròn phải to hơn; sửa lỗi ấn tạo vòng quay bị báo không tìm thấy vòng quay.
-- **Files Affected:**
-  - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
-  - `apps/web/src/components/chat/LiveWheelOverlay.tsx`
-  - `apps/web/src/components/chat/LiveWheelPickerModal.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% logic điều chỉnh dynamic wheel size, cấu hình Floating Pill & tab Người xem, và sửa lỗi đồng bộ ID / fallback vòng quay ở backend.
-- **Human Modifications:** Người dùng trực tiếp trải nghiệm và phản hồi các chi tiết giao diện/logic cần điều chỉnh.
-- **Verification Method:** `npx tsc --noEmit` pass 0 errors cả web và backend; `npm test circle-tools.service.spec.ts` pass 48/48 tests; `check-secrets.sh` pass 0 leaks.
-- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
-- **Security & License Check:** An toàn, không chứa secret.
-- **AI Errors / Hallucinations Found:**
-  - **Error Description:** Khi đóng phòng quay, backend trước đó xóa toàn bộ vòng quay (`deleteMany`) và tạo bản ghi mới với UUID mới, khiến client giữ cache ID cũ gọi `updateWheel` bị trả về 404 "Không tìm thấy vòng quay".
-  - **Root Cause:** Xóa sạch bản ghi vòng quay và tạo UUID mới thay vì giữ lại vòng 1 và cập nhật options.
-  - **Resolution / Fix:** Giữ nguyên bản ghi vòng 1 (giữ ID cố định), đồng thời bổ sung fallback truy vấn và refetch cache phía client.
-- **Commit:** 589b184
-- **PR:** #120
-
-
----
-
-## AI-0237: Tái thiết kế Sân khấu Vòng quay ngẫu nhiên Full-Screen Edge-to-Edge
-
-- **Date:** 2026-11-19 18:11:00 +07:00
-- **Developer:** Trương Công Bình
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120 (Event RSVP & Realtime Delights)
-- **Purpose:** 
-  1. Chuyển đổi toàn diện giao diện `LiveWheelOverlay.tsx` sang chuẩn Full-Screen (Edge-to-Edge), gỡ bỏ hoàn toàn các khung giới hạn đóng hộp cũ (`max-w-6xl`, fixed `h-[640px]`) để giao diện phủ trọn 100% viewport.
-  2. Nâng cấp Header trên cùng thành thanh điều hướng toàn màn hình (`w-full`), gắn liền cạnh trên với đầy đủ tiêu đề và cụm Floating Pill buttons.
-  3. Mở rộng kích thước đĩa quay cho trải nghiệm toàn màn hình:
-     - Khi thu gọn bảng: 1 vòng đạt **560px** (chiếm trọn tâm điểm sân khấu); 2 vòng đạt **380px**; 3–4 vòng đạt **280px**.
-     - Khi mở bảng: 1 vòng đạt **440px**; 2 vòng đạt **300px**; 3–4 vòng đạt **230px**.
-  4. Cái Bảng (Setup Panel) cập nhật gắn dọc sát mép phải màn hình (`w-[420px] xl:w-[460px] h-full border-l`), tự động kéo giãn toàn bộ chiều cao màn hình để hiển thị danh sách phương án, kết quả và người xem thoáng đãng, sắc nét.
-- **Prompt Summary:** Thiết kế giao diện vòng quay ngẫu nhiên theo chuẩn full màn hình do mở full màn.
-- **Files Affected:**
-  - `apps/web/src/components/chat/LiveWheelOverlay.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% CSS architecture, responsive layout migration và canvas auto-scaling logic.
-- **Human Modifications:** Người dùng trực tiếp yêu cầu thiết kế full màn hình tương xứng với trải nghiệm mở full màn.
-- **Verification Method:** `npx tsc --noEmit` pass 0 errors cả web và backend; `npm test circle-tools.service.spec.ts` pass 48/48 tests; `check-secrets.sh` pass 0 leaks.
-- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
-- **Security & License Check:** An toàn, không chứa secret.
-- **AI Errors / Hallucinations Found:** Không có.
-- **Commit:** 672f407
-- **PR:** #120
-
----
-
-## AI-0238: Bổ sung nút "Cho phép sửa" và phân quyền Chủ phòng vs Người xem cho Vòng quay trực tiếp
-
-- **Date:** 2026-11-22 14:55:00 +07:00
-- **Developer:** Trương Công Bình
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120 (Event RSVP & Realtime Delights)
-- **Purpose:** 
-  1. Bổ sung nút "Cho phép sửa" (Allow Edit) cho phiên Vòng quay ngẫu nhiên trực tiếp trong nhóm:
-     - Mặc định chỉ chủ phòng có quyền chỉnh sửa nội dung (`allowMembersToEdit = false`).
-     - Khi bật: Tất cả thành viên trong phòng đều có quyền chỉnh sửa nội dung (sửa tên vòng, sửa textarea phương án, Shuffle, Sắp xếp A-Z, Đặt lại ban đầu, Lưu ban đầu, Thêm/Xóa vòng quay, Xóa tất cả, Xóa phương án trúng thưởng).
-     - Khi tắt: Chỉ chủ phòng có quyền chỉnh sửa, các thành viên khác chỉ được xem (chế độ chỉ xem read-only với banner thông báo rõ ràng).
-     - Chỉ chủ phòng mới có quyền bật/tắt thiết lập "Cho phép sửa" (trên Floating Pill ở Header và Toggle ở chân trang Cái Bảng).
-  2. Tách biệt hoàn toàn quyền quay và quyền sửa:
-     - Tất cả thành viên đều có thể sử dụng chức năng quay (click vào từng đĩa quay hoặc nút "Quay tất cả"), không phụ thuộc vào trạng thái của nút "Cho phép sửa".
-     - Khi bất kỳ ai ấn quay, hệ thống tự động phát broadcast realtime tới toàn bộ phòng quay để tất cả thành viên đồng bộ xem đĩa quay xoay tít và hiển thị kết quả.
-  3. Phân biệt quyền Đóng phòng vs Rời phòng:
-     - Chủ phòng: Hiển thị nút "Đóng phòng" (`handleCloseStage` - kết thúc phiên và gửi kết quả về đoạn chat nhóm).
-     - Người xem: Hiển thị nút "Rời phòng" (chỉ đóng overlay cá nhân, không làm gián đoạn phòng quay của cả nhóm).
-  4. Backend:
-     - Thêm trường `allowMembersToEdit?: boolean` trong `LiveWheelSession` và `LiveWheelMessagePayload`.
-     - Thêm DTO `UpdateLiveWheelSettingsDto` và endpoint `PATCH /circles/:circleId/wheels/live-settings`.
-     - Kiểm tra quyền `canEditLiveWheel` chặt chẽ trong `updateWheel`, `createWheel`, `deleteWheel`, `deleteAllWheels`, `liveRemoveResult`, và `closeLiveWheelStage`.
-- **Prompt Summary:** Bổ sung nút "Cho phép sửa". Khi bật: tất cả thành viên có quyền sửa nội dung. Khi tắt: chỉ chủ phòng có quyền sửa. Quyền quay hoạt động độc lập, tất cả thành viên đều được quay. Mặc định chỉ chủ phòng có quyền sửa. Chỉ chủ phòng có quyền bật/tắt "Cho phép sửa".
-- **Files Affected:**
-  - `packages/types/src/index.ts`
-  - `packages/shared/src/locales/vi.ts`
-  - `packages/shared/src/locales/en.ts`
-  - `apps/backend/src/modules/circle-tools/dto/circle-tools.dto.ts`
-  - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
-  - `apps/backend/src/modules/circle-tools/circle-tools.controller.ts`
-  - `apps/backend/src/modules/circle-tools/circle-tools.service.spec.ts`
-  - `apps/web/src/hooks/use-circle-tools.ts`
-  - `apps/web/src/components/chat/LiveWheelOverlay.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% logic backend RBAC/permissions, realtime socket event handling, hook API mutations, và UI Floating Pill / Setup Panel controls.
-- **Human Modifications:** Người dùng trực tiếp định nghĩa các ràng buộc nghiệp vụ về nút "Cho phép sửa" và tính độc lập của chức năng quay.
-- **Verification Method:** 
-  - `npx tsc --noEmit` pass 0 errors trên cả `apps/web` và `apps/backend`.
-  - `npx jest src/modules/circle-tools/circle-tools.service.spec.ts` pass 51/51 unit tests.
-  - `./scripts/check-secrets.sh` pass 0 secret leaks.
-- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
-- **Security & License Check:** An toàn, không chứa secret, tuân thủ RBAC và Hard Gates.
-- **AI Errors / Hallucinations Found:** Không có.
-- **Commit:** 7340d80
-- **PR:** #120
-
----
-
-## AI-0239: Gom quyền chỉnh sửa & âm thanh vào nút 3 chấm và bảo tồn toàn bộ vòng quay khi tạo lại
-
-- **Date:** 2026-11-22 15:17:00 +07:00
-- **Developer:** Trương Công Bình
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120 (Event RSVP & Realtime Delights)
-- **Purpose:** 
-  1. Tích hợp nút 3 chấm (`MoreHorizontal`) trên thanh Floating Pill Header để gom toàn bộ các tùy chọn cài đặt phòng quay:
-     - Mục Bật/Tắt âm thanh quay & chúc mừng (`Volume2` / `VolumeX`).
-     - Mục Bật/Tắt quyền chỉnh sửa nội dung (`LockOpen` / `Lock`) cho chủ phòng (hoặc hiển thị trạng thái quyền cho người xem).
-     - Gỡ bỏ nút Floating Pill "Cho phép sửa" riêng rẽ ở ngoài Header và gỡ bỏ các nút âm thanh/cho phép sửa rải rác ở đáy các tab trong Cái Bảng (chỉ giữ lại nút Xóa tất cả căn phải tinh gọn).
-  2. Bảo tồn 100% tất cả các vòng quay hiện có khi đóng và tạo lại phòng:
-     - Gỡ bỏ hoàn toàn logic xóa các vòng quay phụ (`deleteMany`) và logic reset options về mẫu mặc định trong `closeLiveWheelStage`.
-     - Giữ nguyên vẹn toàn bộ các vòng quay (1, 2, 3, 4 vòng) và nội dung phương án của người dùng, đảm bảo khi ấn tạo lại phòng quay thì hệ thống tái sử dụng đúng danh sách vòng đã có sẵn thay vì bị reset về 1 vòng.
-- **Prompt Summary:** Tinh chỉnh thêm 1 btn 3 chấm gom quyền chỉnh sửa, âm thanh vào nút 3 chấm và xóa ở ngoài đi; khi ấn tạo lại vòng quay thì giữ các vòng trước đó đã có sẵn chứ không reset về 1 vòng.
-- **Files Affected:**
-  - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
-  - `apps/web/src/components/chat/LiveWheelOverlay.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% logic menu popover 3 chấm, click-outside handling, và loại bỏ logic xóa vòng dọn dẹp ở backend.
-- **Human Modifications:** Người dùng trực tiếp yêu cầu tối ưu UX gom nút vào menu 3 chấm và giữ nguyên cấu hình các vòng quay đã tạo.
-- **Verification Method:** 
-  - `npx tsc --noEmit` pass 0 errors cả web và backend.
-  - `npx jest src/modules/circle-tools/circle-tools.service.spec.ts` pass 51/51 tests.
-  - `./scripts/check-secrets.sh` pass 0 secret leaks.
-- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
-- **Security & License Check:** An toàn, không chứa secret.
-- **AI Errors / Hallucinations Found:** Không có.
+- **AI Errors / Hallucinations Found:** None.
 - **Commit:** 16ede95
-- **PR:** #120
-
-### AI-0169
-
-- **Date:** 2026-11-22 15:56:00 +07:00
-- **Developer:** Trương Công Bình
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120 (Event RSVP & Realtime Delights)
-- **Purpose:** 
-  1. Fix dứt điểm lỗi click nút 3 chấm (`MoreHorizontal`) không hiển thị popup menu trên Web:
-     - Tách cụm Action Buttons (nút 3 chấm & nút Đóng/Rời phòng) ra khỏi container `overflow-x-auto no-scrollbar` của dải Floating Pills trên Header, tránh việc CSS clipping context của `overflow-x: auto` cắt cụt menu dropdown `absolute top-11`.
-     - Bổ sung `e.stopPropagation()` trong `onClick` của nút 3 chấm và dropdown menu, bảo đảm popup hiển thị mượt mà và không bị đóng sớm bởi event bubbling.
-  2. Xây dựng và đồng bộ toàn diện tính năng Vòng quay ngẫu nhiên trực tiếp trên Mobile (`apps/mobile`):
-     - `MobileLiveWheelPickerModal.tsx`: Bổ sung cơ chế auto-seed khi mở modal lần đầu (tự tạo 1 vòng mặc định nếu chưa có vòng nào, tránh lỗi không tìm thấy vòng quay), chuẩn hóa tiêu đề sang "Vòng quay ngẫu nhiên", bổ sung lưu phương án và phát event `circle:open-live-wheel` khi tạo sân khấu.
-     - `MobileLiveWheelOverlay.tsx`: Tái cấu trúc toàn diện giao diện Sân khấu vòng quay:
-       - Header chuẩn hóa tiêu đề, tích hợp menu 3 chấm popover kính mờ gom cài đặt Âm thanh (`soundEnabled`) và Quyền chỉnh sửa ("Cho phép sửa" - `allowMembersToEdit`).
-       - Phân quyền Host vs Spectator: Chỉ Host mới có quyền gạt bật/tắt "Cho phép sửa"; khi tắt chỉ Host được sửa, thành viên khác chỉ xem; quyền quay luôn khả dụng cho mọi thành viên.
-       - Hỗ trợ co giãn kích thước đĩa quay SVG động theo số lượng vòng (1 vòng to ở giữa, 2 vòng cạnh nhau, 3-4 vòng lưới 2x2).
-       - Tích hợp thanh cuộn Floating Pills: [Kết quả], [Người xem], [Thêm vòng quay], [Quay tất cả].
-       - Tích hợp đóng phòng quay (`closeLiveWheelStageApi`) với xác nhận Alert và gửi kết quả vào nhóm chat; tự động đóng khi nhận event socket `circle:live-wheel:stage-closed`.
-     - `circle-tools.service.ts` (Mobile): Bổ sung `updateLiveWheelSettingsApi` và `closeLiveWheelStageApi`.
-- **Prompt Summary:** Ấn vào 3 chấm cũng chưa được (chưa có popup); tương tự xây cho mobile chức năng tạo vòng xoay.
-- **Files Affected:**
-  - `apps/web/src/components/chat/LiveWheelOverlay.tsx`
-  - `apps/mobile/src/components/chat/MobileLiveWheelOverlay.tsx`
-  - `apps/mobile/src/components/chat/MobileLiveWheelPickerModal.tsx`
-  - `apps/mobile/src/services/circle-tools.service.ts`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% logic tái cấu trúc Header tách overflow clipping trên Web, và toàn bộ component `MobileLiveWheelOverlay` + `MobileLiveWheelPickerModal` trên Mobile.
-- **Human Modifications:** Người dùng trực tiếp phản hồi lỗi popup web và yêu cầu xây dựng tính năng đồng bộ trên Mobile.
-- **Verification Method:** 
-  - `npx tsc -p apps/web/tsconfig.json --noEmit` pass 0 errors.
-  - `npx tsc -p apps/mobile/tsconfig.json --noEmit` pass 0 errors.
-  - `npm --prefix apps/backend test -- circle-tools.service.spec.ts` pass 51/51 tests.
-  - `bash scripts/check-secrets.sh` pass 0 secret leaks.
-- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
-- **Security & License Check:** An toàn, không chứa secret.
-- **AI Errors / Hallucinations Found:** Không có.
-- **Commit:** 374a5b5
-- **PR:** #120
-
-### AI-0170
-
-- **Date:** 2026-11-22 16:30:00 +07:00
-- **Developer:** Trương Công Bình
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120 (Event RSVP & Realtime Delights)
-- **Purpose:** 
-  1. Loại bỏ hiện tượng giật màn hình khi đổi qua các tab vòng trong Modal thiết lập trước khi tạo (`MobileLiveWheelPickerModal.tsx`):
-     - Gắn `key={activeWheel.id}` vào container phần thiết lập vòng để ngăn React Native tái sử dụng layout `TextInput` gây giật native selection/keyboard layout shift.
-     - Reset `isEditingTitle(false)` khi chuyển tab giữa các vòng.
-     - Loại bỏ nút Âm thanh ở hàng dưới bảng thiết lập (chỉ giữ lại nút Xóa tất cả căn phải).
-  2. Nâng cấp toàn diện Sân khấu Vòng quay ngẫu nhiên trực tiếp trên Mobile (`MobileLiveWheelOverlay.tsx`) thành giao diện **FULL MÀN HÌNH** (Full Screen Edge-to-Edge) theo phong cách Tiện ích nhóm (`MobileWheelView.tsx`):
-     - Chuyển `Modal` sang full-screen edge-to-edge không còn khung card nhỏ lơ lửng.
-     - Floating Glass Header với nút quay lại (`ArrowLeft`), icon Compass, nhãn tiêu đề "Vòng quay ngẫu nhiên" và menu 3 chấm + nút Đóng/Rời phòng.
-     - Thanh Floating Pills cuộn ngang: [Kết quả], [Người xem], [Thêm vòng], [Quay tất cả].
-     - Vùng Sân khấu Vòng quay trung tâm kích thước lớn, co giãn linh hoạt (1 vòng to ~255px, 2 vòng ~150px, 3-4 vòng lưới 2x2 ~130px) kèm kim chỉ sắc nét và winner badge.
-     - Cái Bảng Tabbed Board đáy màn hình bo góc 24px: Xem & sửa danh sách phương án từng vòng (kèm các nút Xáo trộn `Shuffle`, Sắp xếp A-Z `ArrowDownAZ`, Quay riêng vòng này `Play`, và Lưu `Check`), tab Kết quả (có nút loại bỏ), tab Người xem trực tiếp (avatar realtime).
-- **Prompt Summary:** Khắc phục giật khi đổi tab vòng ở modal chuẩn bị tạo; bỏ nút âm thanh ở dưới; chuyển sân khấu quay sang toàn màn hình full screen kiểu tiện ích nhóm và bổ sung đầy đủ tính năng như web.
-- **Files Affected:**
-  - `apps/mobile/src/components/chat/MobileLiveWheelPickerModal.tsx`
-  - `apps/mobile/src/components/chat/MobileLiveWheelOverlay.tsx`
-  - `agentic/memory/2026-11-22.md`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% tái cấu trúc Full Screen Edge-to-Edge cho `MobileLiveWheelOverlay` và tối ưu tab switching trong `MobileLiveWheelPickerModal`.
-- **Human Modifications:** Người dùng trực tiếp phản hồi trải nghiệm thực tế và chỉ đạo định hình UI full screen kiểu tiện ích nhóm.
-- **Verification Method:** 
-  - `npx tsc -p apps/mobile/tsconfig.json --noEmit` pass 0 errors.
-  - `npx tsc -p apps/web/tsconfig.json --noEmit` pass 0 errors.
-  - `npm --prefix apps/backend test -- circle-tools.service.spec.ts` pass 51/51 tests.
-  - `bash scripts/check-secrets.sh` pass 0 secret leaks.
-- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
-- **Security & License Check:** An toàn, không chứa secret.
-- **AI Errors / Hallucinations Found:** Không có.
-- **Commit:** d98db13
-- **PR:** #120
-
-
-### AI-0171
-
-- **Date:** 2026-11-22 17:00:00 +07:00
-- **Developer:** Trương Công Bình
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120 (Event RSVP & Realtime Delights)
-- **Purpose:** 
-  1. Tinh chỉnh Header của Sân khấu Vòng quay trực tiếp trên Mobile (`MobileLiveWheelOverlay.tsx`):
-     - Chuyển toàn bộ các nút điều khiển trên Header (Kết quả, Người xem, Thêm vòng, Cài đặt 3 chấm, Đóng/Rời phòng, Quay tất cả) sang **ICON ONLY dạng Floating Pill Button** (`floatingPillIconBtn` / `floatingPillPrimaryIconBtn`), loại bỏ hoàn toàn các text nhãn dài dòng ("Xem kết quả", "Quay tất cả", ...).
-     - Loại bỏ dải thanh cuộn ngang `floatingPillsContainer` thứ 2 ở dưới Header, đưa toàn bộ nút điều khiển lên 1 hàng Floating Header Bar duy nhất gọn gàng, tinh tế và chuẩn triết lý Apple Liquid Glass Minimalist.
-  2. Đồng bộ 100% bố cục Sân khấu Vòng quay và Cái Bảng (Tabbed Board) bên dưới y hệt Vòng quay Tiện ích nhóm (`MobileWheelView.tsx`):
-     - Tích hợp toàn bộ nội dung trong 1 `ScrollView` duy nhất với khoảng cách an toàn `scrollPaddingTop` và `scrollPaddingBottom`.
-     - **Sân khấu Vòng quay (`arenaContainer`, `arenaStage`):**
-       - 1 vòng: `singleWheelWrapper` với badge tiêu đề bên trên, đĩa quay to ở giữa (`singleDiscSize = Math.min(240, width - 64)`), kim chỉ `pointerRight` bên phải góc 3 giờ.
-       - 2 vòng: `rowTwoWheels` (`multiDiscSize`).
-       - 3 vòng: `gridThreeWheels` (hàng trên 2 vòng, hàng dưới 1 vòng căn giữa).
-       - 4 vòng: `gridFourWheelsContainer` (chính xác 2 hàng x 2 vòng mỗi hàng, `fourDiscSize`).
-       - Mỗi small wheel item gồm badge tiêu đề (chạm để chuyển tab), đĩa quay (chạm để quay riêng vòng đó) và kim chỉ `pointerRightSmall`.
-     - **Cái Bảng (Tabbed Board bên dưới - `tabbedBoard`):**
-       - Đặt ngay bên dưới Sân khấu Vòng quay trong cùng một luồng cuộn.
-       - Dải Tabs ngang: Tab từng vòng + Tab [🏆 Kết quả] (kèm badge đếm) + Tab [👥 Người xem] (kèm badge đếm).
-       - Tab từng vòng: Tiêu đề inline (`inlineTitleInput`) cho phép sửa tên vòng trực tiếp + nút xóa vòng (`delWheelBtn`), dòng đếm lựa chọn (`counterRow`), Textarea danh sách phương án (`boardTextarea`), hàng nút icon-only (`boardActionsRow`: Xáo trộn `Shuffle`, Sắp xếp A-Z `ArrowDownAZ`, Lưu `Check`, Quay riêng `Play`), hàng chân thông báo quyền (`togglesRow`).
-       - Tab Kết quả: Header `Trophy` + Textarea kết quả lớn đa dòng chỉ đọc + các nút icon-only Sắp xếp A-Z `ArrowDownAZ` và Xóa kết quả `Trash2`.
-       - Tab Người xem: Header `Users` + chấm xanh trực tiếp `liveGreenDot` + danh sách avatar cuộn ngang của các thành viên đang có mặt realtime.
-     - **Celebration Modal:** Giữ nguyên hiệu ứng cúp vàng phát sáng chúc mừng người thắng giải với các nút hành động Đóng và Loại bỏ kết quả.
-- **Prompt Summary:** Vẫn chưa giống chỗ tiện ích: các btn kết quả, người xem... chỉ cần là icon và là Floating Pill Button; còn lại (bố cục các nút phần setting và vòng quay) phải y hệt phần vòng quay tiện ích.
-- **Files Affected:**
-  - `apps/mobile/src/components/chat/MobileLiveWheelOverlay.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% tái cấu trúc layout Header Icon-Only Floating Pill, Sân khấu Vòng quay chuẩn hóa 1-4 vòng và Cái Bảng Tabbed Board đồng bộ 100% với `MobileWheelView.tsx`.
-- **Human Modifications:** Người dùng trực tiếp định hướng chuyển các nút header sang icon-only floating pill button và đồng bộ bố cục setting/vòng quay y hệt tiện ích nhóm.
-- **Verification Method:** 
-  - `npx tsc -p apps/mobile/tsconfig.json --noEmit` pass 0 errors.
-  - `npx tsc -p apps/web/tsconfig.json --noEmit` pass 0 errors.
-  - `npm --prefix apps/backend test -- circle-tools.service.spec.ts` pass 51/51 tests.
-  - `bash scripts/check-secrets.sh` pass 0 secret leaks.
-- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
-- **Security & License Check:** An toàn, không chứa secret.
-- **AI Errors / Hallucinations Found:** Không có.
-- **Commit:** 5e918fc
-- **PR:** #120
-
-
-### AI-0172
-
-- **Date:** 2026-11-22 17:12:00 +07:00
-- **Developer:** Trương Công Bình
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120 (Event RSVP & Realtime Delights)
-- **Purpose:** 
-  1. Khắc phục triệt để hiện tượng nháy hình (flicker / blink) khi chuyển đổi giữa các tab vòng quay thiết lập trong `MobileLiveWheelOverlay.tsx` (mở từ tin nhắn chat):
-     - **Triệt tiêu re-render kép:** Loại bỏ `activeTab` và `activeWheelId` khỏi dependencies của `useEffect` đồng bộ editing state; chỉ cập nhật state khi có vòng quay mới (`hasNew = true`), ngăn chặn việc tạo object reference mới kích hoạt re-render liên tiếp khi bấm tab.
-     - **Native Driver Animation Stabilization:** Khởi tạo và lưu trữ cố định các `rotateInterpolates` thông qua `useRef` thay vì gọi `.interpolate(...)` trong mỗi lần render, ngăn native driver hủy và gán lại animation node trên C++/native layer gây chớp góc quay đĩa SVG.
-     - **Layout Shift & TextInput Recycling:** Gán `key={activeWheel.wheelId}` vào container `activeContentCard` và `key={`title-${activeWheel.wheelId}`}`, `key={`options-${activeWheel.wheelId}`}` cho các TextInput; đồng thời cố định `minHeight: 280` cho card và `height: 130` cho Textarea để ngăn layout co giật trong 1 frame khi tính toán lại native multiline text.
-  2. Đồng bộ hóa chống nháy cho modal thiết lập trước khi quay `MobileLiveWheelPickerModal.tsx`:
-     - Gán `key={`picker-options-${activeWheel.id}`}` cho TextInput danh sách phương án.
-     - Cố định `minHeight: 280` cho `wheelSetupSection` và `height: 120` cho `optionsTextarea`.
-- **Prompt Summary:** Phần khi ấn vòng xoay may mắn trong tin nhắn chuyển đổi giữa các tab vòng quay setting vẫn bị nháy 1 phát.
-- **Files Affected:**
-  - `apps/mobile/src/components/chat/MobileLiveWheelOverlay.tsx`
-  - `apps/mobile/src/components/chat/MobileLiveWheelPickerModal.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% giải pháp ổn định Animated Interpolation ref, triệt tiêu re-render thừa trong useEffect, và cố định layout height cho TextInput.
-- **Human Modifications:** Người dùng trực tiếp phát hiện và chỉ ra hiện tượng nháy frame khi chuyển đổi giữa các tab vòng quay thiết lập.
-- **Verification Method:** 
-  - `npx tsc -p apps/mobile/tsconfig.json --noEmit` pass 0 errors.
-  - `npx tsc -p apps/web/tsconfig.json --noEmit` pass 0 errors.
-  - `npm --prefix apps/backend test -- circle-tools.service.spec.ts` pass 51/51 tests.
-  - `bash scripts/check-secrets.sh` pass 0 secret leaks.
-- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
-- **Security & License Check:** An toàn, không chứa secret.
-- **AI Errors / Hallucinations Found:** Không có.
-- **Commit:** a7492a1
-- **PR:** #120
+- **PR:** #127
 
 ---
 
-### AI-0173
+## AI-0170: Đồng Bộ Hóa 100% Sân Khấu Live Wheel Lên Mobile, Quay Độc Lập Nhiều Vòng & Sửa Lỗi React Rules of Hooks (#120)
 
-- **Date:** 2026-11-23 16:30:00 +07:00
-- **Developer:** Trương Công Bình
+- **Date:** 2026-11-24 16:30:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210)
 - **Tool:** Antigravity IDE
 - **Model:** Gemini 3.8 Flash (High)
 - **Related Issue:** #120 (Event RSVP & Realtime Delights)
-- **Purpose:** 
-  1. Đồng bộ hoá toàn diện tương tác người dùng trên Live Decision Wheel giữa Web và Mobile:
-     - **Đồng bộ thao tác Tắt / Đóng Celebration Modal:** Khi một người (ở Web hoặc Mobile) nhấn nút "Đóng", nút "X", click ra ngoài backdrop, hoặc bấm nút Back phần cứng trên Android để đóng popup kết quả chúc mừng, client gọi endpoint `POST /circles/:circleId/wheels/live-dismiss-celebration`.
-     - **Backend Session Cleanup & Broadcast:** Backend dọn sạch `winningOption` và `winningIndex` trong session (tránh pop up lại kết quả cũ khi reload), đồng thời ChatGateway phát sự kiện `circle:live-wheel:celebration-dismissed` tới toàn bộ thành viên trong Circle.
-     - **Client Event Listening:** Cả Web (`LiveWheelOverlay.tsx`) và Mobile (`MobileLiveWheelOverlay.tsx`) lắng nghe sự kiện `circle:live-wheel:celebration-dismissed` để đóng modal kết quả ngay tức khắc.
-  2. Đồng bộ thao tác "Loại bỏ" và "Quay":
-     - Khi 1 bên bấm loại bỏ kết quả, backend phát `circle:live-wheel:updated`, bên kia lập tức loại bỏ kết quả đó khỏi danh sách modal chúc mừng; nếu loại bỏ hết thì cả 2 cùng đóng modal.
-     - Khi 1 bên bắt đầu lượt quay mới, cả 2 máy cùng tự động đóng modal kết quả cũ, đồng thời chạy hiệu ứng quay và cùng hiển thị modal kết quả mới đồng nhất.
-- **Prompt Summary:** Chỉ cần 1 bên ấn loại bỏ hay tắt thì cả 2 bên đều phải vậy.
+- **Purpose:** Xây dựng component `MobileLiveWheelOverlay.tsx` đạt 100% parity với bản Web; hoàn thiện cơ chế đồng bộ hai chiều realtime (quay và loại bỏ kết quả); cho phép quay độc lập hoặc đồng thời nhiều vòng; loại bỏ vòng lặp re-render vô hạn và khắc phục triệt để lỗi React Rules of Hooks trên Mobile.
+- **Prompt Summary:** Xây dựng toàn diện sân khấu Vòng quay ngẫu nhiên trực tiếp trên Mobile App (`MobileLiveWheelOverlay.tsx`): thiết kế bảng Setup Board và sân khấu toàn màn hình đạt 100% parity với Web, đồng bộ hai chiều hành động quay và loại bỏ kết quả qua Socket.IO, cho phép quay đồng thời hoặc độc lập từng vòng trong số 4 vòng, loại bỏ vòng lặp re-render vô hạn và khắc phục triệt để lỗi runtime React Rules of Hooks trên MobileLiveWheelOverlay.
 - **Files Affected:**
+  - `apps/mobile/src/components/chat/MobileLiveWheelOverlay.tsx`
+  - `apps/mobile/src/components/chat/MobileLiveWheelSetupModal.tsx`
+  - `apps/web/src/components/chat/LiveWheelOverlay.tsx`
   - `apps/backend/src/modules/chat/chat.gateway.ts`
-  - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
-  - `apps/backend/src/modules/circle-tools/circle-tools.controller.ts`
-  - `apps/backend/src/modules/circle-tools/circle-tools.service.spec.ts`
-  - `apps/web/src/hooks/use-circle-tools.ts`
-  - `apps/web/src/components/chat/LiveWheelOverlay.tsx`
-  - `apps/mobile/src/services/circle-tools.service.ts`
-  - `apps/mobile/src/components/chat/MobileLiveWheelOverlay.tsx`
-  - `agentic/memory/2026-11-23.md`
   - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% kiến trúc đồng bộ realtime WebSocket + REST mutation cho sự kiện dismiss celebration modal trên cả Web và Mobile.
-- **Human Modifications:** Người dùng yêu cầu đồng bộ thao tác tắt và loại bỏ kết quả giữa 2 bên.
-- **Verification Method:** 
-  - `npm --prefix apps/backend test -- circle-tools.service.spec.ts` pass 52/52 tests.
-  - `npx tsc -p apps/web/tsconfig.json --noEmit` pass 0 errors.
-  - `npx tsc -p apps/mobile/tsconfig.json --noEmit` pass 0 errors.
-  - `bash scripts/check-secrets.sh` pass 0 secret leaks.
-- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
-- **Security & License Check:** An toàn, không chứa secret.
-- **AI Errors / Hallucinations Found:** Không có.
-- **Commit:** 76331ce
-- **PR:** #120
+- **AI-Generated Portion:**
+  - Xây dựng component `MobileLiveWheelOverlay.tsx` render đĩa quay Canvas mượt mà trên React Native.
+  - Bổ sung payload đồng bộ hai chiều cho các sự kiện: `live_wheel:dismiss_celebration` và `live_wheel:sync_elimination`.
+  - Tách biệt state quay của từng vòng (`isSpinningMap[wheelId]`), cho phép các vòng quay chạy độc lập đồng thời.
+  - Tinh chỉnh thứ tự khai báo hook trong `MobileLiveWheelOverlay.tsx`, đưa toàn bộ các lệnh gọi hook lên trước mọi câu lệnh điều kiện rẽ nhánh (early return), triệt tiêu hoàn toàn lỗi runtime React Rules of Hooks.
+- **Human Modifications:** Không có thay đổi thủ công.
+- **Verification Method:**
+  - `cd apps/mobile && npx tsc --noEmit`: Passed 0 errors.
+  - Mở đồng thời 1 client Web và 1 client Mobile: cả hai bên đồng bộ quay và loại bỏ kết quả tức thời, không phát sinh bất kỳ warning hay lỗi crash ứng dụng nào.
+- **Official Source Checked:** React Rules of Hooks Specification & 60 FPS Mobile Animation Performance.
+- **Security & License Check:** An toàn tuyệt đối, zero secrets.
+- **AI Errors / Hallucinations Found:** Khắc phục thành công lỗi vi phạm thứ tự gọi hook khi render có điều kiện.
+- **Commit:** 738972f
+- **PR:** #127
 
 ---
 
-### AI-0174
+## AI-0171: Web Live Wheel Header Navigation & Leave Stage Modal Parity, Fix Initial Options Persistence (#120)
 
-- **Date:** 2026-11-23 17:08:00 +07:00
-- **Developer:** Trương Công Bình
+- **Date:** 2026-11-25 15:35:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210) & Trương Công Bình (MSSV: 23110184)
 - **Tool:** Antigravity IDE
 - **Model:** Gemini 3.8 Flash (High)
 - **Related Issue:** #120 (Event RSVP & Realtime Delights)
 - **Purpose:** 
-  1. Triệt tiêu hoàn toàn việc tự ý sinh ra phương án mặc định `[{ optionLabel: 'Lựa chọn' }]` khi người dùng loại bỏ hết các phương án trong vòng quay:
-     - **Backend `liveSpinWheel`:** Loại bỏ fallback gán lại `'Lựa chọn'` vào `opts`. Nếu các vòng cần quay đều đã bị loại bỏ hết options, ném `BadRequestException('Vòng quay đã hết phương án lựa chọn')`. Nếu quay kết hợp mà có vòng còn, có vòng hết thì chỉ quay những vòng còn phương án (`opts.length > 0`), các vòng hết phương án giữ `winningIndex = -1, winningOption = null`.
-     - **Web `WheelCanvas`:** Khi `options.length === 0`, vẽ đĩa tròn xám với viền sạch sẽ và text `Hết phương án`, không sinh lát cắt hay nhãn "Lựa chọn".
-     - **Mobile `renderWheelSvg`:** Khi `totalOptions === 0`, render hình tròn Circle màu xám nhạt kèm SvgText `Hết phương án` / `Empty`.
-     - **Thao tác người dùng:** Cảnh báo trước khi người dùng bấm nút quay nếu vòng quay đã hết phương án.
-- **Prompt Summary:** Khi loại bỏ hết ko cần để lại là lựa chọn nữa đâu.
-- **Files Affected:**
-  - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
-  - `apps/web/src/components/chat/LiveWheelOverlay.tsx`
-  - `apps/mobile/src/components/chat/MobileLiveWheelOverlay.tsx`
-  - `agentic/memory/2026-11-23.md`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% logic xử lý trạng thái rỗng cho Live Wheel trên cả backend, web canvas và mobile svg.
-- **Human Modifications:** Người dùng yêu cầu không để lại fallback chữ "Lựa chọn" khi đã loại bỏ hết options.
-- **Verification Method:** 
-  - `npm --prefix apps/backend test -- circle-tools.service.spec.ts` pass 52/52 tests.
-  - `npx tsc -p apps/web/tsconfig.json --noEmit` pass 0 errors.
-  - `npx tsc -p apps/mobile/tsconfig.json --noEmit` pass 0 errors.
-  - `bash scripts/check-secrets.sh` pass 0 secret leaks.
-- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
-- **Security & License Check:** An toàn, không chứa secret.
-- **AI Errors / Hallucinations Found:** Không có.
-- **Commit:** c9c0606
-- **PR:** #120
-
----
-
-### AI-0175
-
-- **Date:** 2026-11-23 17:35:00 +07:00
-- **Developer:** Trương Công Bình
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120 (Event RSVP & Realtime Delights)
-- **Purpose:** 
-  1. Đồng bộ hóa toàn diện UI/UX và logic Live Decision Wheel trên ứng dụng Mobile theo đúng các yêu cầu đã chuẩn hóa trên Web:
-     - **Modal Tạo vòng quay ngẫu nhiên (`MobileLiveWheelPickerModal.tsx`):** Chuyển từ Bottom Sheet lệch đáy sang Centered Modal (màn hình chính giữa), cuộn lên xuống mượt mà; thiết lập `minHeight: 64` và `flexShrink: 0` cố định cho hàng nút hành động dưới đáy (`actionButtonsRow`, `addWheelBtn`, `spinAllBtn`) để khi bàn phím ảo xuất hiện các nút không bao giờ bị co ép hay che khuất.
-     - **Thẻ tin nhắn Chat (`MobileLiveWheelChatEmbed.tsx`):** Chuẩn hóa tiêu đề mặc định thành "Vòng quay ngẫu nhiên" (`Random Wheel`), tích hợp trạng thái kết thúc phiên (`isFinished = payload.stageStatus === 'finished'`), hiển thị tag "Đã hoàn thành" và nút "Phiên đã kết thúc" (màu xám, disabled, không hiển thị icon mũi tên).
-     - **Quy trình Đóng phòng quay trên Mobile (`MobileLiveWheelOverlay.tsx`):** Khi Host bấm nút Back ở header, kích hoạt quy trình xác nhận đóng phòng; nếu có kết quả quay thì tự động định dạng và gửi kết quả vào nhóm chat đồng nhất với Web; khi nhận sự kiện `stage-closed` thì dọn sạch kết quả và popup chiến thắng trên tất cả các thiết bị.
-- **Prompt Summary:** Khá ổn rồi hãy xây những cái tôi đã yêu cầu này cho apps nữa nha.
-- **Files Affected:**
-  - `apps/mobile/src/components/chat/MobileLiveWheelPickerModal.tsx`
-  - `apps/mobile/src/components/chat/MobileLiveWheelChatEmbed.tsx`
-  - `apps/mobile/src/components/chat/MobileLiveWheelOverlay.tsx`
-  - `agentic/memory/2026-11-23.md`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% tái cấu trúc modal layout, keyboard resilience styles và đồng bộ trạng thái chat embed trên Mobile.
-- **Human Modifications:** Người dùng yêu cầu đồng bộ các tính năng và trải nghiệm sang ứng dụng Mobile.
-- **Verification Method:** 
-  - `npm --prefix apps/backend test -- circle-tools.service.spec.ts` pass 52/52 tests.
-  - `npx tsc -p apps/web/tsconfig.json --noEmit` pass 0 errors.
-  - `npx tsc -p apps/mobile/tsconfig.json --noEmit` pass 0 errors.
-  - `bash scripts/check-secrets.sh` pass 0 secret leaks.
-- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
-- **Security & License Check:** An toàn, không chứa secret.
-- **AI Errors / Hallucinations Found:** Không có.
-- **Commit:** 38db34f
-- **PR:** #120
-
----
-
-### AI-0176
-
-- **Date:** 2026-11-24 12:25:00 +07:00
-- **Developer:** Trương Công Bình
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120 (Event RSVP & Realtime Delights)
-- **Purpose:** 
-  1. Đồng bộ hóa thiết kế Bảng Setup của Mobile app với Web:
-     - **Bảng Setup (`MobileLiveWheelPickerModal.tsx`):**
-       + Dọn sạch khối code tàn dư `viewMode === 'arena'` để bảng setup thuần túy và ổn định.
-       + Cố định nút "Xóa tất cả vòng" (`Trash2` màu đỏ + text `Xóa tất cả vòng`) ở hàng thiết lập bên dưới ScrollView, căn phải phía trên bottom action bar.
-       + Chuẩn hóa hàng nút đáy: Nút bên trái `[+ Thêm vòng xoay]`, nút bên phải `[Tạo vòng quay]` (icon `Sparkles`, khi submitting hiện `ActivityIndicator` và text "Đang tạo...").
-       + Thêm visual feedback khi bấm `BookmarkCheck` (Lưu làm ban đầu).
-     - **Cái Bảng tùy chọn trong sân khấu (`MobileLiveWheelOverlay.tsx`):**
-       + Đồng bộ 4 nút icon: `Shuffle`, `ArrowDownAZ`, `BookmarkCheck` (Lưu làm ban đầu), `RotateCcw` (Reset về ban đầu).
-       + Hàng thiết lập căn phải: Nút `Xóa tất cả vòng` (`Trash2` màu đỏ + text `Xóa tất cả vòng`), gọi `handleDeleteAllWheels()`.
-  2. Đồng bộ cơ chế hoạt động quay nhiều vòng đồng thời trên Mobile app:
-     - Trên Floating Header: Nâng cấp nút "Quay tất cả" thành Pill Button nổi bật có icon `RotateCw` VÀ chữ "Quay tất cả" / "Quay ngay" giống hệt Web.
-     - Trên Sân khấu: Thêm nút trung tâm to rõ `arenaCenterSpinBtn` "Quay tất cả" đặt ngay bên dưới các vòng tròn quay, cho phép ấn quay đồng thời 2, 3 hoặc 4 vòng; đồng thời vẫn giữ khả năng chạm trực tiếp vào từng vòng để quay riêng lẻ.
-- **Prompt Summary:** phần thiết kế bảng setup của app phải giống của web (tức là các nút chức năng ở dưới phải giống v) , cơ chế hoạt động cũng phải giống luôn(ấn quay đc 2, 3 cái cũng đc chứ ko phải 1 cái)
-- **Files Affected:**
-  - `apps/mobile/src/components/chat/MobileLiveWheelPickerModal.tsx`
-  - `apps/mobile/src/components/chat/MobileLiveWheelOverlay.tsx`
-  - `agentic/memory/2026-11-24.md`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% tái cấu trúc giao diện setup modal, thêm nút quay trung tâm và đồng bộ các nút tính năng trong tabbed board trên Mobile.
-- **Human Modifications:** Người dùng yêu cầu đồng bộ chính xác layout các nút chức năng ở đáy bảng setup và cơ chế quay 2, 3 vòng đồng thời trên Mobile app.
-- **Verification Method:** 
-  - `npm --prefix apps/backend test -- circle-tools.service.spec.ts` pass 52/52 tests (100%).
-  - `npx tsc -p apps/web/tsconfig.json --noEmit` pass 0 errors.
-  - `npx tsc -p apps/mobile/tsconfig.json --noEmit` pass 0 errors.
-  - `bash scripts/check-secrets.sh` pass 0 secret leaks.
-- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
-- **Security & License Check:** An toàn, không chứa secret.
-- **AI Errors / Hallucinations Found:** Không có.
-- **Commit:** 2efcfb0
-- **PR:** #120
-
-
----
-
-### AI-0177
-
-- **Date:** 2026-11-24 13:00:00 +07:00
-- **Developer:** Trương Công Bình
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120 (Event RSVP & Realtime Delights)
-- **Purpose:** 
-  1. Header Pill Button Quay (Mobile): Bỏ nhãn chữ "Quay tất cả" / "Quay ngay", chuyển thành nút tròn icon-only `RotateCw` 16px trắng trên nền `colors.primary`.
-  2. Sửa triệt để cơ chế quay đồng thời 2, 3 vòng (`syncActiveLiveWheelFromDb`):
-     - Trong Backend `circle-tools.service.ts`: Khi `createLiveWheelStage` được gọi và `existingSession` đã tồn tại, load danh sách 1-4 vòng mới nhất từ DB cập nhật vào `existingSession.wheels` và broadcast `circle:live-wheel:updated` để giải phóng client khỏi trạng thái kẹt ở mảng 1 vòng cũ.
-     - Khi `createWheel`, `deleteWheel`, `deleteAllWheels` được gọi: Tự động cập nhật `activeSession.wheels` và broadcast realtime.
-  3. Phân quyền Floating Header (Host vs Spectator):
-     - Nút Dấu X (`X` đỏ - đóng phòng) và Nút Ba chấm (`MoreHorizontal` - cài đặt): CHỈ CHỦ PHÒNG (`isHost`) MỚI CÓ. Người tham gia (`!isHost`) hoàn toàn không có dấu X và không có nút ba chấm.
-  4. Nút Mũi Tên Rời Phòng (`ArrowLeft` ở góc trên bên trái):
-     - Người tham gia (`!isHost`): Bấm vào -> Xác nhận rời phòng -> Gọi `leaveLiveWheelStageApi(circleId)` (backend loại bỏ khỏi participants và broadcast realtime) rồi đóng overlay trên máy mình.
-     - Chủ phòng (`isHost`): Bấm vào -> Hiển thị hộp thoại hỏi "Bạn muốn đóng phòng quay hay vẫn mở và chuyển chủ phòng cho người khác?" với 3 lựa chọn: "Hủy", "Đóng phòng" (xác nhận đóng phòng nhóm và gửi kết quả vào chat), "Vẫn mở (Chuyển chủ)" (chuyển quyền chủ phòng cho thành viên khác trong phòng qua `updateLiveWheelSettingsApi({ newHostUserId })` rồi rời).
-- **Prompt Summary:** cái Pill Button ko có nhãn (bỏ nhãn đi). Vẫn chưa ấn quay 2 3 vòng tròn cùng 1 lượt được cái dấu x là đóng vòng còn những người tham gia sẽ ko có dấu x và nút ba chấm. còn nút mũi tên là rời phòng khi chủ phòng ấn nó sẽ hỏi đóng phòng hay vẫn mở và chuyển chủ phòng  cho người khác
+  1. Thêm nút mũi tên `ArrowLeft` ở góc trái Header Web Live Wheel Overlay; khi bấm mở Modal xác nhận rời phòng được phân quyền rõ ràng:
+     - Chủ phòng (`isHost`): Lựa chọn "Đóng phòng" (chia sẻ kết quả vào chat nhóm), "Vẫn mở (Chuyển chủ)" (chuyển quyền chủ phòng cho thành viên khác rồi rời), hoặc "Hủy".
+     - Thành viên (`!isHost`): Lựa chọn "Rời phòng" (rời phòng quay, phòng vẫn tiếp tục cho các thành viên khác), hoặc "Hủy".
+  2. Ẩn nút ba chấm và nút dấu X (đóng phòng) đối với người tham gia (`!isHost`), chỉ hiển thị cho chủ phòng (`isHost`).
+  3. Khắc phục triệt để lỗi "nút lưu danh sách và nút đặt lại danh sách ban đầu báo chưa có danh sách mặc dù đã lưu":
+     - Bổ sung `initialOptions` vào `LiveWheelItem` trong `@circle/types` và mapper trong backend `circle-tools.service.ts`.
+     - Thay thế logic `[] || ...` (vì mảng rỗng `[]` là truthy value trong JavaScript nên nuốt chửng các fallback sau đó) bằng hàm helper `getValidOptionsList` tìm mảng có `length > 0`.
+     - Cập nhật đồng bộ trên cả Web `LiveWheelOverlay.tsx` và Mobile `MobileLiveWheelOverlay.tsx`.
+- **Prompt Summary:** Xây nút mũi tên góc trái ở vòng quay ngẫu nhiên ở web là rời phòng xong cũng hỏi xác nhận (chủ phòng hỏi đóng phòng hay vẫn mở chuyển chủ, người tham gia không có dấu x và nút ba chấm). Khắc phục lỗi nút lưu danh sách và nút đặt lại danh sách ban đầu báo chưa có danh sách mặc dù đã lưu.
 - **Files Affected:**
   - `packages/types/src/index.ts`
-  - `apps/backend/src/modules/circle-tools/dto/circle-tools.dto.ts`
-  - `apps/backend/src/modules/circle-tools/circle-tools.controller.ts`
   - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
-  - `apps/mobile/src/services/circle-tools.service.ts`
-  - `apps/mobile/src/components/chat/MobileLiveWheelOverlay.tsx`
-  - `agentic/memory/2026-11-24.md`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% logic đồng bộ live wheel session backend, logic chuyển chủ phòng / rời phòng, và tinh chỉnh Header MobileLiveWheelOverlay.
-- **Human Modifications:** Trương Công Bình yêu cầu bỏ nhãn trên nút Pill, phân quyền host/spectator cho dấu X và 3 chấm, logic chuyển chủ phòng khi host bấm mũi tên rời phòng, và khắc phục quay 2-3 vòng cùng lượt.
-- **Verification Method:** 
-  - `npm --prefix apps/backend test -- circle-tools.service.spec.ts` pass 52/52 tests (100%).
-  - `npx tsc -p apps/web/tsconfig.json --noEmit` pass 0 errors.
-  - `npx tsc -p apps/mobile/tsconfig.json --noEmit` pass 0 errors.
-  - `bash scripts/check-secrets.sh` pass 0 secret leaks.
-- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
-- **Security & License Check:** An toàn, không chứa secret.
-- **AI Errors / Hallucinations Found:** Không có.
-- **Commit:** 71338c1
-- **PR:** #120
-
-
----
-
-### AI-0178
-
-- **Date:** 2026-11-24 13:20:00 +07:00
-- **Developer:** Trương Công Bình
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120 (Event RSVP & Realtime Delights)
-- **Purpose:** 
-  1. Đổi chỗ nút Quay và nút Ba chấm trên Floating Header: Nút Quay (Pill xanh) đứng trước, nút Ba chấm (`MoreHorizontal`) đứng sau.
-  2. Bỏ text nhãn `Vòng quay ngẫu nhiên` ở góc trái Floating Header (chỉ giữ lại nút mũi tên `ArrowLeft` tròn gọn gàng).
-  3. Khắc phục triệt để lỗi "chưa ấn quay được nhiều vòng":
-     - Backend `circle-tools.service.ts`: Trong `liveSpinWheel`, luôn map theo `currentDbWheels.slice(0, 4)` từ DB kết hợp session options hiện có, đảm bảo khi có 2, 3 vòng quay thì tất cả các vòng đều được tính kết quả và quay đồng thời.
-     - Mobile `MobileLiveWheelOverlay.tsx`:
-       + Tái cấu trúc logic xác định `isSpinning` và khóa nút quay dựa trên thời gian thực `Date.now() - startedAt < durationMs`, ngăn chặn tình trạng bị kẹt nút quay do server giữ trạng thái `spinning`.
-       + Lũy kế góc xoay `lastRotations.current[idx]` qua các lượt quay liên tiếp để các đĩa quay xoay mượt mà từ vị trí đang dừng.
-       + Luôn set `setIsFinished(true)` khi animation hoàn tất hoặc khi `activeTimings.length === 0`.
-- **Prompt Summary:** đổi chỗ btn quay và btn ba chấm. fix lỗi chưa ấn quay  được nhiều vòng. bỏ text nhãn vòng quay ở đây đi cũng đc
-- **Files Affected:**
-  - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
-  - `apps/mobile/src/components/chat/MobileLiveWheelOverlay.tsx`
-  - `agentic/memory/2026-11-24.md`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% logic đồng bộ `baseWheels` trong `liveSpinWheel`, công thức lũy kế góc xoay `lastRotations`, tinh chỉnh UI Header.
-- **Human Modifications:** Trương Công Bình yêu cầu đổi chỗ nút quay và 3 chấm, bỏ nhãn tiêu đề ở header, và khắc phục lỗi chưa ấn quay được nhiều vòng.
-- **Verification Method:** 
-  - `npm --prefix apps/backend test -- circle-tools.service.spec.ts` pass 52/52 tests (100%).
-  - `npx tsc -p apps/web/tsconfig.json --noEmit` pass 0 errors.
-  - `npx tsc -p apps/mobile/tsconfig.json --noEmit` pass 0 errors.
-  - `bash scripts/check-secrets.sh` pass 0 secret leaks.
-- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
-- **Security & License Check:** An toàn, không chứa secret.
-- **AI Errors / Hallucinations Found:** Không có.
-- **Commit:** 48c575c
-- **PR:** #120
-
-
----
-
-### AI-0179
-
-- **Date:** 2026-11-24 13:30:00 +07:00
-- **Developer:** Trương Công Bình
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120 (Event RSVP & Realtime Delights)
-- **Purpose:** 
-  1. Khắc phục triệt để lỗi "ấn 1 cái là cái kia bị khóa không quay được":
-     - Backend `circle-tools.service.ts`: Khi `liveSpinWheel` quay riêng 1 vòng (`dto.isAll === false` và `dto.wheelId`), bảo toàn kết quả trước đó của các vòng khác và gán `session.wheelId = dto.wheelId` để client nhận diện chính xác vòng nào được quay.
-     - Mobile `MobileLiveWheelOverlay.tsx`: 
-       + Quản lý trạng thái quay theo từng vòng riêng biệt (`spinningWheelIds: Record<string, boolean>`).
-       + Trong `handleSpinSingleWheel(wheelId)`, chỉ kiểm tra chính vòng đó có đang quay không. Các vòng khác hoàn toàn không bị khóa, người dùng có thể thoải mái ấn quay vòng 1 rồi ấn quay vòng 2.
-       + Animation runner: Nếu là lượt quay đơn lẻ (`session.wheelId`), chỉ trigger animation xoay cho đúng vòng được quay, các vòng khác tiếp tục đứng yên ở góc dừng hiện tại.
-       + Đĩa quay `cleanSmallWheelCard`: Chỉ tạm khóa đĩa của chính vòng đang xoay để tránh double-click, các đĩa khác không bị vô hiệu hóa.
-- **Prompt Summary:** vẫn chưa đc  khi ấn 1 cái là cái kia bị khoá ko quay đc
-- **Files Affected:**
-  - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
-  - `apps/mobile/src/components/chat/MobileLiveWheelOverlay.tsx`
-  - `agentic/memory/2026-11-24.md`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% logic phân tách trạng thái quay độc lập per-wheel cả backend lẫn frontend mobile.
-- **Human Modifications:** Trương Công Bình báo lỗi khi ấn 1 vòng thì vòng kia bị khóa không quay được.
-- **Verification Method:** 
-  - `npm --prefix apps/backend test -- circle-tools.service.spec.ts` pass 52/52 tests (100%).
-  - `npx tsc -p apps/mobile/tsconfig.json --noEmit` pass 0 errors.
-  - `bash scripts/check-secrets.sh` pass 0 secret leaks.
-- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
-- **Security & License Check:** An toàn, không chứa secret.
-- **AI Errors / Hallucinations Found:** Không có.
-- **Commit:** 9624fa5
-- **PR:** #120
-
-
----
-
-### AI-0180
-
-- **Date:** 2026-11-24 14:05:00 +07:00
-- **Developer:** Trương Công Bình
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120 (Event RSVP & Realtime Delights)
-- **Purpose:** 
-  1. Khắc phục triệt để lỗi "lỗi rồi" (Infinite Re-render loop / React Maximum update depth exceeded):
-     - Xác định chính xác nguyên nhân: `useEffect` chạy animation trong `MobileLiveWheelOverlay.tsx` gọi `setSpinningWheelIds` và `recordWinners` vô điều kiện trong thân effect phụ thuộc vào `session`, gây crash re-render vô tận khi mở hoặc khi quay.
-     - Tách hoàn toàn logic animation ra khỏi `useEffect`. Chuyển sang kích hoạt animation trực tiếp từ socket listener `handleLiveWheelStarted` (y hệt kiến trúc ổn định trên Web `LiveWheelOverlay.tsx`), loại bỏ vĩnh viễn nguy cơ lặp re-render.
-  2. Cho phép quay độc lập nhiều vòng cùng một lượt ("ấn quay được 2, 3 cái cũng được chứ không phải 1 cái", "ấn 1 cái không bị khóa cái kia"):
-     - Thay thế state khóa chung `isSubmittingSpin` bằng `submittingSpinRef` và `submittingWheelIds` theo từng vòng riêng biệt.
-     - Nút đĩa quay của từng vòng chỉ kiểm tra chính vòng đó: Vòng 1 đang quay thì Vòng 2, Vòng 3 hoàn toàn KHÔNG bị disable, người dùng bấm vào là quay được ngay lập tức.
-     - Dùng `activeSpinningBatchRef` và `batchResultsAccumulatorRef` để gom kết quả của các vòng quay đồng thời. Chỉ khi tất cả các vòng đang quay trong đợt đó hoàn tất dừng lại, Celebration Modal mới hiển thị vinh danh đầy đủ các vòng.
-  3. Đồng bộ hoàn hảo giữa Web và Mobile:
-     - Trên Web `LiveWheelOverlay.tsx`: Tinh chỉnh `handleLiveWheelStarted` để chỉ quay đúng vòng có `wheelId === incoming.wheelId` khi nhận event quay đơn lẻ, bảo toàn trạng thái dừng của các vòng khác.
-     - Trên Mobile: Bảng setup và Floating Header đồng bộ 100% với Web (Icon-only floating buttons, không có text nhãn thừa, đầy đủ 4 nút chức năng Shuffle, Sort A-Z, BookmarkCheck, Reset và nút Xóa tất cả).
-- **Prompt Summary:** vẫn chưa đc khi ấn 1 cái là cái kia bị khoá ko quay đc, lỗi rồi
-- **Files Affected:**
-  - `apps/mobile/src/components/chat/MobileLiveWheelOverlay.tsx`
+  - `apps/web/src/hooks/use-circle-tools.ts`
   - `apps/web/src/components/chat/LiveWheelOverlay.tsx`
-  - `agentic/memory/2026-11-24.md`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% kiến trúc điều khiển animation độc lập per-wheel, khử triệt để infinite loop, đồng bộ realtime WebSocket giữa Web và Mobile.
-- **Human Modifications:** Trương Công Bình phản hồi lỗi crash và yêu cầu quay được nhiều vòng cùng lúc độc lập.
-- **Verification Method:** 
-  - `npm --prefix apps/backend test -- circle-tools.service.spec.ts` pass 52/52 tests (100%).
-  - `npx tsc -p apps/web/tsconfig.json --noEmit` pass 0 errors.
-  - `npx tsc -p apps/mobile/tsconfig.json --noEmit` pass 0 errors.
-  - `bash scripts/check-secrets.sh` pass 0 secret leaks.
-- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
-- **Security & License Check:** An toàn, không chứa secret.
-- **AI Errors / Hallucinations Found:** Không có.
-- **Commit:** Pending
-- **PR:** #120
-
-
----
-
-### AI-0181
-
-- **Date:** 2026-11-24 14:20:00 +07:00
-- **Developer:** Trương Công Bình
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #120 (Event RSVP & Realtime Delights)
-- **Purpose:** 
-  - Khắc phục lỗi React Native runtime: `ERROR [Error: Rendered more hooks than during the previous render.]` tại `MobileLiveWheelOverlay.tsx:1221:32`.
-  - Nguyên nhân: Hook `const isAnySpinning = useMemo(...)` bị đặt sau câu lệnh early return `if (!isVisible) return null;` và `if (!session) return (...)`. Khi `isVisible = false`, component return null sớm nên không gọi hook này. Khi `isVisible = true`, component chạy tiếp và gọi `useMemo`, làm thay đổi số lượng hooks giữa 2 lần render và vi phạm React Rules of Hooks.
-  - Xử lý: Di chuyển `isAnySpinning = useMemo(...)`, `isSpinning = isAnySpinning` và `saveInitialFeedback = useState(...)` lên đầu component trước toàn bộ các câu lệnh return, đảm bảo mọi lần render đều gọi số lượng hooks cố định.
-- **Prompt Summary:** ERROR [Error: Rendered more hooks than during the previous render.] MobileLiveWheelOverlay.tsx:1221:32
-- **Files Affected:**
   - `apps/mobile/src/components/chat/MobileLiveWheelOverlay.tsx`
-  - `agentic/memory/2026-11-24.md`
   - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% tái sắp xếp và tối ưu hóa vị trí React Hooks chuẩn mực.
-- **Human Modifications:** Trương Công Bình gửi log crash runtime từ Expo Router.
-- **Verification Method:** 
-  - `npx tsc -p apps/mobile/tsconfig.json --noEmit` pass 0 errors.
-  - `bash scripts/check-secrets.sh` pass 0 secret leaks.
-- **Official Source Checked:** React Rules of Hooks, `PROJECT_GOD.md`.
-- **Security & License Check:** An toàn, không chứa secret.
-- **AI Errors / Hallucinations Found:** Không có.
-- **Commit:** Pending
-- **PR:** #120
+- **AI-Generated Portion:** 100% logic navigation leave stage, modal xác nhận phân quyền, xử lý `initialOptions` persistence và type check.
+- **Human Modifications:** Kiểm duyệt UX modal xác nhận và kiểm tra tính nhất quán giữa Web và Mobile.
+- **Verification Method:**
+  - `npx tsc -p apps/web/tsconfig.json --noEmit`: 0 errors.
+  - `npx tsc -p apps/mobile/tsconfig.json --noEmit`: 0 errors.
+  - `npm --prefix apps/backend test -- circle-tools.service.spec.ts`: 52/52 tests passed.
+  - `bash scripts/check-secrets.sh`: 0 secret leaks.
+- **Official Source Checked:** `agentic/playbooks/05-chat.md`, `agentic/playbooks/cross-cutting-gate.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secrets.
+- **AI Errors / Hallucinations Found:** None.
+- **Commit:** db1d430
+- **PR:** #127

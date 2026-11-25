@@ -1053,6 +1053,15 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
           color: PASTEL_WHEEL_COLORS[idx % PASTEL_WHEEL_COLORS.length]!,
         })),
       });
+      setSession((prev) => {
+        if (!prev || !prev.wheels) return prev;
+        return {
+          ...prev,
+          wheels: prev.wheels.map((w) =>
+            w.wheelId === wheelId ? { ...w, initialOptions: lines } : w
+          ),
+        };
+      });
       setSaveInitialFeedback((prev) => ({ ...prev, [wheelId]: true }));
       setTimeout(() => {
         setSaveInitialFeedback((prev) => ({ ...prev, [wheelId]: false }));
@@ -1069,8 +1078,11 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
     if (!canEdit || isSpinning) return;
     const target = wheelsList.find((w) => w.wheelId === wheelId);
     if (!target) return;
-    const initialText = target.options.map((o) => o.optionLabel).join('\n');
-    setWheelEditingState((prev) => ({ ...prev, [wheelId]: initialText }));
+    const initialList =
+      Array.isArray((target as any).initialOptions) && (target as any).initialOptions.length > 0
+        ? (target as any).initialOptions
+        : target.options.map((o) => o.optionLabel);
+    setWheelEditingState((prev) => ({ ...prev, [wheelId]: initialList.join('\n') }));
   };
 
   const handleDeleteAllWheels = () => {

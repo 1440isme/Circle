@@ -28,6 +28,8 @@ import {
   LogOut,
   ShieldCheck,
   MoreHorizontal,
+  ArrowLeft,
+  AlertTriangle,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguageStore } from '../../stores/language.store';
@@ -47,6 +49,7 @@ import {
   useUpdateLiveWheelSettingsMutation,
   useLiveSpinWheelMutation,
   useLiveRemoveResultMutation,
+  useLeaveLiveWheelMutation,
 } from '../../hooks/use-circle-tools';
 import { DecisionWheelEntity, SpinWheelResult, LiveWheelSession, LiveWheelItem } from '@circle/types';
 
@@ -309,17 +312,51 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
     });
   }, [rawWheels]);
 
+  // Ref lưu tạm danh sách ban đầu để phản hồi tức thì và không bị mất khi DB chưa invalidate xong
+  const savedInitialOptionsRef = useRef<Record<string, string[]>>({});
+
+  // Helper tìm danh sách options hợp lệ đầu tiên có ít nhất 1 phần tử
+  const getValidOptionsList = (candidates: (string[] | undefined | null)[]): string[] => {
+    for (const c of candidates) {
+      if (Array.isArray(c) && c.length > 0) {
+        return c;
+      }
+    }
+    return [];
+  };
+
   // Nguồn chân lý duy nhất cho danh sách các vòng: Ưu tiên liveSession.wheels để đồng bộ 100% giữa các máy
   const liveWheels: LiveWheelItem[] = useMemo(() => {
     if (liveSession?.wheels && liveSession.wheels.length > 0) {
-      return liveSession.wheels.slice(0, 4);
+      return liveSession.wheels.slice(0, 4).map((lw) => {
+        const dbW = wheels.find((w) => w.id === lw.wheelId);
+        const initialOptions = getValidOptionsList([
+          savedInitialOptionsRef.current[lw.wheelId],
+          lw.initialOptions,
+          dbW?.initialOptions,
+          dbW?.options?.map((o: any) => o.optionLabel),
+          lw.options?.map((o: any) => o.optionLabel),
+        ]);
+        return {
+          ...lw,
+          initialOptions,
+        };
+      });
     }
     if (liveSession?.options && liveSession.options.length > 0) {
+      const dbW = wheels[0];
+      const initialOptions = getValidOptionsList([
+        savedInitialOptionsRef.current[liveSession.wheelId || 'single-wheel'],
+        dbW?.initialOptions,
+        dbW?.options?.map((o: any) => o.optionLabel),
+        liveSession.options?.map((o: any) => o.optionLabel),
+      ]);
       return [
         {
           wheelId: liveSession.wheelId || 'single-wheel',
           wheelTitle: liveSession.wheelTitle || (locale === 'vi' ? 'Vòng 1' : 'Wheel 1'),
           options: liveSession.options,
+          initialOptions,
           winningIndex: liveSession.winningIndex ?? -1,
           winningOption: liveSession.winningOption ?? null,
         },
@@ -328,6 +365,11 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
     return wheels.map((w, idx) => ({
       wheelId: w.id,
       wheelTitle: w.title || `Vòng ${idx + 1}`,
+      initialOptions: getValidOptionsList([
+        savedInitialOptionsRef.current[w.id],
+        w.initialOptions,
+        w.options?.map((o: any) => o.optionLabel),
+      ]),
       options: (w.options || []).map((o, oIdx) => ({
         optionLabel: o.optionLabel,
         color: o.color || PASTEL_WHEEL_COLORS[oIdx % PASTEL_WHEEL_COLORS.length]!,
@@ -348,6 +390,10 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
   const closeLiveMutation = useCloseLiveWheelMutation(circleId);
   const dismissCelebrationMutation = useDismissLiveCelebrationMutation(circleId);
   const updateSettingsMutation = useUpdateLiveWheelSettingsMutation(circleId);
+  const leaveLiveMutation = useLeaveLiveWheelMutation(circleId);
+
+  // Modal xác nhận rời phòng khi bấm nút mũi tên ở góc trái
+  const [confirmLeaveModalOpen, setConfirmLeaveModalOpen] = useState(false);
 
   // Phân quyền: Chủ phòng vs Người xem & Quyền chỉnh sửa
   const isHost = Boolean(!liveSession?.creatorId || liveSession.creatorId === user?.id);
@@ -356,6 +402,44 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
     liveSession?.participants?.some((p) => p.userId === user?.id) || isHost
   );
   const canEdit = isHost || allowMembersToEdit;
+
+  // Xử lý nút mũi tên góc trái rời phòng
+  const handleArrowLeaveStage = () => {
+    setConfirmLeaveModalOpen(true);
+  };
+
+  const handleConfirmLeaveAsSpectator = async () => {
+    try {
+      await leaveLiveMutation.mutateAsync();
+      setIsVisible(false);
+      setConfirmLeaveModalOpen(false);
+    } catch {
+      setIsVisible(false);
+      setConfirmLeaveModalOpen(false);
+    }
+  };
+
+  const handleTransferHostAndLeave = async () => {
+    const otherParticipant = (liveSession?.participants || []).find((p) => p.userId !== user?.id);
+    if (!otherParticipant) {
+      alert(
+        locale === 'vi'
+          ? 'Phòng hiện không có thành viên khác tham gia để chuyển quyền. Bạn có thể chọn Đóng phòng.'
+          : 'No other participant available to transfer host. You can choose Close stage.'
+      );
+      return;
+    }
+    try {
+      await updateSettingsMutation.mutateAsync({
+        newHostUserId: otherParticipant.userId,
+      });
+      await leaveLiveMutation.mutateAsync();
+      setIsVisible(false);
+      setConfirmLeaveModalOpen(false);
+    } catch (err: any) {
+      alert(err?.response?.data?.message || err?.message || 'Không thể chuyển quyền chủ phòng');
+    }
+  };
 
   const handleToggleAllowEdit = async () => {
     if (!isHost) return;
@@ -641,6 +725,17 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
       .filter((l) => l.length > 0);
     if (lines.length < 1) return;
 
+    savedInitialOptionsRef.current[activeWheel.wheelId] = lines;
+    setLiveSession((prev) => {
+      if (!prev || !prev.wheels) return prev;
+      return {
+        ...prev,
+        wheels: prev.wheels.map((w) =>
+          w.wheelId === activeWheel.wheelId ? { ...w, initialOptions: lines } : w
+        ),
+      };
+    });
+
     updateWheelMutation.mutate(
       {
         wheelId: activeWheel.wheelId,
@@ -660,13 +755,21 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
   // Reset options to initial
   const handleReset = () => {
     if (!activeWheel || isAnySpinning) return;
-    const initial = (activeWheel as any).initialOptions || [];
-    if (initial.length >= 2) {
-      if (window.confirm(t.luckyWheel.confirmReset)) {
+    const dbWheel = wheels.find((w) => w.id === activeWheel.wheelId);
+    const initial = getValidOptionsList([
+      savedInitialOptionsRef.current[activeWheel.wheelId],
+      activeWheel.initialOptions,
+      (activeWheel as any).initialOptions,
+      dbWheel?.initialOptions,
+      activeWheel.options?.map((o) => o.optionLabel),
+      (dbWheel?.options || []).map((o: any) => o.optionLabel),
+    ]);
+    if (initial.length >= 1) {
+      if (window.confirm(t.luckyWheel.confirmReset || 'Bạn có chắc chắn muốn đặt lại danh sách ban đầu?')) {
         handleOptionsChange(initial.join('\n'));
       }
     } else {
-      alert(t.luckyWheel.resetEmptyWarning);
+      alert(t.luckyWheel.resetEmptyWarning || 'Chưa có danh sách mặc định nào được lưu');
     }
   };
 
@@ -1166,8 +1269,17 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
       {/* TOP HEADER / BAR (FULL WIDTH EDGE-TO-EDGE) */}
       {/* ============================================================== */}
       <header className="w-full z-20 flex items-center justify-between px-4 sm:px-6 md:px-8 py-3 bg-white/90 dark:bg-circle-dark-surface/90 backdrop-blur-xl border-b border-circle-hairline/80 dark:border-white/10 shrink-0">
-        {/* Nhãn Tiêu đề Vòng quay ngẫu nhiên */}
+        {/* Nhãn Tiêu đề Vòng quay ngẫu nhiên & Nút mũi tên rời phòng */}
         <div className="flex items-center gap-2.5 shrink-0">
+          <button
+            type="button"
+            onClick={handleArrowLeaveStage}
+            className="inline-flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-full backdrop-blur-xl bg-white/92 dark:bg-circle-dark-surface/90 border border-circle-hairline/80 dark:border-white/12 shadow-xs hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text transition-all active:scale-95 cursor-pointer shrink-0"
+            title={locale === 'vi' ? 'Rời phòng quay' : 'Leave stage'}
+            aria-label={locale === 'vi' ? 'Rời phòng quay' : 'Leave stage'}
+          >
+            <ArrowLeft className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+          </button>
           <div className="w-8 h-8 rounded-full bg-circle-primary/15 text-circle-primary flex items-center justify-center">
             <Compass className="w-4.5 h-4.5" />
           </div>
@@ -1273,85 +1385,85 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
             )}
           </div>
 
-          {/* Cụm Action Buttons Cố định (Menu 3 chấm & Đóng/Rời phòng) - Tách khỏi overflow-x để popup không bị cắt xén */}
-          <div className="flex items-center gap-2 shrink-0">
-            {/* Menu 3 Chấm: Gom Quyền chỉnh sửa & Âm thanh */}
-            <div className="relative shrink-0" ref={moreMenuRef}>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsMoreMenuOpen((prev) => !prev);
-                }}
-                className={`inline-flex items-center justify-center w-9 h-9 rounded-full backdrop-blur-xl border shadow-sm transition-all active:scale-95 cursor-pointer shrink-0 ${
-                  isMoreMenuOpen
-                    ? 'bg-circle-primary text-white border-circle-primary shadow-md'
-                    : 'bg-white/92 dark:bg-circle-dark-surface/90 border-circle-hairline/80 dark:border-white/12 hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text'
-                }`}
-                title={locale === 'vi' ? 'Cài đặt phòng quay (Âm thanh & Quyền sửa)' : 'Stage settings'}
-                aria-label={locale === 'vi' ? 'Cài đặt phòng quay' : 'Stage settings'}
-              >
-                <MoreHorizontal className="w-4.5 h-4.5" />
-              </button>
-
-              {/* Dropdown Menu kính mờ */}
-              {isMoreMenuOpen && (
-                <div 
-                  onClick={(e) => e.stopPropagation()}
-                  className="absolute right-0 top-11 z-50 w-72 rounded-2xl bg-white/95 dark:bg-circle-dark-surface/95 backdrop-blur-2xl border border-circle-hairline/80 dark:border-white/15 shadow-2xl p-2.5 flex flex-col gap-1.5 animate-scaleUp"
+          {/* Cụm Action Buttons Cố định (Chỉ hiển thị cho Chủ phòng: Menu 3 chấm & Đóng phòng X) */}
+          {isHost && (
+            <div className="flex items-center gap-2 shrink-0">
+              {/* Menu 3 Chấm: Gom Quyền chỉnh sửa & Âm thanh */}
+              <div className="relative shrink-0" ref={moreMenuRef}>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsMoreMenuOpen((prev) => !prev);
+                  }}
+                  className={`inline-flex items-center justify-center w-9 h-9 rounded-full backdrop-blur-xl border shadow-sm transition-all active:scale-95 cursor-pointer shrink-0 ${
+                    isMoreMenuOpen
+                      ? 'bg-circle-primary text-white border-circle-primary shadow-md'
+                      : 'bg-white/92 dark:bg-circle-dark-surface/90 border-circle-hairline/80 dark:border-white/12 hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text'
+                  }`}
+                  title={locale === 'vi' ? 'Cài đặt phòng quay (Âm thanh & Quyền sửa)' : 'Stage settings'}
+                  aria-label={locale === 'vi' ? 'Cài đặt phòng quay' : 'Stage settings'}
                 >
-                  {/* Header Menu */}
-                  <div className="px-2.5 py-1 text-[11px] font-bold text-circle-slate dark:text-circle-dark-muted uppercase tracking-wider">
-                    {locale === 'vi' ? 'Cài đặt phòng quay' : 'Stage settings'}
-                  </div>
+                  <MoreHorizontal className="w-4.5 h-4.5" />
+                </button>
 
-                  {/* 1. ÂM THANH */}
-                  <button
-                    type="button"
-                    onClick={handleToggleSound}
-                    disabled={isAnySpinning}
-                    className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors cursor-pointer group text-left disabled:opacity-50"
+                {/* Dropdown Menu kính mờ */}
+                {isMoreMenuOpen && (
+                  <div 
+                    onClick={(e) => e.stopPropagation()}
+                    className="absolute right-0 top-11 z-50 w-72 rounded-2xl bg-white/95 dark:bg-circle-dark-surface/95 backdrop-blur-2xl border border-circle-hairline/80 dark:border-white/15 shadow-2xl p-2.5 flex flex-col gap-1.5 animate-scaleUp"
                   >
-                    <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                    {/* Header Menu */}
+                    <div className="px-2.5 py-1 text-[11px] font-bold text-circle-slate dark:text-circle-dark-muted uppercase tracking-wider">
+                      {locale === 'vi' ? 'Cài đặt phòng quay' : 'Stage settings'}
+                    </div>
+
+                    {/* 1. ÂM THANH */}
+                    <button
+                      type="button"
+                      onClick={handleToggleSound}
+                      disabled={isAnySpinning}
+                      className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors cursor-pointer group text-left disabled:opacity-50"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                        <div
+                          className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                            currentSoundEnabled
+                              ? 'bg-circle-primary/10 text-circle-primary dark:text-circle-dark-primary'
+                              : 'bg-slate-100 dark:bg-white/5 text-circle-slate dark:text-circle-dark-muted'
+                          }`}
+                        >
+                          {currentSoundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text truncate">
+                            {t.luckyWheel.soundSetting}
+                          </p>
+                          <p className="text-[10px] text-circle-slate dark:text-circle-dark-muted truncate">
+                            {currentSoundEnabled
+                              ? (locale === 'vi' ? 'Bật âm thanh quay & chúc mừng' : 'Sound enabled')
+                              : (locale === 'vi' ? 'Đang tắt âm thanh' : 'Muted')}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Toggle Switch */}
                       <div
-                        className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                          currentSoundEnabled
-                            ? 'bg-circle-primary/10 text-circle-primary dark:text-circle-dark-primary'
-                            : 'bg-slate-100 dark:bg-white/5 text-circle-slate dark:text-circle-dark-muted'
+                        className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-colors shrink-0 ${
+                          currentSoundEnabled ? 'bg-circle-primary' : 'bg-slate-300 dark:bg-white/20'
                         }`}
                       >
-                        {currentSoundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+                        <div
+                          className={`w-4 h-4 rounded-full bg-white shadow-xs transform transition-transform ${
+                            currentSoundEnabled ? 'translate-x-4' : 'translate-x-0'
+                          }`}
+                        />
                       </div>
-                      <div className="min-w-0">
-                        <p className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text truncate">
-                          {t.luckyWheel.soundSetting}
-                        </p>
-                        <p className="text-[10px] text-circle-slate dark:text-circle-dark-muted truncate">
-                          {currentSoundEnabled
-                            ? (locale === 'vi' ? 'Bật âm thanh quay & chúc mừng' : 'Sound enabled')
-                            : (locale === 'vi' ? 'Đang tắt âm thanh' : 'Muted')}
-                        </p>
-                      </div>
-                    </div>
+                    </button>
 
-                    {/* Toggle Switch */}
-                    <div
-                      className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-colors shrink-0 ${
-                        currentSoundEnabled ? 'bg-circle-primary' : 'bg-slate-300 dark:bg-white/20'
-                      }`}
-                    >
-                      <div
-                        className={`w-4 h-4 rounded-full bg-white shadow-xs transform transition-transform ${
-                          currentSoundEnabled ? 'translate-x-4' : 'translate-x-0'
-                        }`}
-                      />
-                    </div>
-                  </button>
+                    <div className="h-px bg-circle-hairline/80 dark:bg-white/10 my-0.5" />
 
-                  <div className="h-px bg-circle-hairline/80 dark:bg-white/10 my-0.5" />
-
-                  {/* 2. QUYỀN CHỈNH SỬA */}
-                  {isHost ? (
+                    {/* 2. QUYỀN CHỈNH SỬA */}
                     <button
                       type="button"
                       onClick={handleToggleAllowEdit}
@@ -1393,49 +1505,11 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
                         />
                       </div>
                     </button>
-                  ) : (
-                    <div className="w-full flex items-center justify-between p-2 rounded-xl bg-circle-canvas/60 dark:bg-circle-dark-canvas/60 border border-circle-hairline/80 dark:border-white/10 select-none">
-                      <div className="flex items-center gap-2.5 min-w-0 pr-2">
-                        <div
-                          className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                            allowMembersToEdit
-                              ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
-                              : 'bg-slate-200 dark:bg-white/10 text-circle-slate dark:text-circle-dark-muted'
-                          }`}
-                        >
-                          {allowMembersToEdit ? <LockOpen className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text truncate">
-                            {t.luckyWheel.allowEdit || (locale === 'vi' ? 'Quyền chỉnh sửa' : 'Edit permission')}
-                          </p>
-                          <p className="text-[10px] text-circle-slate dark:text-circle-dark-muted truncate">
-                            {allowMembersToEdit
-                              ? (locale === 'vi' ? 'Được phép sửa nội dung' : 'Can edit content')
-                              : (locale === 'vi' ? 'Chế độ chỉ xem' : 'View only mode')}
-                          </p>
-                        </div>
-                      </div>
+                  </div>
+                )}
+              </div>
 
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
-                          allowMembersToEdit
-                            ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-                            : 'bg-slate-200 dark:bg-white/10 text-circle-slate dark:text-circle-dark-muted'
-                        }`}
-                      >
-                        {allowMembersToEdit
-                          ? (locale === 'vi' ? 'Được sửa' : 'Can edit')
-                          : (locale === 'vi' ? 'Chỉ xem' : 'View only')}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Nút Đóng phòng (Chủ phòng) HOẶC Rời phòng (Người xem) */}
-            {isHost ? (
+              {/* Nút Đóng phòng (Chủ phòng) */}
               <button
                 type="button"
                 onClick={handleCloseStage}
@@ -1446,18 +1520,8 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
                 <X className="w-4 h-4" />
                 <span>{t.luckyWheel.closeStage || (locale === 'vi' ? 'Đóng phòng' : 'Close')}</span>
               </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setIsVisible(false)}
-                className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-full backdrop-blur-xl bg-white/92 dark:bg-circle-dark-surface/90 border border-circle-hairline/80 dark:border-white/12 shadow-sm hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text font-bold text-xs sm:text-sm transition-all active:scale-95 cursor-pointer shrink-0"
-                title={t.luckyWheel.leaveStage || (locale === 'vi' ? 'Rời phòng quay trực tiếp (phòng vẫn tiếp tục cho các thành viên khác)' : 'Leave room')}
-              >
-                <LogOut className="w-4 h-4 text-circle-slate dark:text-circle-dark-muted" />
-                <span>{t.luckyWheel.leaveStage || (locale === 'vi' ? 'Rời phòng' : 'Leave')}</span>
-              </button>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </header>
 
@@ -2326,6 +2390,91 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal Xác nhận Rời phòng / Đóng phòng khi bấm Mũi tên góc trái */}
+      {confirmLeaveModalOpen && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn"
+          onClick={() => setConfirmLeaveModalOpen(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-3xl bg-white dark:bg-circle-dark-surface border border-circle-hairline dark:border-white/10 shadow-2xl p-6 flex flex-col gap-5 animate-scaleUp"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <h3 className="text-base font-bold text-circle-charcoal dark:text-circle-dark-text">
+                  {locale === 'vi' ? 'Rời phòng quay trực tiếp' : 'Leave live stage'}
+                </h3>
+                <p className="text-xs text-circle-slate dark:text-circle-dark-muted">
+                  {isHost
+                    ? (locale === 'vi'
+                        ? 'Bạn hiện là chủ phòng quay này.'
+                        : 'You are the host of this live stage.')
+                    : (locale === 'vi'
+                        ? 'Xác nhận rời khỏi phòng quay trực tiếp.'
+                        : 'Confirm leaving the live stage.')}
+                </p>
+              </div>
+            </div>
+
+            <p className="text-xs sm:text-sm text-circle-charcoal dark:text-circle-dark-text/90 leading-relaxed">
+              {isHost
+                ? (locale === 'vi'
+                    ? 'Bạn muốn đóng luôn phòng quay (kết quả sẽ được chia sẻ vào khung chat nhóm), hay vẫn giữ phòng mở và chuyển quyền chủ phòng cho người khác?'
+                    : 'Do you want to close the stage (results will be shared in group chat), or keep it open and transfer host to another member?')
+                : (locale === 'vi'
+                    ? 'Bạn có chắc chắn muốn rời khỏi phòng quay không? Các thành viên khác vẫn sẽ tiếp tục tham gia bình thường.'
+                    : 'Are you sure you want to leave the live stage? Other members will continue.')}
+            </p>
+
+            <div className="flex flex-col sm:flex-row-reverse items-stretch sm:items-center gap-2.5 pt-2">
+              {isHost ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setConfirmLeaveModalOpen(false);
+                      await handleCloseStage();
+                    }}
+                    disabled={closeLiveMutation.isPending}
+                    className="flex-1 py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs sm:text-sm shadow-sm transition-all active:scale-95 cursor-pointer disabled:opacity-50 text-center"
+                  >
+                    {locale === 'vi' ? 'Đóng phòng' : 'Close stage'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleTransferHostAndLeave}
+                    disabled={leaveLiveMutation.isPending}
+                    className="flex-1 py-2.5 px-4 rounded-xl bg-circle-primary hover:bg-circle-sage text-white font-bold text-xs sm:text-sm shadow-sm transition-all active:scale-95 cursor-pointer disabled:opacity-50 text-center"
+                  >
+                    {locale === 'vi' ? 'Vẫn mở (Chuyển chủ)' : 'Keep open (Transfer)'}
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleConfirmLeaveAsSpectator}
+                  disabled={leaveLiveMutation.isPending}
+                  className="flex-1 py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs sm:text-sm shadow-sm transition-all active:scale-95 cursor-pointer disabled:opacity-50 text-center"
+                >
+                  {locale === 'vi' ? 'Rời phòng' : 'Leave'}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setConfirmLeaveModalOpen(false)}
+                className="py-2.5 px-4 rounded-xl border border-circle-hairline dark:border-white/10 hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text font-bold text-xs sm:text-sm transition-all active:scale-95 cursor-pointer text-center"
+              >
+                {locale === 'vi' ? 'Hủy' : 'Cancel'}
+              </button>
+            </div>
           </div>
         </div>
       )}

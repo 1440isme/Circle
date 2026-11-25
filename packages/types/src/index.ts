@@ -839,6 +839,7 @@ export interface LiveWheelItem {
   options: { optionLabel: string; color: string }[];
   winningIndex: number;
   winningOption?: { optionLabel: string; color: string } | null;
+  initialOptions?: string[];
 }
 
 export interface LiveWheelSession {

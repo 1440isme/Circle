@@ -11,6 +11,7 @@ import {
   UpdateWheelInput,
   LiveWheelSession,
   LiveSpinWheelInput,
+  UpdateLiveWheelSettingsInput,
   WheelFolderEntity,
   CreateWheelFolderInput,
   UpdateWheelFolderInput,
@@ -513,7 +514,7 @@ export function useLiveRemoveResultMutation(circleId: string) {
 export function useUpdateLiveWheelSettingsMutation(circleId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { allowMembersToEdit: boolean }) => {
+    mutationFn: async (input: UpdateLiveWheelSettingsInput) => {
       const res = await apiRequest<LiveWheelSession>(`/circles/${circleId}/wheels/live-settings`, {
         method: 'PATCH',
         body: JSON.stringify(input),
@@ -553,6 +554,24 @@ export function useDismissLiveCelebrationMutation(circleId: string) {
         },
       );
       return res.data;
+    },
+  });
+}
+
+export function useLeaveLiveWheelMutation(circleId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest<{ success: boolean }>(
+        `/circles/${circleId}/wheels/live-leave`,
+        {
+          method: 'POST',
+        },
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tools', 'wheels', 'live-active', circleId] });
     },
   });
 }

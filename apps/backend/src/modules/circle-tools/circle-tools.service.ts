@@ -645,13 +645,16 @@ export class CircleToolsService {
     // Đồng bộ tức thì lên Live Wheel Session nếu nhóm đang mở phòng quay
     const liveSession = this.activeLiveWheelSessions.get(circleId);
     if (liveSession && liveSession.wheels) {
-      const targetWheel = liveSession.wheels.find((w) => w.wheelId === wheelId);
-      if (targetWheel && updatedWheel.options) {
-        targetWheel.options = updatedWheel.options.map((o, idx) => ({
-          optionLabel: o.optionLabel,
-          color: o.color || PASTEL_WHEEL_COLORS[idx % PASTEL_WHEEL_COLORS.length]!,
-        }));
+      const targetWheel = liveSession.wheels.find((w) => w.wheelId === wheelId || w.wheelId === actualWheelId);
+      if (targetWheel) {
+        if (updatedWheel.options && updatedWheel.options.length > 0) {
+          targetWheel.options = updatedWheel.options.map((o, idx) => ({
+            optionLabel: o.optionLabel,
+            color: o.color || PASTEL_WHEEL_COLORS[idx % PASTEL_WHEEL_COLORS.length]!,
+          }));
+        }
         if (dto.title) targetWheel.wheelTitle = dto.title.trim();
+        if (dto.initialOptions !== undefined) targetWheel.initialOptions = dto.initialOptions;
         if (this.chatGateway) {
           this.chatGateway.broadcastLiveWheelUpdated(circleId, liveSession);
         }
@@ -994,6 +997,7 @@ export class CircleToolsService {
             const wheelsList: LiveWheelItem[] = fourWheels.map((w, idx) => ({
               wheelId: w.id,
               wheelTitle: w.title || `Vòng ${idx + 1}`,
+              initialOptions: (w.initialOptions as string[]) || (Array.isArray(w.options) ? w.options.map((o) => o.optionLabel) : []),
               options:
                 w.options.length >= 2
                   ? w.options.map((o, oIdx) => ({
@@ -1123,6 +1127,7 @@ export class CircleToolsService {
     liveSession.wheels = fourWheels.map((w, idx) => ({
       wheelId: w.id,
       wheelTitle: w.title || `Vòng ${idx + 1}`,
+      initialOptions: (w.initialOptions as string[]) || (Array.isArray(w.options) ? w.options.map((o) => o.optionLabel) : []),
       options:
         w.options && Array.isArray(w.options) && w.options.length >= 2
           ? w.options.map((o, oIdx) => ({
@@ -1172,6 +1177,7 @@ export class CircleToolsService {
     const wheelsList: LiveWheelItem[] = fourWheels.map((w, idx) => ({
       wheelId: w.id,
       wheelTitle: w.title || `Vòng ${idx + 1}`,
+      initialOptions: (w.initialOptions as string[]) || (Array.isArray(w.options) ? w.options.map((o) => o.optionLabel) : []),
       options:
         w.options && Array.isArray(w.options) && w.options.length >= 2
           ? w.options.map((o, oIdx) => ({
@@ -1558,6 +1564,7 @@ export class CircleToolsService {
         return {
           wheelId: dbW.id,
           wheelTitle: dbW.title || `Vòng ${idx + 1}`,
+          initialOptions: prevW.initialOptions || (dbW.initialOptions as string[]) || [],
           options: prevW.options,
           winningIndex: -1,
           winningOption: null,
@@ -1577,6 +1584,7 @@ export class CircleToolsService {
       return {
         wheelId: dbW.id,
         wheelTitle: dbW.title || `Vòng ${idx + 1}`,
+        initialOptions: (dbW.initialOptions as string[]) || [],
         options: opts,
         winningIndex: -1,
         winningOption: null,
