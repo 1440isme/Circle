@@ -35,6 +35,7 @@ import { MessageList } from './MessageList';
 import { ChatComposer } from './ChatComposer';
 import { PinnedMessagesModal } from './PinnedMessagesModal';
 import { ClearChatModal } from './ClearChatModal';
+import { LiveWheelOverlay } from './LiveWheelOverlay';
 
 interface ChannelChatViewProps {
   channelId: string;
@@ -706,6 +707,9 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
         onConfirm={handleClearChat}
         isLoading={clearChatMutation.isPending}
       />
+
+      {/* Live Spin Wheel Group Activity Overlay */}
+      <LiveWheelOverlay circleId={circleId} />
 
       {/* Realtime Incoming Call Ringing Dialog */}
       {incomingCallAlert && (

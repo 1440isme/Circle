@@ -13,6 +13,7 @@ import {
   X,
   Repeat,
   FileText,
+  ArrowRight,
 } from 'lucide-react';
 import { CalendarEventMessagePayload, EventRsvpStatus } from '@circle/types';
 import { useCircleStore } from '../../stores/circle.store';
@@ -252,6 +253,8 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
 
   const isCancelled = Boolean(eventData.isCancelled || eventData.action === 'CANCELLED' || eventData.action === 'DELETED');
   const isStarted = new Date(eventData.startTime) <= new Date();
+  const isEnded = Boolean(eventData.endTime && new Date(eventData.endTime).getTime() < Date.now());
+  const isHappeningNow = !isCancelled && !isEnded && isStarted;
   const isLocked = isStarted || isCancelled;
 
   const myRsvp = useMemo(() => {
@@ -417,17 +420,11 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
     eventData.eventTitle,
   ]);
 
-  // "và chỉ cần thẻ sự kiện khi tạo hoặc nhắc thui" (chỉ có tạo với nhắc lại mới hiện thẻ banner mà)
-  // Chỉ có Tạo mới (CREATED) và Nhắc hẹn (REMINDER) mới hiển thị thẻ banner đầy đủ.
-  // Khi Sửa (UPDATED), Hủy (CANCELLED), hoặc xóa: KHÔNG BAO GIỜ hiện thẻ banner, chỉ hiện dòng thông báo hệ thống dạng text.
-  const effectiveAction = eventData.latestAction || eventData.action;
+  // Chỉ có thẻ gốc (CREATED / REMINDER) mới hiển thị thẻ sự kiện.
+  // Các thông báo hệ thống phụ (UPDATED, CANCELLED, DELETED) sẽ chỉ hiển thị dòng text thông báo duy nhất.
   const showCard =
-    (effectiveAction === 'CREATED' || effectiveAction === 'REMINDER') &&
-    eventData.action !== 'UPDATED' &&
-    eventData.latestAction !== 'UPDATED' &&
-    eventData.action !== 'CANCELLED' &&
-    eventData.latestAction !== 'CANCELLED' &&
-    !eventData.isCancelled;
+    (eventData.action === 'CREATED' || eventData.action === 'REMINDER') &&
+    eventData.latestAction !== 'DELETED';
 
   if (!showCard) {
     return (
@@ -448,7 +445,7 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
   }
 
   return (
-    <div className="w-full max-w-lg mx-auto transition-all select-text">
+    <div className="w-full max-w-sm mx-auto transition-all select-text">
       {/* 1. Dòng thông báo hệ thống nằm phía trên thẻ (System Message động) */}
       <div className="flex items-center justify-center gap-1.5 text-xs text-circle-slate dark:text-circle-dark-muted mb-2 font-medium select-none">
         <span>{systemMessageText}</span>
@@ -462,227 +459,214 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
         </button>
       </div>
 
-      {/* Container thẻ sự kiện */}
-      <div className="rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface shadow-md overflow-hidden transition-all">
-        {/* 2. Ảnh bìa (Màu chủ đạo của Web: Emerald/Sage Brand Gradient) & Tên sự kiện */}
-        <div className="relative overflow-hidden bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 px-5 pt-5 pb-5 text-white select-none">
-          {/* Decorative Pattern & Glass elements */}
-          <div className="pointer-events-none absolute -right-6 -bottom-6 h-32 w-32 rounded-full bg-white/10 blur-xl" />
-          <div className="pointer-events-none absolute -left-6 -top-6 h-28 w-28 rounded-full bg-white/10 blur-lg" />
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:16px_16px] opacity-10" />
-
-          <div className="relative z-10 space-y-3">
-            <div className="flex items-start justify-end gap-3">
-              <button
-                type="button"
-                onClick={handleOpenCalendar}
-                title={t.collab.viewOnCalendar}
-                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold text-white bg-white/20 hover:bg-white/30 backdrop-blur-md border border-white/25 transition-all shrink-0 cursor-pointer active:scale-95 shadow-xs"
-              >
-                <CalendarDays className="h-3.5 w-3.5 text-emerald-100" />
-                <span>Xem lịch</span>
-              </button>
+      {/* Thẻ sự kiện - Cấu trúc và Style chuẩn theo Live Wheel Embed Card */}
+      <div className="w-full rounded-3xl border border-emerald-500/30 bg-gradient-to-br from-white via-emerald-50/30 to-teal-50/20 dark:from-circle-dark-surface dark:via-circle-dark-card dark:to-emerald-950/20 p-4 shadow-lg shadow-emerald-500/5 transition-all hover:border-emerald-500/50">
+        {/* Top Header Card */}
+        <div className="flex items-center justify-between pb-3 border-b border-circle-hairline/80 dark:border-circle-dark-hairline gap-2">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+              <CalendarDays className="w-4.5 h-4.5" />
             </div>
+            <h4
+              title={eventData.eventTitle}
+              className={`text-sm font-black text-circle-charcoal dark:text-circle-dark-text tracking-tight truncate ${
+                isCancelled ? 'line-through text-rose-500/80 dark:text-rose-400/80' : ''
+              }`}
+            >
+              {eventData.eventTitle}
+            </h4>
+          </div>
 
-            <div className="space-y-1">
-              <h3
-                className={`text-lg sm:text-xl font-bold tracking-tight text-white leading-snug break-words drop-shadow-xs ${
-                  isCancelled ? 'line-through opacity-70 text-rose-200' : ''
-                }`}
-              >
-                {eventData.eventTitle}
-              </h3>
-              {isCancelled && (
-                <span className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-500/80 text-white border border-rose-400 shadow-xs">
-                  Sự kiện đã bị hủy
-                </span>
-              )}
+          {isCancelled ? (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 shrink-0">
+              {locale === 'vi' ? 'Đã hủy' : 'Cancelled'}
+            </span>
+          ) : isEnded ? (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-circle-wash dark:bg-circle-dark-wash text-circle-slate dark:text-circle-dark-muted border border-circle-hairline/60 shrink-0">
+              {locale === 'vi' ? 'Đã kết thúc' : 'Ended'}
+            </span>
+          ) : isHappeningNow ? (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 shrink-0">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span>{locale === 'vi' ? 'Đang diễn ra' : 'HAPPENING'}</span>
+            </span>
+          ) : (
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-teal-500/10 text-teal-700 dark:text-teal-300 border border-teal-500/20 shrink-0">
+              {locale === 'vi' ? 'Sắp tới' : 'Upcoming'}
+            </span>
+          )}
+        </div>
+
+        {/* Creator Info */}
+        <div className="py-3 flex items-center gap-2.5">
+          {senderAvatarUrl || (eventData as any)?.creatorAvatar ? (
+            <img
+              src={senderAvatarUrl || (eventData as any)?.creatorAvatar || ''}
+              alt={senderDisplayName || eventData.creatorName}
+              className="w-9 h-9 rounded-full object-cover border border-circle-hairline dark:border-circle-dark-hairline shrink-0"
+            />
+          ) : (
+            <div className="w-9 h-9 rounded-full bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 flex items-center justify-center font-bold text-xs shrink-0">
+              {(senderDisplayName || eventData.creatorName)?.charAt(0) || 'U'}
+            </div>
+          )}
+          <div className="flex-1 min-w-0">
+            <p className="text-xs text-circle-slate dark:text-circle-dark-muted leading-tight truncate">
+              <span className="font-bold text-circle-charcoal dark:text-circle-dark-text">
+                {senderDisplayName || eventData.creatorName}
+              </span>{' '}
+              {locale === 'vi' ? 'đã tạo lịch hẹn cho nhóm' : 'created an event for the circle'}
+            </p>
+            <div className="flex items-center gap-1.5 mt-1 text-[11px] text-circle-slate dark:text-circle-dark-muted font-medium">
+              <Users className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+              <span>
+                {yesUsers.length > 0
+                  ? locale === 'vi'
+                    ? `${yesUsers.length} người tham gia`
+                    : `${yesUsers.length} participants`
+                  : locale === 'vi'
+                  ? 'Chưa có người tham gia'
+                  : 'No participants yet'}
+              </span>
             </div>
           </div>
         </div>
 
-        {/* 3. Chi tiết: Địa điểm, Thời gian, Lặp lại, Nhắc hẹn, Ghi chú (Chỉ giữ lại icon, bỏ các chữ nhãn) */}
-        <div className="p-4 sm:p-5 space-y-3 text-xs text-circle-charcoal dark:text-circle-dark-text">
-          {/* Thời gian bắt đầu – kết thúc (chỉ có icon Clock + thông tin thời gian) */}
-          <div className="flex items-center gap-2.5 text-xs text-circle-charcoal dark:text-circle-dark-text">
-            <Clock className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-            {isSameDay ? (
-              <span className="font-semibold text-sm">
-                {startTimeStr}{endTimeStr ? ` – ${endTimeStr}` : ''} • {weekdayStr}, {formatDateOnly(startDate)}
-              </span>
-            ) : (
-              <div className="font-semibold text-sm flex items-center gap-1.5 flex-wrap">
-                <span>{startTimeStr}, {formatDateOnly(startDate)}</span>
-                <span className="text-circle-slate dark:text-circle-dark-muted font-bold">➔</span>
-                <span>{endTimeStr || ''}, {formatDateOnly(endDate!)}</span>
-                <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
-                  {durationDays} ngày
-                </span>
-              </div>
-            )}
+        {/* Event Details: Time & Location & Note */}
+        <div className="pb-3 space-y-2">
+          {/* Thời gian */}
+          <div className="flex items-center gap-2 text-xs text-circle-charcoal dark:text-circle-dark-text bg-white/70 dark:bg-circle-dark-surface/70 rounded-2xl p-2.5 border border-circle-hairline/60 dark:border-circle-dark-hairline/60">
+            <Clock className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            <span className="font-semibold text-xs leading-tight">
+              {isSameDay ? (
+                `${startTimeStr}${endTimeStr ? ` – ${endTimeStr}` : ''} • ${weekdayStr}, ${formatDateOnly(startDate)}`
+              ) : (
+                `${startTimeStr}, ${formatDateOnly(startDate)} ➔ ${endTimeStr || ''}, ${formatDateOnly(endDate!)} (${durationDays} ngày)`
+              )}
+            </span>
           </div>
 
-          {/* Địa điểm (chỉ có icon MapPin + địa điểm) */}
+          {/* Địa điểm nếu có */}
           {eventData.location && (
-            <div className="flex items-center gap-2.5 text-xs text-circle-charcoal dark:text-circle-dark-text">
-              <MapPin className="h-4 w-4 text-rose-500 shrink-0" />
-              <div className="min-w-0 flex-1 font-semibold text-sm break-words">
+            <div className="flex items-center gap-2 text-xs text-circle-charcoal dark:text-circle-dark-text bg-white/70 dark:bg-circle-dark-surface/70 rounded-2xl p-2.5 border border-circle-hairline/60 dark:border-circle-dark-hairline/60">
+              <MapPin className="w-4 h-4 text-rose-500 shrink-0" />
+              <div className="min-w-0 flex-1 font-semibold text-xs leading-tight truncate">
                 <EventLocationDisplay
                   location={eventData.location}
-                  className="text-sm font-semibold"
+                  className="text-xs font-semibold"
                   iconClassName="hidden"
                 />
               </div>
             </div>
           )}
 
-          {/* Lặp lại (chỉ có icon Repeat + tóm tắt lặp) */}
+          {/* Lặp lại nếu có */}
           {isRecurring && recurrenceSummaryText && (
-            <div className="flex items-center gap-2.5 text-xs text-circle-charcoal dark:text-circle-dark-text">
-              <Repeat className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-              <span className="font-semibold text-sm">{recurrenceSummaryText}</span>
+            <div className="flex items-center gap-2 text-xs text-circle-charcoal dark:text-circle-dark-text bg-white/70 dark:bg-circle-dark-surface/70 rounded-2xl p-2 border border-circle-hairline/60 dark:border-circle-dark-hairline/60">
+              <Repeat className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <span className="font-medium text-[11px] leading-tight truncate">{recurrenceSummaryText}</span>
             </div>
           )}
 
-          {/* Nhắc hẹn nếu có (chỉ có icon Bell + thời gian nhắc) */}
-          {reminderStr && (
-            <div className="flex items-center gap-2.5 text-xs text-amber-600 dark:text-amber-400 font-semibold">
-              <Bell className="h-4 w-4 shrink-0" />
-              <span>{reminderStr}</span>
-            </div>
-          )}
-
-          {/* Ghi chú được tách thành một vùng riêng (chỉ có icon FileText + nội dung ghi chú) */}
+          {/* Ghi chú nếu có */}
           {cleanDesc && (
-            <div className="rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas/60 p-3 flex items-start gap-2.5 mt-1.5">
-              <FileText className="h-4 w-4 text-circle-slate dark:text-circle-dark-muted shrink-0 mt-0.5" />
-              <p className="text-xs text-circle-charcoal dark:text-circle-dark-text leading-relaxed whitespace-pre-wrap flex-1 italic">
-                {cleanDesc}
-              </p>
+            <div className="flex items-start gap-2 text-xs text-circle-slate dark:text-circle-dark-muted bg-white/70 dark:bg-circle-dark-surface/70 rounded-2xl p-2.5 border border-circle-hairline/60 dark:border-circle-dark-hairline/60">
+              <FileText className="w-3.5 h-3.5 text-circle-slate dark:text-circle-dark-muted shrink-0 mt-0.5" />
+              <p className="text-[11px] leading-relaxed line-clamp-2 italic">{cleanDesc}</p>
             </div>
           )}
         </div>
 
-        {/* 4. Số thành viên xác nhận & Ba nút phản hồi (Tham gia, Có thể, Từ chối) */}
-        <div className="px-4 sm:px-5 py-4 bg-circle-canvas/50 dark:bg-circle-dark-canvas/50 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60 space-y-3.5">
-          {/* Header: Số thành viên xác nhận */}
-          <div className="flex items-center justify-between text-xs">
-            <div className="flex items-center gap-2">
-              <Users className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-              <span className="font-bold text-circle-charcoal dark:text-circle-dark-text">
-                {yesUsers.length} thành viên xác nhận
-              </span>
+        {/* Stack of Participants Avatars */}
+        {yesUsers.length > 0 && (
+          <div className="flex items-center gap-1.5 pb-3">
+            <div className="flex -space-x-2 overflow-hidden py-1">
+              {yesUsers.slice(0, 5).map((p, idx) => (
+                <div
+                  key={p.userId || idx}
+                  className="w-7 h-7 rounded-full border-2 border-white dark:border-circle-dark-surface bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center text-[10px] font-bold text-emerald-700 dark:text-emerald-300 overflow-hidden"
+                  title={p.displayName}
+                >
+                  {p.avatarUrl ? (
+                    <img src={p.avatarUrl} alt={p.displayName} className="w-full h-full object-cover" />
+                  ) : (
+                    p.displayName?.charAt(0) || 'U'
+                  )}
+                </div>
+              ))}
             </div>
-
-            {/* Circular avatars of confirmed attendees */}
-            {yesUsers.length > 0 && (
-              <div className="flex items-center -space-x-1.5 shrink-0 pl-2">
-                {yesUsers.slice(0, 5).map((u, idx) => {
-                  const isMe = u.userId === currentUserId;
-                  const name = isMe ? t.calls.youLabel : u.displayName;
-                  return (
-                    <div
-                      key={u.userId || idx}
-                      title={name}
-                      className="relative inline-flex h-6 w-6 items-center justify-center rounded-full ring-2 ring-white dark:ring-circle-dark-surface bg-circle-wash dark:bg-circle-dark-wash overflow-hidden shrink-0 shadow-xs"
-                    >
-                      {u.avatarUrl ? (
-                        <img
-                          src={u.avatarUrl}
-                          alt={name}
-                          className="h-full w-full rounded-full object-cover"
-                        />
-                      ) : (
-                        <span className="flex h-full w-full items-center justify-center rounded-full bg-circle-primary text-circle-charcoal text-[10px] font-bold">
-                          {name.charAt(0).toUpperCase()}
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
-                {yesUsers.length > 5 && (
-                  <span
-                    title={yesUsers.slice(5).map((u) => u.displayName).join(', ')}
-                    className="relative inline-flex h-6 w-6 items-center justify-center rounded-full bg-circle-charcoal/80 dark:bg-circle-slate text-white text-[9px] font-bold ring-2 ring-white dark:ring-circle-dark-surface shrink-0"
-                  >
-                    +{yesUsers.length - 5}
-                  </span>
-                )}
-              </div>
+            {yesUsers.length > 5 && (
+              <span className="text-[11px] font-semibold text-circle-slate dark:text-circle-dark-muted">
+                +{yesUsers.length - 5}
+              </span>
             )}
           </div>
+        )}
 
-          {/* Ba nút phản hồi: Tham gia, Có thể, Từ chối */}
-          <div className="grid grid-cols-3 gap-2">
-            {/* 1. Tham gia */}
+        {/* Quick RSVP 3-Option Buttons */}
+        {!isCancelled && !isStarted && (
+          <div className="grid grid-cols-3 gap-1.5 pb-3">
             <button
               type="button"
               disabled={isLocked || rsvpMutation.isPending}
               onClick={() => handleVoteOptionClick(EventRsvpStatus.YES)}
-              className={`flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                isLocked ? 'cursor-not-allowed opacity-60' : 'active:scale-95'
-              } ${
+              className={`flex items-center justify-center gap-1 py-1.5 px-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 myRsvp === EventRsvpStatus.YES
-                  ? 'bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-500/30'
-                  : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/20'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'bg-white/80 dark:bg-circle-dark-surface text-circle-charcoal dark:text-circle-dark-text border border-circle-hairline hover:bg-emerald-50 dark:hover:bg-emerald-950/20'
               }`}
             >
-              <Check className="h-4 w-4 shrink-0" />
-              <span>Tham gia</span>
-              <span className="text-[11px] opacity-80">({rsvps?.yesCount || 0})</span>
+              <Check className="h-3.5 w-3.5 shrink-0" />
+              <span>{locale === 'vi' ? 'Tham gia' : 'Yes'}</span>
+              <span className="text-[10px] opacity-75">({rsvps?.yesCount || 0})</span>
             </button>
-
-            {/* 2. Có thể */}
             <button
               type="button"
               disabled={isLocked || rsvpMutation.isPending}
               onClick={() => handleVoteOptionClick(EventRsvpStatus.MAYBE)}
-              className={`flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                isLocked ? 'cursor-not-allowed opacity-60' : 'active:scale-95'
-              } ${
+              className={`flex items-center justify-center gap-1 py-1.5 px-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 myRsvp === EventRsvpStatus.MAYBE
-                  ? 'bg-amber-600 text-white shadow-sm ring-2 ring-amber-500/30'
-                  : 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/30 hover:bg-amber-500/20'
+                  ? 'bg-amber-600 text-white shadow-xs'
+                  : 'bg-white/80 dark:bg-circle-dark-surface text-circle-charcoal dark:text-circle-dark-text border border-circle-hairline hover:bg-amber-50 dark:hover:bg-amber-950/20'
               }`}
             >
-              <HelpCircle className="h-4 w-4 shrink-0" />
-              <span>Có thể</span>
-              <span className="text-[11px] opacity-80">({rsvps?.maybeCount || 0})</span>
+              <HelpCircle className="h-3.5 w-3.5 shrink-0" />
+              <span>{locale === 'vi' ? 'Có thể' : 'Maybe'}</span>
+              <span className="text-[10px] opacity-75">({rsvps?.maybeCount || 0})</span>
             </button>
-
-            {/* 3. Từ chối */}
             <button
               type="button"
               disabled={isLocked || rsvpMutation.isPending}
               onClick={() => handleVoteOptionClick(EventRsvpStatus.NO)}
-              className={`flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                isLocked ? 'cursor-not-allowed opacity-60' : 'active:scale-95'
-              } ${
+              className={`flex items-center justify-center gap-1 py-1.5 px-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 myRsvp === EventRsvpStatus.NO
-                  ? 'bg-rose-600 text-white shadow-sm ring-2 ring-rose-500/30'
-                  : 'bg-rose-500/10 text-rose-700 dark:text-rose-300 border border-rose-500/30 hover:bg-rose-500/20'
+                  ? 'bg-rose-600 text-white shadow-xs'
+                  : 'bg-white/80 dark:bg-circle-dark-surface text-circle-charcoal dark:text-circle-dark-text border border-circle-hairline hover:bg-rose-50 dark:hover:bg-rose-950/20'
               }`}
             >
-              <X className="h-4 w-4 shrink-0" />
-              <span>Từ chối</span>
-              <span className="text-[11px] opacity-80">({rsvps?.noCount || 0})</span>
+              <X className="h-3.5 w-3.5 shrink-0" />
+              <span>{locale === 'vi' ? 'Từ chối' : 'No'}</span>
+              <span className="text-[10px] opacity-75">({rsvps?.noCount || 0})</span>
             </button>
           </div>
+        )}
 
-          {/* Locked / Notice banner */}
-          {isCancelled && (
-            <div className="flex items-center justify-center gap-1.5 text-xs text-rose-600 dark:text-rose-400 font-medium pt-1">
-              <Lock className="h-3.5 w-3.5" />
-              <span>{t.collab.eventCancelledBanner}</span>
-            </div>
-          )}
-          {!isCancelled && isStarted && (
-            <div className="flex items-center justify-center gap-1.5 text-xs text-circle-slate dark:text-circle-dark-muted font-medium pt-1">
-              <Lock className="h-3.5 w-3.5" />
-              <span>{t.collab.rsvpClosed}</span>
-            </div>
-          )}
-        </div>
+        {/* Action Button: Xem chi tiết lịch hẹn (chuẩn theo Live Wheel Embed) */}
+        {isCancelled ? (
+          <div className="w-full py-2.5 px-4 rounded-2xl bg-circle-wash dark:bg-circle-dark-wash text-circle-slate dark:text-circle-dark-muted font-bold text-xs sm:text-sm flex items-center justify-center gap-2 cursor-default border border-circle-hairline/80 dark:border-circle-dark-hairline">
+            <span>{locale === 'vi' ? 'Lịch hẹn đã bị hủy' : 'Event cancelled'}</span>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={handleOpenCalendar}
+            className="w-full py-2.5 px-4 rounded-2xl bg-circle-primary hover:bg-circle-primary/90 text-circle-charcoal dark:text-circle-dark-canvas font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md transition-all active:scale-[0.98] cursor-pointer"
+          >
+            <CalendarDays className="w-4 h-4" />
+            <span>{locale === 'vi' ? 'Xem chi tiết lịch hẹn' : 'View Event Details'}</span>
+            <ArrowRight className="w-4 h-4 ml-0.5" />
+          </button>
+        )}
       </div>
 
       {/* ===================================================================

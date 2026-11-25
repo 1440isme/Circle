@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { MessageEntity, MessageType, CalendarEventMessagePayload } from '@circle/types';
 import { CalendarEventChatEmbed } from './CalendarEventChatEmbed';
+import { LiveWheelChatEmbed } from './LiveWheelChatEmbed';
 import { PROMINENT_QUICK_EMOJIS } from '@circle/shared';
 import { useLanguageStore } from '../../stores/language.store';
 import { useCircleStore } from '../../stores/circle.store';
@@ -238,6 +239,13 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     } catch {}
   }
 
+  const isLiveWheel = Boolean(message.content?.startsWith('[LIVE_WHEEL]:'));
+  let liveWheelData: any = null;
+  if (isLiveWheel) {
+    try {
+      liveWheelData = JSON.parse(message.content!.replace('[LIVE_WHEEL]:', ''));
+    } catch {}
+  }
 
   const isRecalled = Boolean(message.deletedAt);
   const hasPreviousContent = Boolean(message.previousContent);
@@ -247,6 +255,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     !isCalendarEvent &&
     !isGroupPoll &&
     !isLocationPin &&
+    !isLiveWheel &&
     (hasPreviousContent ||
       (message.updatedAt &&
         message.sentAt &&
@@ -325,6 +334,18 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             isSenderMe={false}
           />
         </div>
+      </div>
+    );
+  }
+
+  if (isLiveWheel && liveWheelData) {
+    return (
+      <div id={`message-${message.id}`} className="w-full flex justify-center my-3 px-2">
+        <LiveWheelChatEmbed
+          payload={liveWheelData}
+          circleId={activeCircleId || ''}
+          isSenderMe={isSenderMe}
+        />
       </div>
     );
   }

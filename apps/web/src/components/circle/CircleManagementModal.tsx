@@ -43,12 +43,14 @@ import {
   ChevronDown,
   Trash2,
   Palette,
+  History,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useLanguageStore } from '@/stores/language.store';
 import { useCircleStore } from '@/stores/circle.store';
 import { useSoundStore } from '@/stores/sound.store';
 import { sendCircleThemeUpdate } from '@/lib/socket';
+import { searchPublicUsersApi } from '@/lib/auth';
 import {
   useCircleMembersQuery,
   useCircleJoinRequestsQuery,
@@ -59,12 +61,11 @@ import {
   useReviewJoinRequestMutation,
   useUpdateMemberNicknameMutation,
   useAddCircleMembersMutation,
-  useSelectableFriendsQuery,
   useDeleteCircleMutation,
   useCreateReportMutation,
 } from '@/hooks/use-circle-queries';
 import { useUploadMedia } from '@/hooks/use-upload-media';
-import { MemberRole } from '@circle/types';
+import { MemberRole, PublicUserEntity } from '@circle/types';
 import { MessageBubbleThemes, MessageTheme } from '@circle/shared';
 
 function getInitials(name: string): string {
@@ -254,7 +255,43 @@ export const CircleManagementModal: React.FC = () => {
   const circleId = activeCircle?.id || '';
 
   const { data: members = [], isLoading: isLoadingMembers } = useCircleMembersQuery(circleId);
-  const { data: selectableFriends = [], isLoading: isLoadingFriends } = useSelectableFriendsQuery();
+  const [addMemberSearchResults, setAddMemberSearchResults] = useState<PublicUserEntity[]>([]);
+  const [isSearchingAddMembers, setIsSearchingAddMembers] = useState(false);
+  const [addMemberRecentUsers, setAddMemberRecentUsers] = useState<PublicUserEntity[]>([]);
+  const addMemberSearchTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    if (isAddMemberOpen && typeof window !== 'undefined') {
+      try {
+        const raw = localStorage.getItem('circle_recent_user_searches');
+        setAddMemberRecentUsers(raw ? JSON.parse(raw) : []);
+      } catch {}
+    }
+  }, [isAddMemberOpen]);
+
+  useEffect(() => {
+    const q = friendSearch.trim();
+    if (!q) {
+      setAddMemberSearchResults([]);
+      setIsSearchingAddMembers(false);
+      return;
+    }
+    setIsSearchingAddMembers(true);
+    if (addMemberSearchTimerRef.current) clearTimeout(addMemberSearchTimerRef.current);
+    addMemberSearchTimerRef.current = setTimeout(async () => {
+      try {
+        const res = await searchPublicUsersApi(q);
+        setAddMemberSearchResults(res || []);
+      } catch {
+        setAddMemberSearchResults([]);
+      } finally {
+        setIsSearchingAddMembers(false);
+      }
+    }, 250);
+    return () => {
+      if (addMemberSearchTimerRef.current) clearTimeout(addMemberSearchTimerRef.current);
+    };
+  }, [friendSearch]);
 
   const currentMember = members.find((m) => m.userId === user?.id);
   const isOwner =
@@ -271,21 +308,14 @@ export const CircleManagementModal: React.FC = () => {
 
   const { data: joinRequests = [] } = useCircleJoinRequestsQuery(circleId, isOwnerOrAdmin);
 
-  // Filter friends who are NOT already in the circle
-  const availableFriends = selectableFriends.filter(
-    (f) => !members.some((m) => m.userId === f.id)
+  // Filter users who are NOT already in the circle
+  const availableSearchResults = addMemberSearchResults.filter(
+    (u) => !members.some((m) => m.userId === u.id)
   );
-
-  const filteredFriends = availableFriends.filter((f) => {
-    const term = friendSearch.toLowerCase().trim();
-    if (!term) return true;
-    const cleanTerm = term.replace(/^@/, '');
-    return (
-      f.displayName.toLowerCase().includes(term) ||
-      (f.handle && f.handle.toLowerCase().includes(cleanTerm)) ||
-      f.email.toLowerCase().includes(term)
-    );
-  });
+  const availableRecentUsers = addMemberRecentUsers.filter(
+    (u) => !members.some((m) => m.userId === u.id)
+  );
+  const displayedUsers = friendSearch.trim().length > 0 ? availableSearchResults : availableRecentUsers;
 
   // Active Invite Code & Link
   const currentInviteCode = activeCircle?.inviteCode || '';
@@ -453,9 +483,9 @@ export const CircleManagementModal: React.FC = () => {
     if (target === null || target < 2) {
       target = 2;
       setFormMaxMembers(2);
-    } else if (target > 10000) {
-      target = 10000;
-      setFormMaxMembers(10000);
+    } else if (target > 100) {
+      target = 100;
+      setFormMaxMembers(100);
     }
     try {
       await updateCircleMutation.mutateAsync({
@@ -508,17 +538,31 @@ export const CircleManagementModal: React.FC = () => {
   };
 
   // Tab 2: Add Members Flow
-  const handleToggleSelectFriend = (friendId: string) => {
-    setSelectedFriendIds((prev) =>
-      prev.includes(friendId) ? prev.filter((id) => id !== friendId) : [...prev, friendId]
-    );
+  const handleToggleSelectFriend = (friendId: string, userObj?: PublicUserEntity) => {
+    setSelectedFriendIds((prev) => {
+      const exists = prev.includes(friendId);
+      if (exists) {
+        return prev.filter((id) => id !== friendId);
+      } else {
+        if (userObj && typeof window !== 'undefined') {
+          try {
+            const raw = localStorage.getItem('circle_recent_user_searches');
+            const current: PublicUserEntity[] = raw ? JSON.parse(raw) : [];
+            const updated = [userObj, ...current.filter((u) => u.id !== userObj.id)].slice(0, 8);
+            localStorage.setItem('circle_recent_user_searches', JSON.stringify(updated));
+            setAddMemberRecentUsers(updated);
+          } catch {}
+        }
+        return [...prev, friendId];
+      }
+    });
   };
 
   const handleSelectAllFriends = () => {
-    if (selectedFriendIds.length === filteredFriends.length) {
+    if (selectedFriendIds.length === displayedUsers.length) {
       setSelectedFriendIds([]);
     } else {
-      setSelectedFriendIds(filteredFriends.map((f) => f.id));
+      setSelectedFriendIds(displayedUsers.map((f) => f.id));
     }
   };
 
@@ -792,9 +836,6 @@ export const CircleManagementModal: React.FC = () => {
                 <h3 className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text truncate">
                   {activeCircle.name}
                 </h3>
-                <p className="text-[10px] text-circle-slate dark:text-circle-dark-muted font-mono truncate">
-                  @{activeCircle.handle}
-                </p>
               </div>
             </div>
 
@@ -975,33 +1016,21 @@ export const CircleManagementModal: React.FC = () => {
                           <h4 className="text-lg font-bold text-circle-charcoal dark:text-circle-dark-text truncate">
                             {activeCircle.name}
                           </h4>
-                          {isOwner && (
-                            <button
-                              type="button"
-                              onClick={() => setIsEditingChatInfo(true)}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text transition-all"
-                              title={t.circle.editChatInfo}
-                            >
-                              <Pencil className="h-3.5 w-3.5 text-circle-sage dark:text-circle-dark-primary" />
-                              <span>{t.circle.editChatInfo}</span>
-                            </button>
-                          )}
+                          <button
+                            type="button"
+                            onClick={() => setIsEditingChatInfo(true)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text transition-all"
+                            title={t.circle.editChatInfo}
+                          >
+                            <Pencil className="h-3.5 w-3.5 text-circle-sage dark:text-circle-dark-primary" />
+                            <span>{t.circle.editChatInfo}</span>
+                          </button>
                         </div>
-
-                        <p className="text-xs text-circle-slate dark:text-circle-dark-muted font-mono truncate">
-                          @{activeCircle.handle}
-                        </p>
 
                         <div className="pt-1 flex items-center justify-center sm:justify-start gap-3 text-xs text-circle-slate dark:text-circle-dark-muted">
                           <span className="inline-flex items-center gap-1 font-medium">
                             <Users className="h-3.5 w-3.5 text-circle-sage dark:text-circle-dark-primary" />
                             {members.length} {t.circle.settingsTabMembers.toLowerCase()}
-                          </span>
-                          <span>•</span>
-                          <span className="font-medium">
-                            {activeCircle.isPrivate
-                              ? t.circle.requireApprovalTitle
-                              : t.circle.privacyPublic}
                           </span>
                         </div>
                       </div>
@@ -1240,35 +1269,96 @@ export const CircleManagementModal: React.FC = () => {
                       />
                     </div>
 
-                    {/* Selectable Friends List */}
-                    {isLoadingFriends ? (
-                      <div className="p-4 text-center text-xs text-circle-slate dark:text-circle-dark-muted">
-                        {t.circle.loadingFriends}
-                      </div>
-                    ) : filteredFriends.length === 0 ? (
-                      <div className="p-4 text-center text-xs text-circle-slate dark:text-circle-dark-muted">
-                        {t.circle.noSelectableFriends}
-                      </div>
-                    ) : (
+                    {/* Selectable Users List */}
+                    {friendSearch.trim().length > 0 ? (
+                      isSearchingAddMembers ? (
+                        <div className="flex items-center justify-center p-4 text-xs text-circle-slate dark:text-circle-dark-muted gap-2">
+                          <Loader2 className="h-4 w-4 animate-spin text-circle-sage dark:text-circle-primary" />
+                          <span>{t.circle.loadingFriends}</span>
+                        </div>
+                      ) : availableSearchResults.length === 0 ? (
+                        <div className="p-4 text-center text-xs text-circle-slate dark:text-circle-dark-muted">
+                          {t.circle.noSelectableFriends}
+                        </div>
+                      ) : (
+                        <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                          <div className="flex justify-end pb-1">
+                            <button
+                              type="button"
+                              onClick={handleSelectAllFriends}
+                              className="text-[11px] font-semibold text-circle-sage dark:text-circle-dark-primary hover:underline"
+                            >
+                              {selectedFriendIds.length === displayedUsers.length
+                                ? t.common.deselectAll
+                                : t.common.selectAll}
+                            </button>
+                          </div>
+                          {availableSearchResults.map((f) => {
+                            const isSelected = selectedFriendIds.includes(f.id);
+                            const initials = getInitials(f.displayName);
+                            return (
+                              <div
+                                key={f.id}
+                                onClick={() => handleToggleSelectFriend(f.id, f)}
+                                className={`flex items-center justify-between p-2 rounded-xl border cursor-pointer transition-all ${
+                                  isSelected
+                                    ? 'border-circle-primary bg-circle-primary/10'
+                                    : 'border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface hover:bg-circle-canvas/50 dark:hover:bg-circle-dark-elevated'
+                                }`}
+                              >
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-circle-charcoal dark:bg-circle-dark-elevated text-white text-xs font-bold overflow-hidden">
+                                    {f.avatarUrl ? (
+                                      <img src={f.avatarUrl} alt={f.displayName} className="h-full w-full object-cover" />
+                                    ) : (
+                                      initials
+                                    )}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text truncate">
+                                      {f.displayName}
+                                    </p>
+                                    <p className="text-[10px] font-mono text-circle-sage dark:text-circle-dark-primary truncate">
+                                      @{f.handle}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="text-circle-sage dark:text-circle-dark-primary shrink-0 pl-2">
+                                  {isSelected ? (
+                                    <CheckSquare className="h-4 w-4" />
+                                  ) : (
+                                    <Square className="h-4 w-4 text-circle-slate/50 dark:text-circle-dark-muted/60" />
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )
+                    ) : availableRecentUsers.length > 0 ? (
                       <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                        <div className="flex justify-end pb-1">
+                        <div className="flex items-center justify-between px-1 text-[11px] text-circle-slate dark:text-circle-dark-muted font-medium">
+                          <span className="flex items-center gap-1.5">
+                            <History className="h-3 w-3" />
+                            {t.circle.recentSearches}
+                          </span>
                           <button
                             type="button"
                             onClick={handleSelectAllFriends}
                             className="text-[11px] font-semibold text-circle-sage dark:text-circle-dark-primary hover:underline"
                           >
-                            {selectedFriendIds.length === filteredFriends.length
+                            {selectedFriendIds.length === displayedUsers.length
                               ? t.common.deselectAll
                               : t.common.selectAll}
                           </button>
                         </div>
-                        {filteredFriends.map((f) => {
+                        {availableRecentUsers.map((f) => {
                           const isSelected = selectedFriendIds.includes(f.id);
                           const initials = getInitials(f.displayName);
                           return (
                             <div
                               key={f.id}
-                              onClick={() => handleToggleSelectFriend(f.id)}
+                              onClick={() => handleToggleSelectFriend(f.id, f)}
                               className={`flex items-center justify-between p-2 rounded-xl border cursor-pointer transition-all ${
                                 isSelected
                                   ? 'border-circle-primary bg-circle-primary/10'
@@ -1288,7 +1378,7 @@ export const CircleManagementModal: React.FC = () => {
                                     {f.displayName}
                                   </p>
                                   <p className="text-[10px] font-mono text-circle-sage dark:text-circle-dark-primary truncate">
-                                    @{f.handle || f.email.split('@')[0]}
+                                    @{f.handle}
                                   </p>
                                 </div>
                               </div>
@@ -1302,6 +1392,11 @@ export const CircleManagementModal: React.FC = () => {
                             </div>
                           );
                         })}
+                      </div>
+                    ) : (
+                      <div className="p-4 text-center text-xs text-circle-slate dark:text-circle-dark-muted flex flex-col items-center justify-center gap-1.5">
+                        <Search className="h-4 w-4 opacity-40 text-circle-slate dark:text-circle-dark-muted" />
+                        <span>{t.circle.searchPrompt}</span>
                       </div>
                     )}
 
@@ -1975,7 +2070,7 @@ export const CircleManagementModal: React.FC = () => {
                         <input
                           type="number"
                           min={2}
-                          max={10000}
+                          max={100}
                           value={formMaxMembers ?? ''}
                           onChange={(e) => handleCustomCapacityChange(e.target.value)}
                           onBlur={handleCustomCapacityBlur}

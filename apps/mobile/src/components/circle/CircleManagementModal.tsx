@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Modal,
   View,
@@ -48,6 +48,7 @@ import {
   Camera,
   Bot,
   UserMinus,
+  History,
 } from 'lucide-react-native';
 import { useThemeStore } from '../../stores/theme.store';
 import { useLanguageStore } from '../../stores/language.store';
@@ -57,6 +58,7 @@ import { useSoundStore } from '../../stores/sound.store';
 import { triggerSelectionHaptic } from '../../services/sound.service';
 import { getGlassTheme } from '../../constants/glass-theme';
 import { copyTextSafe } from '../../utils/clipboard';
+import { searchPublicUsersApi } from '../../services/api';
 import {
   useCircleDetailQuery,
   useCircleMembersQuery,
@@ -67,14 +69,13 @@ import {
   useLeaveCircleMutation,
   useDeleteCircleMutation,
   useAddMembersMutation,
-  useSelectableFriendsQuery,
   useReviewJoinRequestMutation,
   useUpdateCircleMutation,
   useCreateReportMutation,
 } from '../../hooks/use-circle-queries';
 import { getStorageItem, setStorageItem } from '../../services/storage';
 import { useEdgeSwipeDismiss } from '../../hooks/use-edge-swipe';
-import { MemberRole } from '@circle/types';
+import { MemberRole, PublicUserEntity } from '@circle/types';
 import { MessageBubbleThemes, MessageTheme } from '@circle/shared';
 import { sendMobileCircleThemeUpdate } from '../../services/socket';
 
@@ -135,7 +136,6 @@ export function CircleManagementModal() {
 
   const { data: joinRequests = [], isLoading: isLoadingRequests } =
     useCircleJoinRequestsQuery(circleId, isOwnerOrAdmin);
-  const { data: selectableFriends = [], isLoading: isLoadingFriends } = useSelectableFriendsQuery();
 
   // Mutations
   const updateNicknameMutation = useUpdateNicknameMutation(circleId || '');
@@ -173,6 +173,47 @@ export function CircleManagementModal() {
   const [selectedFriendIds, setSelectedFriendIds] = useState<string[]>([]);
   const [friendSearch, setFriendSearch] = useState('');
   const [memberSearch, setMemberSearch] = useState('');
+
+  const [addMemberSearchResults, setAddMemberSearchResults] = useState<PublicUserEntity[]>([]);
+  const [isSearchingAddMembers, setIsSearchingAddMembers] = useState(false);
+  const [addMemberRecentUsers, setAddMemberRecentUsers] = useState<PublicUserEntity[]>([]);
+  const addMemberSearchTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    if (isAddFriendsOpen) {
+      getStorageItem('circle_recent_user_searches').then((raw) => {
+        if (raw) {
+          try {
+            setAddMemberRecentUsers(JSON.parse(raw));
+          } catch {}
+        }
+      });
+    }
+  }, [isAddFriendsOpen]);
+
+  useEffect(() => {
+    const q = friendSearch.trim();
+    if (!q) {
+      setAddMemberSearchResults([]);
+      setIsSearchingAddMembers(false);
+      return;
+    }
+    setIsSearchingAddMembers(true);
+    if (addMemberSearchTimerRef.current) clearTimeout(addMemberSearchTimerRef.current);
+    addMemberSearchTimerRef.current = setTimeout(async () => {
+      try {
+        const res = await searchPublicUsersApi(q);
+        setAddMemberSearchResults(res || []);
+      } catch {
+        setAddMemberSearchResults([]);
+      } finally {
+        setIsSearchingAddMembers(false);
+      }
+    }, 250);
+    return () => {
+      if (addMemberSearchTimerRef.current) clearTimeout(addMemberSearchTimerRef.current);
+    };
+  }, [friendSearch]);
 
   // Tab 3: Notifications & Privacy States & Popups
   const [isChatMuted, setIsChatMuted] = useState(false);
@@ -481,17 +522,35 @@ export function CircleManagementModal() {
   };
 
   // Tab 2: Add Members Flow
-  const handleToggleSelectFriend = (friendId: string) => {
-    setSelectedFriendIds((prev) =>
-      prev.includes(friendId) ? prev.filter((id) => id !== friendId) : [...prev, friendId],
-    );
+  const handleToggleSelectFriend = (friendId: string, userObj?: PublicUserEntity) => {
+    setSelectedFriendIds((prev) => {
+      const exists = prev.includes(friendId);
+      if (exists) {
+        return prev.filter((id) => id !== friendId);
+      } else {
+        if (userObj) {
+          getStorageItem('circle_recent_user_searches').then((raw) => {
+            let list: PublicUserEntity[] = [];
+            if (raw) {
+              try {
+                list = JSON.parse(raw);
+              } catch {}
+            }
+            const updated = [userObj, ...list.filter((u) => u.id !== userObj.id)].slice(0, 8);
+            setStorageItem('circle_recent_user_searches', JSON.stringify(updated));
+            setAddMemberRecentUsers(updated);
+          });
+        }
+        return [...prev, friendId];
+      }
+    });
   };
 
   const handleSelectAllFriends = () => {
-    if (selectedFriendIds.length === availableFriends.length) {
+    if (selectedFriendIds.length === displayedAddUsers.length) {
       setSelectedFriendIds([]);
     } else {
-      setSelectedFriendIds(availableFriends.map((f) => f.id));
+      setSelectedFriendIds(displayedAddUsers.map((f) => f.id));
     }
   };
 
@@ -677,18 +736,14 @@ export function CircleManagementModal() {
     return name.toLowerCase().includes(q) || nick.toLowerCase().includes(q);
   });
 
-  const availableFriends = selectableFriends.filter((f) => {
-    const isAlreadyMember = members.some((m) => m.userId === f.id);
-    if (isAlreadyMember) return false;
-    const q = friendSearch.toLowerCase().trim();
-    if (!q) return true;
-    const cleanQ = q.replace(/^@/, '');
-    return (
-      f.displayName.toLowerCase().includes(q) ||
-      (f.handle && f.handle.toLowerCase().includes(cleanQ)) ||
-      f.email.toLowerCase().includes(q)
-    );
-  });
+  const availableSearchResults = addMemberSearchResults.filter(
+    (u) => !members.some((m) => m.userId === u.id),
+  );
+  const availableRecentUsers = addMemberRecentUsers.filter(
+    (u) => !members.some((m) => m.userId === u.id),
+  );
+  const displayedAddUsers =
+    friendSearch.trim().length > 0 ? availableSearchResults : availableRecentUsers;
 
   const getSubHeaderTitle = () => {
     switch (activeTab) {
@@ -714,15 +769,15 @@ export function CircleManagementModal() {
   return (
     <Modal
       visible={visible}
-      transparent
       animationType="slide"
+      statusBarTranslucent
       onRequestClose={handleClose}
     >
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={[
           styles.modalOverlay,
-          { backgroundColor: isDark ? 'rgba(0, 0, 0, 0.52)' : 'rgba(0, 0, 0, 0.36)' },
+          { backgroundColor: isGlass ? glassTheme.colors.glassBgSheet : colors.surface },
         ]}
       >
         <View
@@ -730,10 +785,9 @@ export function CircleManagementModal() {
           style={[
             styles.sheetContainer,
             {
-              backgroundColor: glassTheme.colors.glassBgSheet,
-              borderColor: glassTheme.colors.glassBorder,
-              paddingBottom: Math.max(insets.bottom + 12, Platform.OS === 'ios' ? 36 : 24),
-              overflow: 'hidden',
+              backgroundColor: isGlass ? glassTheme.colors.glassBgSheet : colors.surface,
+              paddingTop: Math.max(insets.top, Platform.OS === 'ios' ? 12 : 8),
+              paddingBottom: Math.max(insets.bottom, Platform.OS === 'ios' ? 20 : 12),
             },
           ]}
         >
@@ -744,9 +798,6 @@ export function CircleManagementModal() {
               style={StyleSheet.absoluteFill}
             />
           ) : null}
-
-          {/* Sheet Handle */}
-          <View style={[styles.sheetHandle, { backgroundColor: colors.hairline }]} />
 
           {/* Top Navigation Bar: Single Unified Clean Bar without nested icons in H1 */}
           <View style={[styles.header, { borderBottomColor: colors.hairline }]}>
@@ -856,31 +907,43 @@ export function CircleManagementModal() {
               {/* Circle Identity Hero Card */}
               <View style={[styles.heroSummaryCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
                 <View style={[styles.heroAvatarBox, { backgroundColor: `${colors.primary}20` }]}>
-                  {circle.avatarUrl ? (
-                    <RNImage source={{ uri: circle.avatarUrl }} style={styles.heroAvatarImg} />
+                  {formAvatar || circle.avatarUrl ? (
+                    <RNImage source={{ uri: (formAvatar || circle.avatarUrl) as string }} style={styles.heroAvatarImg} />
                   ) : (
                     <Text style={[styles.heroAvatarText, { color: colors.sage }]}>
-                      {getInitials(circle.name)}
+                      {getInitials(formName || circle.name)}
                     </Text>
                   )}
                 </View>
-                <Text numberOfLines={1} style={[styles.heroCircleName, { color: colors.text }]}>
-                  {circle.name}
-                </Text>
+
+                {/* Name & Pencil Edit Action */}
+                <View style={styles.heroNameRow}>
+                  <Text numberOfLines={1} style={[styles.heroCircleName, { color: colors.text }]}>
+                    {circle.name}
+                  </Text>
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    onPress={() => {
+                      setFormName(circle.name || '');
+                      setFormAvatar(circle.avatarUrl || '');
+                      setIsEditingChatInfo(!isEditingChatInfo);
+                    }}
+                    style={[
+                      styles.heroEditPencilBtn,
+                      { backgroundColor: isEditingChatInfo ? colors.primary : colors.wash },
+                    ]}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    accessibilityLabel={t.circle.editChatInfo}
+                  >
+                    <Pencil size={13} color={isEditingChatInfo ? colors.onPrimary : colors.text} />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Meta Row (Members count only - role badge removed) */}
                 <View style={styles.heroMetaRow}>
                   <Text style={[styles.heroMetaText, { color: colors.subtle }]}>
                     {members.length} {t.circle.settingsTabMembers}
                   </Text>
-                  <Text style={[styles.heroMetaDot, { color: colors.subtle }]}>•</Text>
-                  <View style={[styles.heroRoleBadge, { backgroundColor: isOwner ? `${colors.warning || '#F59E0B'}20` : colors.wash }]}>
-                    <Text style={[styles.heroRoleText, { color: isOwner ? (colors.warning || '#F59E0B') : colors.text }]}>
-                      {isOwner
-                        ? t.circle.memberRoleOwner
-                        : userRole === 'ADMIN'
-                          ? t.circle.memberRoleAdmin
-                          : t.circle.memberRoleMember}
-                    </Text>
-                  </View>
                 </View>
 
                 {/* Quick Invite Code Pill */}
@@ -896,30 +959,89 @@ export function CircleManagementModal() {
                     </Text>
                   </TouchableOpacity>
                 )}
+
+                {/* Inline Edit Form when Pencil is clicked */}
+                {isEditingChatInfo && (
+                  <View style={[styles.inlineEditCard, { borderTopColor: colors.hairline }]}>
+                    <Text style={[styles.inlineEditTitle, { color: colors.text }]}>
+                      {t.circle.editChatInfo}
+                    </Text>
+
+                    <View style={styles.formField}>
+                      <Text style={[styles.label, { color: colors.text }]}>{t.circle.nameLabel}</Text>
+                      <TextInput
+                        value={formName}
+                        onChangeText={setFormName}
+                        placeholder={circle.name || t.circle.namePlaceholder}
+                        placeholderTextColor={colors.subtle}
+                        style={[
+                          styles.input,
+                          { backgroundColor: colors.wash, borderColor: colors.hairline, color: colors.text },
+                        ]}
+                      />
+                    </View>
+
+                    <View style={styles.formField}>
+                      <Text style={[styles.label, { color: colors.text }]}>{t.circle.selectAvatarPreset}</Text>
+                      <View style={styles.avatarPresetsGrid}>
+                        {AVATAR_PRESETS.map((presetUrl, idx) => {
+                          const isSelected = formAvatar === presetUrl;
+                          return (
+                            <TouchableOpacity
+                              key={idx}
+                              activeOpacity={0.8}
+                              onPress={() => setFormAvatar(presetUrl)}
+                              style={[
+                                styles.presetAvatarBtn,
+                                { borderColor: isSelected ? colors.sage : colors.hairline },
+                                isSelected && { borderWidth: 2.5 },
+                              ]}
+                            >
+                              <RNImage source={{ uri: presetUrl }} style={styles.presetAvatarImg} />
+                              {isSelected && (
+                                <View style={[styles.presetCheckBadge, { backgroundColor: colors.primary }]}>
+                                  <Check size={11} color={colors.onPrimary} />
+                                </View>
+                              )}
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    </View>
+
+                    <View style={styles.inlineEditActions}>
+                      <TouchableOpacity
+                        activeOpacity={0.8}
+                        onPress={() => setIsEditingChatInfo(false)}
+                        style={[styles.inlineCancelBtn, { backgroundColor: colors.wash, borderColor: colors.hairline }]}
+                      >
+                        <Text style={[styles.inlineCancelText, { color: colors.text }]}>{t.common.cancel}</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        activeOpacity={0.8}
+                        disabled={updateCircleMutation.isPending}
+                        onPress={handleSaveChatInfo}
+                        style={[styles.inlineSaveBtn, { backgroundColor: colors.primary }]}
+                      >
+                        {updateCircleMutation.isPending ? (
+                          <ActivityIndicator color={colors.onPrimary} size="small" />
+                        ) : (
+                          <Text style={[styles.inlineSaveText, { color: colors.onPrimary }]}>{t.common.save}</Text>
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
               </View>
 
-              {/* Group 1: Đoạn chat & Thành viên */}
+              {/* Group 1: Thành viên & Thông báo */}
               <View style={styles.sectionGroupWrapper}>
                 <Text style={[styles.sectionGroupTitle, { color: colors.subtle }]}>
                   {t.circle.chatAndMembersHeader}
                 </Text>
                 <View style={[styles.menuSectionCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
-                  {/* 1. Thông tin đoạn chat */}
-                  <TouchableOpacity
-                    activeOpacity={0.7}
-                    onPress={() => setActiveTab('chatInfo')}
-                    style={[styles.menuRowItem, { borderBottomColor: colors.hairline, borderBottomWidth: StyleSheet.hairlineWidth }]}
-                  >
-                    <MessageSquare size={18} color={colors.text} />
-                    <View style={styles.menuRowContent}>
-                      <Text style={[styles.menuRowTitle, { color: colors.text }]}>
-                        {t.circle.chatInfoTab}
-                      </Text>
-                    </View>
-                    <ChevronRight size={18} color={colors.subtle} />
-                  </TouchableOpacity>
-
-                  {/* 2. Thành viên */}
+                  {/* Thành viên */}
                   <TouchableOpacity
                     activeOpacity={0.7}
                     onPress={() => setActiveTab('members')}
@@ -1109,147 +1231,6 @@ export function CircleManagementModal() {
                   )}
                 </View>
               </View>
-            </ScrollView>
-          )}
-
-          {/* =========================================================================
-              SUB-VIEW 1: CHAT INFO (Profile Card with Camera Icon on Avatar & Edit Mode)
-             ========================================================================= */}
-          {(activeTab === 'chatInfo' || activeTab === 'info') && (
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.tabContent}>
-              {/* Profile Card */}
-              <View style={[styles.profileHeaderBox, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
-                {/* Avatar with Camera Icon Overlay */}
-                <View style={styles.avatarWithCameraContainer}>
-                  <View style={[styles.bigAvatarBox, { backgroundColor: `${colors.primary}20` }]}>
-                    {formAvatar || circle.avatarUrl ? (
-                      <RNImage
-                        source={{ uri: (formAvatar || circle.avatarUrl) as string }}
-                        style={styles.bigAvatarImg}
-                      />
-                    ) : (
-                      <Text style={[styles.bigAvatarText, { color: colors.sage }]}>
-                        {getInitials(formName || circle.name)}
-                      </Text>
-                    )}
-                  </View>
-
-                  {/* Camera Icon Overlay button */}
-                  {isOwner && (
-                    <TouchableOpacity
-                      activeOpacity={0.8}
-                      hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                      onPress={() => setIsAvatarPickerOpen(true)}
-                      style={[
-                        styles.cameraBadgeBtn,
-                        { backgroundColor: colors.primary, borderColor: colors.surface },
-                      ]}
-                      accessibilityLabel={t.circle.changeAvatar}
-                    >
-                      <Camera size={14} color={colors.onPrimary} />
-                    </TouchableOpacity>
-                  )}
-                </View>
-
-                <Text style={[styles.profileCircleName, { color: colors.text }]}>{formName || circle.name}</Text>
-                {circle.handle ? (
-                  <Text style={[styles.profileCircleHandle, { color: colors.subtle }]}>@{circle.handle}</Text>
-                ) : null}
-
-                {/* Pencil Button to toggle Edit Mode */}
-                {isOwner && (
-                  <TouchableOpacity
-                    activeOpacity={0.8}
-                    onPress={() => setIsEditingChatInfo(!isEditingChatInfo)}
-                    style={[
-                      styles.pencilToggleBtn,
-                      { backgroundColor: isEditingChatInfo ? colors.primary : colors.wash },
-                    ]}
-                  >
-                    <Pencil size={14} color={isEditingChatInfo ? colors.onPrimary : colors.text} />
-                    <Text
-                      style={[
-                        styles.pencilToggleBtnText,
-                        { color: isEditingChatInfo ? colors.onPrimary : colors.text },
-                      ]}
-                    >
-                      {isEditingChatInfo ? t.circle.cancelEdit : t.circle.editChatInfo}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-
-              {/* Edit Form (Only visible when isEditingChatInfo is true) */}
-              {isEditingChatInfo && isOwner && (
-                <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
-                  <Text style={[styles.cardTitle, { color: colors.text }]}>
-                    {t.circle.editChatInfo}
-                  </Text>
-
-                  {/* Name Input */}
-                  <View style={styles.formField}>
-                    <Text style={[styles.label, { color: colors.text }]}>{t.circle.nameLabel}</Text>
-                    <TextInput
-                      value={formName}
-                      onChangeText={setFormName}
-                      placeholder={circle.name || t.circle.namePlaceholder}
-                      placeholderTextColor={colors.subtle}
-                      style={[
-                        styles.input,
-                        { backgroundColor: colors.wash, borderColor: colors.hairline, color: colors.text },
-                      ]}
-                    />
-                  </View>
-
-                  {/* Quick Avatar Presets Grid */}
-                  <View style={styles.formField}>
-                    <Text style={[styles.label, { color: colors.text }]}>{t.circle.selectAvatarPreset}</Text>
-                    <View style={styles.avatarPresetsGrid}>
-                      {AVATAR_PRESETS.map((presetUrl, idx) => {
-                        const isSelected = formAvatar === presetUrl;
-                        return (
-                          <TouchableOpacity
-                            key={idx}
-                            activeOpacity={0.8}
-                            onPress={() => setFormAvatar(presetUrl)}
-                            style={[
-                              styles.presetAvatarBtn,
-                              { borderColor: isSelected ? colors.sage : colors.hairline },
-                              isSelected && { borderWidth: 2.5 },
-                            ]}
-                          >
-                            <RNImage source={{ uri: presetUrl }} style={styles.presetAvatarImg} />
-                            {isSelected && (
-                              <View style={[styles.presetCheckBadge, { backgroundColor: colors.primary }]}>
-                                <Check size={11} color={colors.onPrimary} />
-                              </View>
-                            )}
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                  </View>
-
-                  {/* Save Button */}
-                  <TouchableOpacity
-                    activeOpacity={0.8}
-                    disabled={updateCircleMutation.isPending}
-                    onPress={handleSaveChatInfo}
-                    style={[styles.primaryActionBtn, { backgroundColor: colors.primary }]}
-                  >
-                    {updateCircleMutation.isPending ? (
-                      <ActivityIndicator color={colors.onPrimary} size="small" />
-                    ) : (
-                      <>
-                        <Save size={16} color={colors.onPrimary} />
-                        <Text style={[styles.primaryActionBtnText, { color: colors.onPrimary }]}>
-                          {t.circle.saveChanges}
-                        </Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
-                </View>
-              )}
             </ScrollView>
           )}
 
@@ -2075,7 +2056,7 @@ export function CircleManagementModal() {
                         keyboardType="number-pad"
                         value={tempCapacityInput}
                         onChangeText={setTempCapacityInput}
-                        placeholder={t.circle.maxMembersPlaceholder || '2 - 10,000'}
+                        placeholder={t.circle.maxMembersPlaceholder || '2 - 100'}
                         placeholderTextColor={colors.subtle}
                         style={[
                           styles.input,
@@ -2099,7 +2080,7 @@ export function CircleManagementModal() {
                       onPress={() => {
                         const parsed = parseInt(tempCapacityInput.trim(), 10);
                         if (!isNaN(parsed) && parsed >= 2) {
-                          handleApplyCapacity(Math.min(10000, parsed));
+                          handleApplyCapacity(Math.min(100, parsed));
                         } else {
                           handleApplyCapacity(null);
                         }
@@ -2565,7 +2546,7 @@ export function CircleManagementModal() {
                   <View style={styles.selectAllRow}>
                     <TouchableOpacity onPress={handleSelectAllFriends}>
                       <Text style={[styles.linkText, { color: colors.sage }]}>
-                        {selectedFriendIds.length === availableFriends.length && availableFriends.length > 0
+                        {selectedFriendIds.length === displayedAddUsers.length && displayedAddUsers.length > 0
                           ? t.moments.deselectAll
                           : t.moments.selectAll}
                       </Text>
@@ -2573,21 +2554,62 @@ export function CircleManagementModal() {
                   </View>
 
                   <ScrollView style={{ maxHeight: 240 }}>
-                    {isLoadingFriends ? (
-                      <ActivityIndicator style={{ marginVertical: 20 }} color={colors.sage} />
-                    ) : availableFriends.length === 0 ? (
-                      <View style={[styles.emptyBox, { backgroundColor: colors.wash }]}>
-                        <Text style={[styles.emptyText, { color: colors.subtle }]}>
-                          {t.circle.noSelectableFriends}
-                        </Text>
-                      </View>
-                    ) : (
-                      availableFriends.map((f) => {
+                    {friendSearch.trim().length > 0 ? (
+                      isSearchingAddMembers ? (
+                        <ActivityIndicator style={{ marginVertical: 20 }} color={colors.sage} />
+                      ) : availableSearchResults.length === 0 ? (
+                        <View style={[styles.emptyBox, { backgroundColor: colors.wash }]}>
+                          <Text style={[styles.emptyText, { color: colors.subtle }]}>
+                            {t.circle.noSelectableFriends}
+                          </Text>
+                        </View>
+                      ) : (
+                        availableSearchResults.map((f) => {
+                          const isSelected = selectedFriendIds.includes(f.id);
+                          return (
+                            <TouchableOpacity
+                              key={f.id}
+                              onPress={() => handleToggleSelectFriend(f.id, f)}
+                              style={[
+                                styles.friendSelectItem,
+                                { backgroundColor: isSelected ? `${colors.primary}12` : colors.surface, borderColor: colors.hairline },
+                              ]}
+                            >
+                              <View style={styles.memberLeft}>
+                                <View style={[styles.avatarBox, { backgroundColor: colors.wash }]}>
+                                  <Text style={[styles.avatarText, { color: colors.sage }]}>
+                                    {getInitials(f.displayName)}
+                                  </Text>
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                  <Text style={[styles.memberName, { color: colors.text }]}>{f.displayName}</Text>
+                                  <Text style={[styles.handleSubText, { color: colors.sage }]}>
+                                    @{f.handle}
+                                  </Text>
+                                </View>
+                              </View>
+                              <View
+                                style={[
+                                  styles.checkbox,
+                                  {
+                                    borderColor: isSelected ? colors.primary : colors.subtle,
+                                    backgroundColor: isSelected ? colors.primary : 'transparent',
+                                  },
+                                ]}
+                              >
+                                {isSelected && <Check size={14} color={colors.onPrimary} />}
+                              </View>
+                            </TouchableOpacity>
+                          );
+                        })
+                      )
+                    ) : availableRecentUsers.length > 0 ? (
+                      availableRecentUsers.map((f) => {
                         const isSelected = selectedFriendIds.includes(f.id);
                         return (
                           <TouchableOpacity
                             key={f.id}
-                            onPress={() => handleToggleSelectFriend(f.id)}
+                            onPress={() => handleToggleSelectFriend(f.id, f)}
                             style={[
                               styles.friendSelectItem,
                               { backgroundColor: isSelected ? `${colors.primary}12` : colors.surface, borderColor: colors.hairline },
@@ -2596,13 +2618,13 @@ export function CircleManagementModal() {
                             <View style={styles.memberLeft}>
                               <View style={[styles.avatarBox, { backgroundColor: colors.wash }]}>
                                 <Text style={[styles.avatarText, { color: colors.sage }]}>
-                                  {getInitials(f.displayName || f.email)}
+                                  {getInitials(f.displayName)}
                                 </Text>
                               </View>
                               <View style={{ flex: 1 }}>
                                 <Text style={[styles.memberName, { color: colors.text }]}>{f.displayName}</Text>
                                 <Text style={[styles.handleSubText, { color: colors.sage }]}>
-                                  @{f.handle || f.email.split('@')[0]}
+                                  @{f.handle}
                                 </Text>
                               </View>
                             </View>
@@ -2620,6 +2642,13 @@ export function CircleManagementModal() {
                           </TouchableOpacity>
                         );
                       })
+                    ) : (
+                      <View style={[styles.emptyBox, { backgroundColor: colors.wash }]}>
+                        <Search size={18} color={colors.subtle} style={{ opacity: 0.5, marginBottom: 4 }} />
+                        <Text style={[styles.emptyText, { color: colors.subtle }]}>
+                          {t.circle.searchPrompt}
+                        </Text>
+                      </View>
                     )}
                   </ScrollView>
 
@@ -2668,35 +2697,17 @@ export function CircleManagementModal() {
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
   },
   sheetContainer: {
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    borderTopWidth: 1.2,
+    flex: 1,
     paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
-    height: '90%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 20,
-    elevation: 20,
-  },
-  sheetHandle: {
-    width: 38,
-    height: 4,
-    borderRadius: 2,
-    alignSelf: 'center',
-    marginBottom: 14,
+    overflow: 'hidden',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingBottom: 12,
+    paddingVertical: 12,
   },
   headerLeft: {
     flexDirection: 'row',
@@ -2818,11 +2829,63 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '800',
   },
+  heroNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
   heroCircleName: {
     fontSize: 18,
     fontWeight: '700',
     textAlign: 'center',
     letterSpacing: -0.3,
+  },
+  heroEditPencilBtn: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  inlineEditCard: {
+    width: '100%',
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    gap: 12,
+  },
+  inlineEditTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  inlineEditActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 10,
+    marginTop: 8,
+  },
+  inlineCancelBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  inlineCancelText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  inlineSaveBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 10,
+    minWidth: 64,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  inlineSaveText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   heroMetaRow: {
     flexDirection: 'row',

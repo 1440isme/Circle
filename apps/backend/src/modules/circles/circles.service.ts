@@ -155,33 +155,19 @@ export class CirclesService {
       ),
     );
 
-    // 1. Resolve Circle Name:
-    // If name is provided, use it. Otherwise, if friends are selected, concatenate their display names.
-    let circleName = input.name?.trim() || '';
-    if (!circleName) {
-      if (uniqueMemberIds.length > 0) {
-        const involvedUsers = await this.prisma.user.findMany({
-          where: { id: { in: [userId, ...uniqueMemberIds] } },
-          include: { profile: true },
-        });
-
-        // Current user first, followed by other selected members
-        const sortedUsers = [
-          ...involvedUsers.filter((u) => u.id === userId),
-          ...involvedUsers.filter((u) => u.id !== userId),
-        ];
-
-        const names = sortedUsers.map(
-          (u) => u.profile?.displayName || u.email.split('@')[0],
-        );
-        circleName = names.join(', ').slice(0, 50);
-      } else {
-        circleName = `Circle ${crypto.randomBytes(2).toString('hex')}`;
-      }
+    // 1. Resolve Circle Name (Mandatory: 2-50 chars, no auto-merge)
+    const circleName = (input.name || '').trim();
+    if (!circleName || circleName.length < 2) {
+      throw new BadRequestException(t.validation.circleNameMinLength);
     }
 
-    // 2. Resolve Handle:
-    // If handle is provided, validate uniqueness. If not, auto-generate a unique URL-friendly handle.
+    // Limit max members to 100
+    const maxMembers = input.maxMembers ? Math.min(input.maxMembers, 100) : 100;
+    if (uniqueMemberIds.length + 1 > maxMembers) {
+      throw new BadRequestException(t.circle.circleFull);
+    }
+
+    // 2. Resolve Handle
     let normalizedHandle = input.handle?.toLowerCase().trim() || '';
     if (normalizedHandle) {
       const existingCircle = await this.prisma.circle.findUnique({
@@ -205,7 +191,7 @@ export class CirclesService {
           handle: normalizedHandle,
           avatarUrl: input.avatarUrl || null,
           isPrivate: input.isPrivate ?? false,
-          maxMembers: input.maxMembers ?? null,
+          maxMembers,
           inviteCode,
         },
       });
@@ -469,15 +455,20 @@ export class CirclesService {
       throw new ForbiddenException(t.circle.updateForbidden);
     }
 
-    const isMetadataUpdate =
-      input.name !== undefined ||
-      input.avatarUrl !== undefined ||
+    // Chat info (name, avatar, themeColor) can be updated by all circle members.
+    // Restricted circle-level settings (isPrivate, maxMembers) require OWNER or ADMIN.
+    const isRestrictedSettingsUpdate =
       input.isPrivate !== undefined ||
       input.maxMembers !== undefined;
 
-    if (isMetadataUpdate && membership.role !== MemberRole.OWNER && membership.role !== MemberRole.ADMIN) {
+    if (isRestrictedSettingsUpdate && membership.role !== MemberRole.OWNER && membership.role !== MemberRole.ADMIN) {
       throw new ForbiddenException(t.circle.updateForbidden);
     }
+
+    const maxMembers =
+      input.maxMembers !== undefined && input.maxMembers !== null
+        ? Math.min(input.maxMembers, 100)
+        : input.maxMembers;
 
     const updatedCircle = await this.prisma.circle.update({
       where: { id: circleId },
@@ -485,7 +476,7 @@ export class CirclesService {
         ...(input.name !== undefined && { name: input.name.trim() }),
         ...(input.avatarUrl !== undefined && { avatarUrl: input.avatarUrl || null }),
         ...(input.isPrivate !== undefined && { isPrivate: input.isPrivate }),
-        ...(input.maxMembers !== undefined && { maxMembers: input.maxMembers }),
+        ...(maxMembers !== undefined && { maxMembers }),
         ...(input.themeColor !== undefined && { themeColor: input.themeColor }),
       },
     });
@@ -883,12 +874,11 @@ export class CirclesService {
       };
     }
 
-    // Check capacity
-    if (circle.maxMembers !== null) {
-      const projectedCount = circle._count.members + newMemberIds.length;
-      if (projectedCount > circle.maxMembers) {
-        throw new BadRequestException(t.circle.circleFull);
-      }
+    // Check capacity (max 100)
+    const effectiveMax = circle.maxMembers !== null ? Math.min(circle.maxMembers, 100) : 100;
+    const projectedCount = circle._count.members + newMemberIds.length;
+    if (projectedCount > effectiveMax) {
+      throw new BadRequestException(t.circle.circleFull);
     }
 
     // Create members

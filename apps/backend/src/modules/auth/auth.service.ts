@@ -781,34 +781,33 @@ export class AuthService {
     currentUserId?: string,
   ): Promise<PublicUserEntity[]> {
     const trimmed = (query || '').trim().replace(/^@/, '');
+    if (!trimmed) {
+      return [];
+    }
 
     const users = await this.prisma.user.findMany({
       where: {
         isActivated: true,
         deletedAt: null,
         ...(currentUserId && { id: { not: currentUserId } }),
-        ...(trimmed
-          ? {
-              OR: [
-                {
-                  profile: {
-                    handle: {
-                      contains: trimmed,
-                      mode: 'insensitive',
-                    },
-                  },
-                },
-                {
-                  profile: {
-                    displayName: {
-                      contains: trimmed,
-                      mode: 'insensitive',
-                    },
-                  },
-                },
-              ],
-            }
-          : {}),
+        OR: [
+          {
+            profile: {
+              handle: {
+                contains: trimmed,
+                mode: 'insensitive',
+              },
+            },
+          },
+          {
+            profile: {
+              displayName: {
+                contains: trimmed,
+                mode: 'insensitive',
+              },
+            },
+          },
+        ],
       },
       include: {
         profile: true,

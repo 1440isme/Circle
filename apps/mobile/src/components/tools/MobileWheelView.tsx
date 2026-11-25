@@ -11,7 +11,10 @@ import {
   Alert,
   Animated,
   Easing,
+  Platform,
+  useWindowDimensions,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, G, Circle, Rect, Text as SvgText } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import {
@@ -26,8 +29,7 @@ import {
   Shuffle,
   RotateCcw,
   ArrowDownAZ,
-  PanelRightClose,
-  PanelRightOpen,
+  ArrowLeft,
   BookmarkCheck,
   Check,
   Share2,
@@ -47,9 +49,11 @@ import { DecisionWheelEntity } from '@circle/types';
 import { getSocket } from '../../services/socket';
 import { useAuthStore } from '../../stores/auth.store';
 import { useLanguageStore } from '../../stores/language.store';
+import { useThemeStore } from '../../stores/theme.store';
 
 interface MobileWheelViewProps {
   circleId: string;
+  onBack?: () => void;
   onRegisterBack?: (handler: (() => boolean) | null) => void;
 }
 
@@ -73,9 +77,18 @@ interface WheelMobileState {
   isSpinning: boolean;
 }
 
-export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onRegisterBack }) => {
-  const t = useLanguageStore((s) => s.t);
+export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onBack, onRegisterBack }) => {
+  const insets = useSafeAreaInsets();
+  const { colors, resolvedTheme } = useThemeStore();
+  const isDark = resolvedTheme === 'dark';
+  const { locale, t } = useLanguageStore();
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
   const user = useAuthStore((s) => s.user);
+
+  // Khoảng cách an toàn cho Floating Header và nội dung cuộn bên dưới
+  const floatingToolbarTop = Math.max(insets.top + 8, 16);
+  const scrollPaddingTop = floatingToolbarTop + 48;
+  const scrollPaddingBottom = Math.max(insets.bottom + 36, 60);
 
   // Wheels state
   const [wheels, setWheels] = useState<DecisionWheelEntity[]>([]);
@@ -97,9 +110,6 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onRe
   const [isSharingResults, setIsSharingResults] = useState(false);
   const [shareSuccess, setShareSuccess] = useState(false);
 
-  // Board Collapsed State (mặc định thu gọn khi mới vào để xem vòng tròn trọn vẹn)
-  const [isBoardCollapsed, setIsBoardCollapsed] = useState(true);
-
   // Local state per wheel
   const [wheelStates, setWheelStates] = useState<Record<string, WheelMobileState>>({});
   const rotateAnims = useRef<Record<string, Animated.Value>>({});
@@ -115,6 +125,9 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onRe
   const [combinedWinnersModal, setCombinedWinnersModal] = useState<
     { wheelId: string; wheelTitle: string; winner: string; winningIndex: number }[] | null
   >(null);
+
+  // ScrollView Ref để hỗ trợ tự động cuộn lên khi bàn phím mở
+  const scrollViewRef = useRef<React.ElementRef<typeof ScrollView>>(null);
 
   useEffect(() => {
     if (onRegisterBack) {
@@ -229,12 +242,18 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onRe
     }
   };
 
-  // Load wheels
+  // Load wheels: Luôn sắp xếp vòng 1, 2, 3, 4 theo thời gian tạo tăng dần
   const loadData = useCallback(async () => {
     try {
       setIsLoading(true);
       const wheelsData = await getWheelsApi(circleId);
-      setWheels(wheelsData);
+      const sorted = [...wheelsData].sort((a, b) => {
+        const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        if (timeA !== timeB) return timeA - timeB;
+        return a.title.localeCompare(b.title, 'vi', { numeric: true });
+      });
+      setWheels(sorted);
     } catch (err: any) {
       Alert.alert(t.common.unknownError, err.message || t.common.unknownError);
     } finally {
@@ -451,7 +470,10 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onRe
     try {
       await shareWheelResultsToChatApi(
         circleId,
-        resultLines.map((line, idx) => ({ wheelTitle: `Lần ${idx + 1}`, winner: line })),
+        resultLines.map((line, idx) => ({
+          wheelTitle: (t.luckyWheel.turnNumber || 'Lần {number}').replace('{number}', String(idx + 1)),
+          winner: line,
+        })),
       );
       setShareSuccess(true);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -608,7 +630,9 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onRe
 
     const nextNumber = wheels.length + 1;
     const defaultTitle = t.luckyWheel.wheelNumber.replace('{number}', String(nextNumber));
-    const defaultChoices = ['Phở', 'Bún bò', 'Cơm tấm', 'Bánh mì'];
+    const defaultChoices = locale === 'vi'
+      ? ['Phở', 'Bún bò', 'Cơm tấm', 'Bánh mì']
+      : ['Pizza', 'Burger', 'Sushi', 'Tacos'];
 
     try {
       const res = await createWheelApi(circleId, {
@@ -622,7 +646,15 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onRe
         confettiEnabled: true,
       });
 
-      setWheels((prev) => [...prev, res]);
+      setWheels((prev) => {
+        const updated = [...prev, res];
+        return updated.sort((a, b) => {
+          const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          if (timeA !== timeB) return timeA - timeB;
+          return a.title.localeCompare(b.title, 'vi', { numeric: true });
+        });
+      });
       setActiveWheelId(res.id);
     } catch (err: any) {
       Alert.alert(t.common.unknownError, err.message || t.luckyWheel.maxWheelsReached);
@@ -763,13 +795,123 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onRe
   }, [activeState, parseOptions]);
 
   // Dynamic Disc Size for Mobile
-  const singleDiscSize = isBoardCollapsed ? 280 : 230;
-  const multiDiscSize = isBoardCollapsed ? 165 : 145;
+  const { width: windowWidth } = useWindowDimensions();
+  const availableColWidth = Math.floor((windowWidth - 32) / 2);
+  const isCompactScreen = windowWidth < 380;
+  const singleDiscSize = Math.min(240, windowWidth - 64);
+  const multiDiscSize = Math.max(120, Math.min(availableColWidth - 18, 145));
+  const fourDiscSize = Math.max(110, Math.min(availableColWidth - 18, 130));
+
+  // Render a single small wheel item (used in 2-wheel, 3-wheel, and 4-wheel layouts)
+  const renderSmallWheelItem = (wheel: DecisionWheelEntity, discSize: number) => {
+    const local = wheelStates[wheel.id];
+    const opts = parseOptions(local?.optionsText || '');
+    const isActive = activeWheelId === wheel.id;
+
+    return (
+      <View key={wheel.id} style={styles.smallWheelItemWrapper}>
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => {
+            setActiveWheelId(wheel.id);
+            setActiveTab(wheel.id);
+          }}
+          style={[
+            styles.mobileWheelTitleBadge,
+            isActive && styles.mobileWheelTitleBadgeActive,
+          ]}
+        >
+          <Compass
+            size={12}
+            color={isActive ? '#FFFFFF' : (isDark ? colors.primary : '#0D9488')}
+          />
+          <Text
+            style={[
+              styles.mobileWheelTitleText,
+              isActive && styles.mobileWheelTitleTextActive,
+            ]}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
+            {wheel.title}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={() => {
+            handleSpinSingle(wheel.id);
+          }}
+          style={styles.cleanSmallWheelCard}
+        >
+          <View style={{ width: discSize, height: discSize, position: 'relative' }}>
+            <Animated.View
+              style={{
+                width: discSize,
+                height: discSize,
+                transform: [
+                  {
+                    rotate: (
+                      rotateAnims.current[wheel.id] || new Animated.Value(0)
+                    ).interpolate({
+                      inputRange: [0, 360],
+                      outputRange: ['0deg', '360deg'],
+                    }),
+                  },
+                ],
+              }}
+            >
+              <Svg width={discSize} height={discSize}>
+                {renderWheelSvg(opts, discSize)}
+                <Circle
+                  cx={discSize / 2}
+                  cy={discSize / 2}
+                  r={12}
+                  fill={isDark ? colors.elevated : '#FFFFFF'}
+                  stroke={colors.primary}
+                  strokeWidth={2}
+                />
+                <Circle
+                  cx={discSize / 2}
+                  cy={discSize / 2}
+                  r={4}
+                  fill={colors.primary}
+                />
+              </Svg>
+            </Animated.View>
+            <View style={styles.pointerRightSmall} pointerEvents="none">
+              <Svg width={24} height={16} viewBox="0 0 24 16">
+                <Path
+                  d="M2 8L14 2C16 1 17 2 17 3.5V12.5C17 14 16 15 14 14L2 8Z"
+                  fill={colors.primary}
+                  stroke={isDark ? colors.elevated : '#FFFFFF'}
+                  strokeWidth={1.5}
+                  strokeLinejoin="round"
+                />
+                <Rect
+                  x={15}
+                  y={3}
+                  width={7}
+                  height={10}
+                  rx={2}
+                  fill={isDark ? colors.primaryDark : '#0F766E'}
+                  stroke={isDark ? colors.elevated : '#FFFFFF'}
+                  strokeWidth={1.5}
+                />
+                <Circle cx={18.5} cy={8} r={2} fill={isDark ? colors.elevated : '#FFFFFF'} />
+                <Circle cx={18.5} cy={8} r={1} fill={colors.primary} />
+              </Svg>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </View>
+    );
+  };
 
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#0D9488" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -785,52 +927,99 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onRe
 
   return (
     <View style={styles.container}>
-      {/* Floating Pill Toolbar: Floating over content with pointerEvents="box-none" */}
-      <View style={styles.floatingHeaderArea} pointerEvents="box-none">
-        <View />
+      {/* Floating Header Bar: Back Button, Title Label, and Action Icons */}
+      <View style={[styles.floatingHeaderArea, { top: floatingToolbarTop }]} pointerEvents="box-none">
+        {/* Left: Back Button (icon only) + Tên vòng quay dạng label (không khung) */}
+        <View style={styles.headerLeftGroup} pointerEvents="box-none">
+          {onBack && (
+            <TouchableOpacity
+              activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              onPress={onBack}
+              style={styles.floatingPillIconBtn}
+              accessibilityLabel={t.common.back}
+            >
+              <ArrowLeft size={16} color={colors.text} />
+            </TouchableOpacity>
+          )}
 
-        {/* Right: Add Wheel & Spin All Pills */}
+          <Text
+            style={styles.headerTitleLabelText}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
+            {t.nav?.luckyWheel || t.luckyWheel?.title || 'Vòng quay may mắn'}
+          </Text>
+        </View>
+
+        {/* Right: Results, Add Wheel & Spin All Buttons (Icon only) */}
         <View style={styles.floatingRightActions}>
+          {/* Nút Kết Quả Nhanh */}
           <TouchableOpacity
             style={[
-              styles.floatingPillBtn,
+              styles.floatingPillIconBtn,
+              activeTab === 'results' && styles.floatingPillIconBtnActiveResults,
+            ]}
+            onPress={() => {
+              setActiveTab((prev) => (prev === 'results' ? (activeWheelId || wheels[0]?.id || 'wheel') : 'results'));
+            }}
+            activeOpacity={0.8}
+            accessibilityLabel={t.luckyWheel.resultsTab}
+          >
+            <Trophy size={16} color={activeTab === 'results' ? '#FFFFFF' : '#F59E0B'} />
+          </TouchableOpacity>
+
+          {/* Nút Thêm Vòng Quay */}
+          <TouchableOpacity
+            style={[
+              styles.floatingPillIconBtn,
               (wheels.length >= 4 || isAnySpinning) && { opacity: 0.4 },
             ]}
             disabled={wheels.length >= 4 || isAnySpinning}
             onPress={handleAddDefaultWheel}
             activeOpacity={0.8}
+            accessibilityLabel={t.luckyWheel.addWheel}
           >
-            <Plus size={14} color="#0D9488" />
-            <Text style={styles.floatingPillText}>{t.luckyWheel.addWheel}</Text>
+            <Plus size={16} color={isDark ? colors.primary : '#0D9488'} />
           </TouchableOpacity>
 
+          {/* Nút Quay Tất Cả */}
           {wheels.length > 0 && (
             <TouchableOpacity
               style={[
-                styles.floatingPillPrimaryBtn,
+                styles.floatingPillPrimaryIconBtn,
                 isAnySpinning && { opacity: 0.5 },
               ]}
               disabled={isAnySpinning}
               onPress={handleSpinAll}
               activeOpacity={0.8}
+              accessibilityLabel={t.luckyWheel.spinAll}
             >
-              <RotateCw size={13} color="#FFFFFF" />
-              <Text style={styles.floatingPillPrimaryText}>{t.luckyWheel.spinAll}</Text>
+              <RotateCw size={15} color="#FFFFFF" />
             </TouchableOpacity>
           )}
         </View>
       </View>
 
       <ScrollView
+        ref={scrollViewRef}
         style={styles.scrollContainer}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          {
+            paddingTop: scrollPaddingTop,
+            paddingBottom: scrollPaddingBottom + 200,
+          },
+        ]}
+        automaticallyAdjustKeyboardInsets={true}
+        keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
         {/* SÂN KHẤU VÒNG QUAY (VISUAL ARENA) */}
         <View style={styles.arenaContainer}>
         {wheels.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Compass size={40} color="#9CA3AF" />
+            <Compass size={40} color={isDark ? '#4B5563' : '#9CA3AF'} />
             <Text style={styles.emptyTitle}>{t.luckyWheel.emptyWheelsTitle}</Text>
             <Text style={styles.emptyDesc}>{t.luckyWheel.emptyWheelsDesc}</Text>
             <TouchableOpacity style={styles.createFirstBtn} onPress={handleAddDefaultWheel}>
@@ -848,20 +1037,20 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onRe
                   onPress={() => {
                     setActiveWheelId(wheels[0]!.id);
                     setActiveTab(wheels[0]!.id);
-                    setIsBoardCollapsed(false);
                   }}
                   style={[
                     styles.mobileWheelTitleBadge,
                     activeWheelId === wheels[0]!.id && styles.mobileWheelTitleBadgeActive,
                   ]}
                 >
-                  <Compass size={13} color={activeWheelId === wheels[0]!.id ? '#FFFFFF' : '#0D9488'} />
+                  <Compass size={13} color={activeWheelId === wheels[0]!.id ? '#FFFFFF' : (isDark ? colors.primary : '#0D9488')} />
                   <Text
                     style={[
                       styles.mobileWheelTitleText,
                       activeWheelId === wheels[0]!.id && styles.mobileWheelTitleTextActive,
                     ]}
                     numberOfLines={1}
+                    ellipsizeMode="tail"
                   >
                     {wheels[0]!.title}
                   </Text>
@@ -900,15 +1089,15 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onRe
                           cx={singleDiscSize / 2}
                           cy={singleDiscSize / 2}
                           r={16}
-                          fill="#FFFFFF"
-                          stroke="#0D9488"
+                          fill={isDark ? colors.elevated : '#FFFFFF'}
+                          stroke={colors.primary}
                           strokeWidth={3}
                         />
                         <Circle
                           cx={singleDiscSize / 2}
                           cy={singleDiscSize / 2}
                           r={6}
-                          fill="#0D9488"
+                          fill={colors.primary}
                         />
                       </Svg>
                     </Animated.View>
@@ -916,14 +1105,14 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onRe
                       <Svg width={30} height={20} viewBox="0 0 30 20">
                         <Path
                           d="M2 10L18 2C20 1 21 2 21 4V16C21 18 20 19 18 18L2 10Z"
-                          fill="#0D9488"
-                          stroke="#FFFFFF"
+                          fill={colors.primary}
+                          stroke={isDark ? colors.elevated : '#FFFFFF'}
                           strokeWidth={1.5}
                           strokeLinejoin="round"
                         />
-                        <Rect x={19} y={4} width={9} height={12} rx={3} fill="#0F766E" stroke="#FFFFFF" strokeWidth={1.5} />
-                        <Circle cx={23.5} cy={10} r={2.5} fill="#FFFFFF" />
-                        <Circle cx={23.5} cy={10} r={1.2} fill="#0D9488" />
+                        <Rect x={19} y={4} width={9} height={12} rx={3} fill={isDark ? colors.primaryDark : '#0F766E'} stroke={isDark ? colors.elevated : '#FFFFFF'} strokeWidth={1.5} />
+                        <Circle cx={23.5} cy={10} r={2.5} fill={isDark ? colors.elevated : '#FFFFFF'} />
+                        <Circle cx={23.5} cy={10} r={1.2} fill={colors.primary} />
                       </Svg>
                     </View>
                   </View>
@@ -934,96 +1123,7 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onRe
             {/* 2 VÒNG: Hàng trên 2 vòng đặt cạnh nhau */}
             {wheels.length === 2 && (
               <View style={styles.rowTwoWheels}>
-                {wheels.map((wheel) => {
-                  const local = wheelStates[wheel.id];
-                  const opts = parseOptions(local?.optionsText || '');
-                  return (
-                    <View key={wheel.id} style={{ alignItems: 'center' }}>
-                      <TouchableOpacity
-                        activeOpacity={0.8}
-                        onPress={() => {
-                          setActiveWheelId(wheel.id);
-                          setActiveTab(wheel.id);
-                          setIsBoardCollapsed(false);
-                        }}
-                        style={[
-                          styles.mobileWheelTitleBadge,
-                          activeWheelId === wheel.id && styles.mobileWheelTitleBadgeActive,
-                        ]}
-                      >
-                        <Compass size={12} color={activeWheelId === wheel.id ? '#FFFFFF' : '#0D9488'} />
-                        <Text
-                          style={[
-                            styles.mobileWheelTitleText,
-                            activeWheelId === wheel.id && styles.mobileWheelTitleTextActive,
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {wheel.title}
-                        </Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        activeOpacity={0.9}
-                        onPress={() => {
-                          handleSpinSingle(wheel.id);
-                        }}
-                        style={styles.cleanSmallWheelCard}
-                      >
-                        <View style={{ width: multiDiscSize, height: multiDiscSize, position: 'relative' }}>
-                          <Animated.View
-                            style={{
-                              width: multiDiscSize,
-                              height: multiDiscSize,
-                              transform: [
-                                {
-                                  rotate: (
-                                    rotateAnims.current[wheel.id] || new Animated.Value(0)
-                                  ).interpolate({
-                                    inputRange: [0, 360],
-                                    outputRange: ['0deg', '360deg'],
-                                  }),
-                                },
-                              ],
-                            }}
-                          >
-                            <Svg width={multiDiscSize} height={multiDiscSize}>
-                              {renderWheelSvg(opts, multiDiscSize)}
-                              <Circle
-                                cx={multiDiscSize / 2}
-                                cy={multiDiscSize / 2}
-                                r={12}
-                                fill="#FFFFFF"
-                                stroke="#0D9488"
-                                strokeWidth={2}
-                              />
-                              <Circle
-                                cx={multiDiscSize / 2}
-                                cy={multiDiscSize / 2}
-                                r={4}
-                                fill="#0D9488"
-                              />
-                            </Svg>
-                          </Animated.View>
-                          <View style={styles.pointerRightSmall} pointerEvents="none">
-                            <Svg width={24} height={16} viewBox="0 0 24 16">
-                              <Path
-                                d="M2 8L14 2C16 1 17 2 17 3.5V12.5C17 14 16 15 14 14L2 8Z"
-                                fill="#0D9488"
-                                stroke="#FFFFFF"
-                                strokeWidth={1.5}
-                                strokeLinejoin="round"
-                              />
-                              <Rect x={15} y={3} width={7} height={10} rx={2} fill="#0F766E" stroke="#FFFFFF" strokeWidth={1.5} />
-                              <Circle cx={18.5} cy={8} r={2} fill="#FFFFFF" />
-                              <Circle cx={18.5} cy={8} r={1} fill="#0D9488" />
-                            </Svg>
-                          </View>
-                        </View>
-                      </TouchableOpacity>
-                    </View>
-                  );
-                })}
+                {wheels.map((wheel) => renderSmallWheelItem(wheel, multiDiscSize))}
               </View>
             )}
 
@@ -1031,300 +1131,34 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onRe
             {wheels.length === 3 && (
               <View style={styles.gridThreeWheels}>
                 <View style={styles.rowTwoWheels}>
-                  {wheels.slice(0, 2).map((wheel) => {
-                    const local = wheelStates[wheel.id];
-                    const opts = parseOptions(local?.optionsText || '');
-                    return (
-                      <View key={wheel.id} style={{ alignItems: 'center' }}>
-                        <TouchableOpacity
-                          activeOpacity={0.8}
-                          onPress={() => {
-                            setActiveWheelId(wheel.id);
-                            setActiveTab(wheel.id);
-                            setIsBoardCollapsed(false);
-                          }}
-                          style={[
-                            styles.mobileWheelTitleBadge,
-                            activeWheelId === wheel.id && styles.mobileWheelTitleBadgeActive,
-                          ]}
-                        >
-                          <Compass size={12} color={activeWheelId === wheel.id ? '#FFFFFF' : '#0D9488'} />
-                          <Text
-                            style={[
-                              styles.mobileWheelTitleText,
-                              activeWheelId === wheel.id && styles.mobileWheelTitleTextActive,
-                            ]}
-                            numberOfLines={1}
-                          >
-                            {wheel.title}
-                          </Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                          activeOpacity={0.9}
-                          onPress={() => {
-                            handleSpinSingle(wheel.id);
-                          }}
-                          style={styles.cleanSmallWheelCard}
-                        >
-                          <View style={{ width: multiDiscSize, height: multiDiscSize, position: 'relative' }}>
-                            <Animated.View
-                              style={{
-                                width: multiDiscSize,
-                                height: multiDiscSize,
-                                transform: [
-                                  {
-                                    rotate: (
-                                      rotateAnims.current[wheel.id] || new Animated.Value(0)
-                                    ).interpolate({
-                                      inputRange: [0, 360],
-                                      outputRange: ['0deg', '360deg'],
-                                    }),
-                                  },
-                                ],
-                              }}
-                            >
-                              <Svg width={multiDiscSize} height={multiDiscSize}>
-                                {renderWheelSvg(opts, multiDiscSize)}
-                                <Circle
-                                  cx={multiDiscSize / 2}
-                                  cy={multiDiscSize / 2}
-                                  r={12}
-                                  fill="#FFFFFF"
-                                  stroke="#0D9488"
-                                  strokeWidth={2}
-                                />
-                                <Circle
-                                  cx={multiDiscSize / 2}
-                                  cy={multiDiscSize / 2}
-                                  r={4}
-                                  fill="#0D9488"
-                                />
-                              </Svg>
-                            </Animated.View>
-                            <View style={styles.pointerRightSmall} pointerEvents="none">
-                              <Svg width={24} height={16} viewBox="0 0 24 16">
-                                <Path
-                                  d="M2 8L14 2C16 1 17 2 17 3.5V12.5C17 14 16 15 14 14L2 8Z"
-                                  fill="#0D9488"
-                                  stroke="#FFFFFF"
-                                  strokeWidth={1.5}
-                                  strokeLinejoin="round"
-                                />
-                                <Rect x={15} y={3} width={7} height={10} rx={2} fill="#0F766E" stroke="#FFFFFF" strokeWidth={1.5} />
-                                <Circle cx={18.5} cy={8} r={2} fill="#FFFFFF" />
-                                <Circle cx={18.5} cy={8} r={1} fill="#0D9488" />
-                              </Svg>
-                            </View>
-                          </View>
-                        </TouchableOpacity>
-                      </View>
-                    );
-                  })}
+                  {wheels.slice(0, 2).map((wheel) => renderSmallWheelItem(wheel, multiDiscSize))}
                 </View>
 
                 {wheels[2] && (
                   <View style={{ alignItems: 'center', marginTop: 10 }}>
-                    <TouchableOpacity
-                      activeOpacity={0.8}
-                      onPress={() => {
-                        setActiveWheelId(wheels[2]!.id);
-                        setActiveTab(wheels[2]!.id);
-                        setIsBoardCollapsed(false);
-                      }}
-                      style={[
-                        styles.mobileWheelTitleBadge,
-                        activeWheelId === wheels[2]!.id && styles.mobileWheelTitleBadgeActive,
-                      ]}
-                    >
-                      <Compass size={12} color={activeWheelId === wheels[2]!.id ? '#FFFFFF' : '#0D9488'} />
-                      <Text
-                        style={[
-                          styles.mobileWheelTitleText,
-                          activeWheelId === wheels[2]!.id && styles.mobileWheelTitleTextActive,
-                        ]}
-                        numberOfLines={1}
-                      >
-                        {wheels[2]!.title}
-                      </Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      activeOpacity={0.9}
-                      onPress={() => {
-                        handleSpinSingle(wheels[2]!.id);
-                      }}
-                      style={styles.cleanSmallWheelCard}
-                    >
-                      <View style={{ width: multiDiscSize, height: multiDiscSize, position: 'relative' }}>
-                        <Animated.View
-                          style={{
-                            width: multiDiscSize,
-                            height: multiDiscSize,
-                            transform: [
-                              {
-                                rotate: (
-                                  rotateAnims.current[wheels[2]!.id] || new Animated.Value(0)
-                                ).interpolate({
-                                  inputRange: [0, 360],
-                                  outputRange: ['0deg', '360deg'],
-                                }),
-                              },
-                            ],
-                          }}
-                        >
-                          <Svg width={multiDiscSize} height={multiDiscSize}>
-                            {renderWheelSvg(
-                              parseOptions(wheelStates[wheels[2]!.id]?.optionsText || ''),
-                              multiDiscSize,
-                            )}
-                            <Circle
-                              cx={multiDiscSize / 2}
-                              cy={multiDiscSize / 2}
-                              r={12}
-                              fill="#FFFFFF"
-                              stroke="#0D9488"
-                              strokeWidth={2}
-                            />
-                            <Circle
-                              cx={multiDiscSize / 2}
-                              cy={multiDiscSize / 2}
-                              r={4}
-                              fill="#0D9488"
-                            />
-                          </Svg>
-                        </Animated.View>
-                        <View style={styles.pointerRightSmall} pointerEvents="none">
-                          <Svg width={24} height={16} viewBox="0 0 24 16">
-                            <Path
-                              d="M2 8L14 2C16 1 17 2 17 3.5V12.5C17 14 16 15 14 14L2 8Z"
-                              fill="#0D9488"
-                              stroke="#FFFFFF"
-                              strokeWidth={1.5}
-                              strokeLinejoin="round"
-                            />
-                            <Rect x={15} y={3} width={7} height={10} rx={2} fill="#0F766E" stroke="#FFFFFF" strokeWidth={1.5} />
-                            <Circle cx={18.5} cy={8} r={2} fill="#FFFFFF" />
-                            <Circle cx={18.5} cy={8} r={1} fill="#0D9488" />
-                          </Svg>
-                        </View>
-                      </View>
-                    </TouchableOpacity>
+                    {renderSmallWheelItem(wheels[2], multiDiscSize)}
                   </View>
                 )}
               </View>
             )}
 
-            {/* 4 VÒNG: LƯỚI 2x2 */}
+            {/* 4 VÒNG: CHÍNH XÁC 2 HÀNG (MỖI HÀNG 2 VÒNG) */}
             {wheels.length === 4 && (
-              <View style={styles.gridFourWheels}>
-                {wheels.map((wheel) => {
-                  const local = wheelStates[wheel.id];
-                  const opts = parseOptions(local?.optionsText || '');
-                  return (
-                    <View key={wheel.id} style={{ alignItems: 'center' }}>
-                      <TouchableOpacity
-                        activeOpacity={0.8}
-                        onPress={() => {
-                          setActiveWheelId(wheel.id);
-                          setActiveTab(wheel.id);
-                          setIsBoardCollapsed(false);
-                        }}
-                        style={[
-                          styles.mobileWheelTitleBadge,
-                          activeWheelId === wheel.id && styles.mobileWheelTitleBadgeActive,
-                        ]}
-                      >
-                        <Compass size={12} color={activeWheelId === wheel.id ? '#FFFFFF' : '#0D9488'} />
-                        <Text
-                          style={[
-                            styles.mobileWheelTitleText,
-                            activeWheelId === wheel.id && styles.mobileWheelTitleTextActive,
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {wheel.title}
-                        </Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        activeOpacity={0.9}
-                        onPress={() => {
-                          handleSpinSingle(wheel.id);
-                        }}
-                        style={styles.cleanSmallWheelCard}
-                      >
-                        <View style={{ width: multiDiscSize, height: multiDiscSize, position: 'relative' }}>
-                          <Animated.View
-                            style={{
-                              width: multiDiscSize,
-                              height: multiDiscSize,
-                              transform: [
-                                {
-                                  rotate: (
-                                    rotateAnims.current[wheel.id] || new Animated.Value(0)
-                                  ).interpolate({
-                                    inputRange: [0, 360],
-                                    outputRange: ['0deg', '360deg'],
-                                  }),
-                                },
-                              ],
-                            }}
-                          >
-                            <Svg width={multiDiscSize} height={multiDiscSize}>
-                              {renderWheelSvg(opts, multiDiscSize)}
-                              <Circle
-                                cx={multiDiscSize / 2}
-                                cy={multiDiscSize / 2}
-                                r={12}
-                                fill="#FFFFFF"
-                                stroke="#0D9488"
-                                strokeWidth={2}
-                              />
-                              <Circle
-                                cx={multiDiscSize / 2}
-                                cy={multiDiscSize / 2}
-                                r={4}
-                                fill="#0D9488"
-                              />
-                            </Svg>
-                          </Animated.View>
-                          <View style={styles.pointerRightSmall} pointerEvents="none">
-                            <Svg width={24} height={16} viewBox="0 0 24 16">
-                              <Path
-                                d="M2 8L14 2C16 1 17 2 17 3.5V12.5C17 14 16 15 14 14L2 8Z"
-                                fill="#0D9488"
-                                stroke="#FFFFFF"
-                                strokeWidth={1.5}
-                                strokeLinejoin="round"
-                              />
-                              <Rect x={15} y={3} width={7} height={10} rx={2} fill="#0F766E" stroke="#FFFFFF" strokeWidth={1.5} />
-                              <Circle cx={18.5} cy={8} r={2} fill="#FFFFFF" />
-                              <Circle cx={18.5} cy={8} r={1} fill="#0D9488" />
-                            </Svg>
-                          </View>
-                        </View>
-                      </TouchableOpacity>
-                    </View>
-                  );
-                })}
+              <View style={styles.gridFourWheelsContainer}>
+                <View style={styles.rowTwoWheels}>
+                  {wheels.slice(0, 2).map((wheel) => renderSmallWheelItem(wheel, fourDiscSize))}
+                </View>
+                <View style={[styles.rowTwoWheels, { marginTop: 12 }]}>
+                  {wheels.slice(2, 4).map((wheel) => renderSmallWheelItem(wheel, fourDiscSize))}
+                </View>
               </View>
             )}
           </View>
         )}
       </View>
 
-      {/* "CÁI BẢNG" (TABBED OPTIONS BOARD BÊN DƯỚI) */}
-      {!isBoardCollapsed && (
-        <View style={styles.tabbedBoard}>
-          {/* Nút thu gọn bảng: Nửa trong nửa ngoài trên viền mép trên của bảng */}
-          <TouchableOpacity
-            style={styles.collapseHandleBtn}
-            onPress={() => setIsBoardCollapsed(true)}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <PanelRightClose size={14} color="#0D9488" />
-          </TouchableOpacity>
+      {/* "CÁI BẢNG" (TABBED OPTIONS BOARD BÊN DƯỚI) - LUÔN MỞ */}
+      <View style={styles.tabbedBoard}>
 
           {/* Horizontal Tabs: Hiển thị thẳng tên của từng vòng + TAB KẾT QUẢ */}
           <ScrollView
@@ -1343,7 +1177,11 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onRe
                     }}
                     style={[styles.tabPill, isSelected && styles.tabPillActive]}
                   >
-                    <Text style={[styles.tabPillText, isSelected && styles.tabPillTextActive]}>
+                    <Text
+                      style={[styles.tabPillText, isSelected && styles.tabPillTextActive]}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
                       {wheel.title}
                     </Text>
                   </TouchableOpacity>
@@ -1355,6 +1193,7 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onRe
                 onPress={() => setActiveTab('results')}
                 style={[
                   styles.tabPill,
+                  styles.tabPillResults,
                   activeTab === 'results' && styles.tabPillActiveResults,
                 ]}
               >
@@ -1364,6 +1203,8 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onRe
                     styles.tabPillText,
                     activeTab === 'results' && styles.tabPillTextActive,
                   ]}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
                 >
                   {t.luckyWheel.resultsTab}
                 </Text>
@@ -1387,28 +1228,32 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onRe
               </TouchableOpacity>
             </ScrollView>
 
-          {/* TAB CONTENT: KẾT QUẢ (DẠNG TEXT NHƯ KHI NHẬP, GHI THEO LẦN) */}
+          {/* TAB CONTENT: KẾT QUẢ (DẠNG TEXT CHỈ ĐỌC, GHI THEO LẦN) */}
           {activeTab === 'results' ? (
             <View style={styles.activeContentCard}>
               <View style={styles.resultsHeaderRow}>
                 <View style={styles.resultsHeaderLeft}>
                   <Trophy size={16} color="#F59E0B" />
-                  <Text style={styles.resultsHeaderTitle}>{t.luckyWheel.resultsHistoryTitle}</Text>
+                  <Text style={styles.resultsHeaderTitle} numberOfLines={1}>
+                    {t.luckyWheel.resultsHistoryTitle}
+                  </Text>
                   <Text style={styles.resultsHeaderCount}>({resultLinesCount})</Text>
                 </View>
               </View>
 
-              {/* Textarea lớn hiển thị & cho phép sửa kết quả dạng text */}
+              {/* Textarea lớn chỉ đọc hiển thị kết quả */}
               <View style={{ flex: 1, minHeight: 180, marginBottom: 8 }}>
                 <TextInput
-                  style={[styles.boardTextarea, { minHeight: 180 }]}
+                  style={[styles.boardTextarea, { minHeight: 180, opacity: 0.95 }]}
                   multiline
+                  editable={false}
                   value={resultsText}
-                  onChangeText={setResultsText}
                   placeholder={t.luckyWheel.resultsPlaceholder}
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
                 />
-                <Text style={styles.resultsHintText}>{t.luckyWheel.resultsHint}</Text>
+                <Text style={styles.resultsHintText} numberOfLines={1} ellipsizeMode="tail">
+                  {t.luckyWheel.resultsHint}
+                </Text>
               </View>
 
               {/* Action Buttons: Sort A-Z, Share to Chat, Clear All (Icons only) */}
@@ -1420,6 +1265,7 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onRe
                   ]}
                   disabled={resultLinesCount < 2}
                   onPress={handleSortResults}
+                  accessibilityLabel={t.luckyWheel.sortAZ}
                 >
                   <ArrowDownAZ size={18} color="#6366F1" />
                 </TouchableOpacity>
@@ -1431,13 +1277,14 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onRe
                   ]}
                   disabled={resultLinesCount === 0 || isSharingResults}
                   onPress={handleShareResultsToChat}
+                  accessibilityLabel={t.luckyWheel.shareResultsToChat}
                 >
                   {isSharingResults ? (
-                    <ActivityIndicator size="small" color="#0D9488" />
+                    <ActivityIndicator size="small" color={colors.primary} />
                   ) : shareSuccess ? (
                     <Check size={18} color="#10B981" />
                   ) : (
-                    <Share2 size={18} color="#0D9488" />
+                    <Share2 size={18} color={isDark ? colors.primary : '#0D9488'} />
                   )}
                 </TouchableOpacity>
 
@@ -1448,24 +1295,25 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onRe
                   ]}
                   disabled={resultLinesCount === 0}
                   onPress={handleClearResults}
+                  accessibilityLabel={t.luckyWheel.clearResults}
                 >
                   <Trash2 size={18} color="#EF4444" />
                 </TouchableOpacity>
               </View>
 
               {/* Sound & Delete All Wheels (Đồng bộ với Tab Setup) */}
-              <View style={[styles.togglesRow, { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#F3F4F6' }]}>
+              <View style={styles.togglesRow}>
                 <TouchableOpacity
                   style={[styles.toggleItem, isAnySpinning && { opacity: 0.4 }]}
                   disabled={isAnySpinning}
                   onPress={() => setSoundEnabled((prev) => !prev)}
                 >
                   {soundEnabled ? (
-                    <Volume2 size={16} color="#0D9488" />
+                    <Volume2 size={16} color={isDark ? colors.primary : '#0D9488'} />
                   ) : (
-                    <VolumeX size={16} color="#9CA3AF" />
+                    <VolumeX size={16} color={isDark ? '#6B7280' : '#9CA3AF'} />
                   )}
-                  <Text style={styles.toggleItemText}>{t.luckyWheel.soundSetting}</Text>
+                  <Text style={styles.toggleItemText} numberOfLines={1} ellipsizeMode="tail">{t.luckyWheel.soundSetting}</Text>
                 </TouchableOpacity>
 
                 {/* Delete All Wheels Button */}
@@ -1475,7 +1323,7 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onRe
                   onPress={handleDeleteAllWheels}
                 >
                   <Trash2 size={15} color="#EF4444" />
-                  <Text style={[styles.toggleItemText, { color: '#EF4444', fontWeight: '700' }]}>
+                  <Text style={[styles.toggleItemText, { color: '#EF4444', fontWeight: '700' }]} numberOfLines={1} ellipsizeMode="tail">
                     {t.luckyWheel.deleteAllWheels}
                   </Text>
                 </TouchableOpacity>
@@ -1490,6 +1338,7 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onRe
                   <TextInput
                     style={styles.inlineTitleInput}
                     value={activeWheel.title}
+                    maxLength={50}
                     editable={!isAnySpinning}
                     onChangeText={(val) => {
                       setWheels((prev) =>
@@ -1497,15 +1346,22 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onRe
                       );
                       saveWheelChanges(activeWheel.id, undefined, val);
                     }}
+                    onFocus={() => {
+                      setTimeout(() => {
+                        scrollViewRef.current?.scrollToEnd({ animated: true });
+                      }, 200);
+                    }}
                     placeholder={t.luckyWheel.wheelNamePlaceholder}
+                    placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
                   />
                   {wheels.length > 1 && (
                     <TouchableOpacity
                       onPress={() => handleDeleteWheel(activeWheel.id)}
                       disabled={isAnySpinning}
                       style={[styles.delWheelBtn, isAnySpinning && { opacity: 0.3 }]}
+                      accessibilityLabel={t.luckyWheel.confirmDeleteTitle}
                     >
-                      <Trash2 size={16} color="#EF4444" />
+                      <Trash2 size={18} color="#EF4444" />
                     </TouchableOpacity>
                   )}
                 </View>
@@ -1525,8 +1381,13 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onRe
                   editable={!isAnySpinning}
                   value={activeState?.optionsText || ''}
                   onChangeText={(txt) => handleTextChange(activeWheel.id, txt)}
+                  onFocus={() => {
+                    setTimeout(() => {
+                      scrollViewRef.current?.scrollToEnd({ animated: true });
+                    }, 200);
+                  }}
                   placeholder={t.luckyWheel.optionsPlaceholder}
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
                 />
 
                 {/* Action Buttons: Shuffle, Sort A-Z, Save Initial & Reset (Icons only, no text) */}
@@ -1535,14 +1396,16 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onRe
                     style={[styles.boardActionBtnIconOnly, isAnySpinning && { opacity: 0.4 }]}
                     disabled={isAnySpinning}
                     onPress={() => handleShuffle(activeWheel.id)}
+                    accessibilityLabel={t.luckyWheel.shuffleOptions}
                   >
-                    <Shuffle size={18} color="#0D9488" />
+                    <Shuffle size={18} color={isDark ? colors.primary : '#0D9488'} />
                   </TouchableOpacity>
 
                   <TouchableOpacity
                     style={[styles.boardActionBtnIconOnly, isAnySpinning && { opacity: 0.4 }]}
                     disabled={isAnySpinning}
                     onPress={() => handleSortAZ(activeWheel.id)}
+                    accessibilityLabel={t.luckyWheel.sortAZ}
                   >
                     <ArrowDownAZ size={18} color="#6366F1" />
                   </TouchableOpacity>
@@ -1551,14 +1414,16 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onRe
                     style={[styles.boardActionBtnIconOnly, isAnySpinning && { opacity: 0.4 }]}
                     disabled={isAnySpinning}
                     onPress={() => handleSaveAsInitial(activeWheel.id)}
+                    accessibilityLabel={t.luckyWheel.saveAsInitial}
                   >
-                    <BookmarkCheck size={18} color="#0D9488" />
+                    <BookmarkCheck size={18} color={isDark ? colors.primary : '#0D9488'} />
                   </TouchableOpacity>
 
                   <TouchableOpacity
                     style={[styles.boardActionBtnIconOnly, isAnySpinning && { opacity: 0.4 }]}
                     disabled={isAnySpinning}
                     onPress={() => handleReset(activeWheel.id)}
+                    accessibilityLabel={t.luckyWheel.resetOptions}
                   >
                     <RotateCcw size={18} color="#D97706" />
                   </TouchableOpacity>
@@ -1572,11 +1437,11 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onRe
                     onPress={() => setSoundEnabled((prev) => !prev)}
                   >
                     {soundEnabled ? (
-                      <Volume2 size={16} color="#0D9488" />
+                      <Volume2 size={16} color={isDark ? colors.primary : '#0D9488'} />
                     ) : (
-                      <VolumeX size={16} color="#9CA3AF" />
+                      <VolumeX size={16} color={isDark ? '#6B7280' : '#9CA3AF'} />
                     )}
-                    <Text style={styles.toggleItemText}>{t.luckyWheel.soundSetting}</Text>
+                    <Text style={styles.toggleItemText} numberOfLines={1} ellipsizeMode="tail">{t.luckyWheel.soundSetting}</Text>
                   </TouchableOpacity>
 
                   {/* Delete All Wheels Button */}
@@ -1586,7 +1451,7 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onRe
                     onPress={handleDeleteAllWheels}
                   >
                     <Trash2 size={15} color="#EF4444" />
-                    <Text style={[styles.toggleItemText, { color: '#EF4444', fontWeight: '700' }]}>
+                    <Text style={[styles.toggleItemText, { color: '#EF4444', fontWeight: '700' }]} numberOfLines={1} ellipsizeMode="tail">
                       {t.luckyWheel.deleteAllWheels}
                     </Text>
                   </TouchableOpacity>
@@ -1595,19 +1460,7 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onRe
             )
           )}
         </View>
-      )}
       </ScrollView>
-
-      {/* Nút mở lại bảng: Ghim ở mép bên phải của phần hiển thị khi thu gọn */}
-      {isBoardCollapsed && (
-        <TouchableOpacity
-          style={styles.floatingRightEdgeOpenBtn}
-          onPress={() => setIsBoardCollapsed(false)}
-          activeOpacity={0.8}
-        >
-          <PanelRightOpen size={16} color="#0D9488" />
-        </TouchableOpacity>
-      )}
 
       {/* COMBINED / BATCH RESULTS MODAL - CELEBRATION WINNER SHOWCASE */}
       <Modal visible={!!combinedWinnersModal && combinedWinnersModal.length > 0} transparent animationType="fade">
@@ -1618,8 +1471,9 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onRe
               style={styles.modalCloseBtn}
               onPress={() => setCombinedWinnersModal(null)}
               hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
+              accessibilityLabel={t.luckyWheel.close}
             >
-              <X size={18} color="#94A3B8" />
+              <X size={18} color={isDark ? colors.subtle : '#94A3B8'} />
             </TouchableOpacity>
 
             {/* Glowing Golden Trophy Icon */}
@@ -1632,7 +1486,7 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onRe
 
             {/* Title */}
             <Text style={styles.celebrationTitle}>
-              🎉 {t.luckyWheel.winnerTitle || 'Xin chúc mừng!'}
+              🎉 {t.luckyWheel.winnerTitle}
             </Text>
 
             {/* Single Winner Layout */}
@@ -1640,7 +1494,7 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onRe
               <>
                 <View style={styles.singleWinnerCard}>
                   <View style={styles.winnerBadgePill}>
-                    <Compass size={11} color="#B45309" />
+                    <Compass size={11} color={isDark ? '#FBBF24' : '#B45309'} />
                     <Text style={styles.singleWinnerWheelTitle} numberOfLines={1}>
                       {combinedWinnersModal[0]!.wheelTitle}
                     </Text>
@@ -1650,7 +1504,7 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onRe
                   </Text>
                   <View style={styles.sparkleRow}>
                     <Sparkles size={12} color="#F59E0B" />
-                    <Text style={styles.sparkleSubtext}>Lựa chọn may mắn của bạn!</Text>
+                    <Text style={styles.sparkleSubtext}>{t.luckyWheel.luckyChoiceBadge}</Text>
                     <Sparkles size={12} color="#F59E0B" />
                   </View>
                 </View>
@@ -1673,7 +1527,7 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onRe
                     }
                     activeOpacity={0.8}
                   >
-                    <Trash2 size={14} color="#E11D48" />
+                    <Trash2 size={14} color={isDark ? '#F87171' : '#E11D48'} />
                     <Text style={styles.secondaryRemoveBtnText}>{t.luckyWheel.removeResult}</Text>
                   </TouchableOpacity>
                 </View>
@@ -1698,8 +1552,9 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onRe
                         style={styles.multiWinnerRemoveIconBtn}
                         onPress={() => handleRemoveWinningOption(r.wheelId, r.winningIndex)}
                         hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+                        accessibilityLabel={t.luckyWheel.removeResult}
                       >
-                        <Trash2 size={16} color="#E11D48" />
+                        <Trash2 size={16} color={isDark ? '#F87171' : '#E11D48'} />
                       </TouchableOpacity>
                     </View>
                   ))}
@@ -1718,9 +1573,9 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onRe
                     onPress={handleRemoveAllWinningOptions}
                     activeOpacity={0.8}
                   >
-                    <Trash2 size={14} color="#E11D48" />
+                    <Trash2 size={14} color={isDark ? '#F87171' : '#E11D48'} />
                     <Text style={styles.secondaryRemoveBtnText}>
-                      {t.luckyWheel.removeAllResults || 'Loại bỏ tất cả'}
+                      {t.luckyWheel.removeAllResults}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -1733,47 +1588,8 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onRe
   );
 };
 
-const styles = StyleSheet.create({
-  floatingRightEdgeOpenBtn: {
-    position: 'absolute',
-    right: 0,
-    top: '46%',
-    zIndex: 35,
-    width: 32,
-    height: 48,
-    borderTopLeftRadius: 16,
-    borderBottomLeftRadius: 16,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderRightWidth: 0,
-    borderColor: '#E2E8F0',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: -2, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  collapseHandleBtn: {
-    position: 'absolute',
-    top: -14,
-    left: 16,
-    zIndex: 25,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 3,
-  },
+function createStyles(colors: any, isDark: boolean) {
+  return StyleSheet.create({
   trophyWrapper: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -1803,7 +1619,7 @@ const styles = StyleSheet.create({
   celebrationTitle: {
     fontSize: 18,
     fontWeight: '900',
-    color: '#0F172A',
+    color: colors.text,
     textAlign: 'center',
     marginBottom: 6,
   },
@@ -1811,9 +1627,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#FEF3C7',
+    backgroundColor: isDark ? 'rgba(245, 158, 11, 0.18)' : '#FEF3C7',
     borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderColor: isDark ? 'rgba(245, 158, 11, 0.35)' : '#FDE68A',
     paddingHorizontal: 10,
     paddingVertical: 3,
     borderRadius: 100,
@@ -1828,41 +1644,85 @@ const styles = StyleSheet.create({
   sparkleSubtext: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#B45309',
+    color: isDark ? '#FBBF24' : '#B45309',
   },
 
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: colors.canvas,
     position: 'relative',
   },
   floatingHeaderArea: {
     position: 'absolute',
-    top: 10,
-    left: 14,
-    right: 14,
+    left: 16,
+    right: 16,
     zIndex: 25,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  headerLeftGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+    marginRight: 8,
+  },
+  headerTitleLabelText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+    flexShrink: 1,
   },
   floatingRightActions: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
+  floatingPillIconBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: isDark ? colors.elevated : 'rgba(255, 255, 255, 0.94)',
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    shadowColor: '#000',
+    shadowOpacity: isDark ? 0.3 : 0.08,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 5,
+    elevation: 3,
+  },
+  floatingPillIconBtnActiveResults: {
+    backgroundColor: '#F59E0B',
+    borderColor: '#D97706',
+  },
+  floatingPillPrimaryIconBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+    shadowColor: colors.primary,
+    shadowOpacity: 0.25,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 5,
+    elevation: 3,
+  },
   floatingPillBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    backgroundColor: 'rgba(255, 255, 255, 0.94)',
+    gap: 4,
+    backgroundColor: isDark ? colors.elevated : 'rgba(255, 255, 255, 0.94)',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    paddingHorizontal: 12,
+    borderColor: colors.hairline,
+    paddingHorizontal: 10,
     paddingVertical: 7,
     borderRadius: 100,
     shadowColor: '#000',
-    shadowOpacity: 0.08,
+    shadowOpacity: isDark ? 0.3 : 0.08,
     shadowOffset: { width: 0, height: 2 },
     shadowRadius: 5,
     elevation: 3,
@@ -1870,17 +1730,17 @@ const styles = StyleSheet.create({
   floatingPillText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#334155',
+    color: colors.text,
   },
   floatingPillPrimaryBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    backgroundColor: '#0D9488',
-    paddingHorizontal: 13,
+    gap: 4,
+    backgroundColor: colors.primary,
+    paddingHorizontal: 11,
     paddingVertical: 7,
     borderRadius: 100,
-    shadowColor: '#0D9488',
+    shadowColor: colors.primary,
     shadowOpacity: 0.25,
     shadowOffset: { width: 0, height: 2 },
     shadowRadius: 5,
@@ -1895,22 +1755,20 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingTop: 54,
-    paddingHorizontal: 14,
-    paddingBottom: 60,
+    paddingHorizontal: 16,
   },
   mobileBackBtn: {
     padding: 6,
     borderRadius: 10,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: isDark ? colors.elevated : '#F3F4F6',
   },
   mobileEmptyWhiteContainer: {
     padding: 32,
     borderRadius: 24,
     borderWidth: 2,
-    borderColor: '#E5E7EB',
+    borderColor: colors.hairline,
     borderStyle: 'dashed',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: isDark ? colors.surface : '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 20,
@@ -1919,7 +1777,7 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 20,
-    backgroundColor: '#F0FDFA',
+    backgroundColor: isDark ? 'rgba(52, 211, 153, 0.12)' : '#F0FDFA',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
@@ -1928,12 +1786,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#0D9488',
+    backgroundColor: colors.primary,
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 14,
     marginTop: 18,
-    shadowColor: '#0D9488',
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
@@ -1947,9 +1805,9 @@ const styles = StyleSheet.create({
   mobileWheelCardItem: {
     padding: 16,
     borderRadius: 18,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: isDark ? colors.surface : '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: colors.hairline,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
@@ -1966,7 +1824,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 12,
-    backgroundColor: '#F0FDFA',
+    backgroundColor: isDark ? 'rgba(52, 211, 153, 0.12)' : '#F0FDFA',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1976,7 +1834,7 @@ const styles = StyleSheet.create({
   mobileWheelCardTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#111827',
+    color: colors.text,
     marginBottom: 4,
   },
   mobileWheelCardMeta: {
@@ -1987,7 +1845,7 @@ const styles = StyleSheet.create({
   },
   mobileWheelCardMetaText: {
     fontSize: 12,
-    color: '#6B7280',
+    color: colors.subtle,
   },
   mobileWheelCardFooter: {
     flexDirection: 'row',
@@ -1995,21 +1853,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
+    borderTopColor: colors.hairline,
   },
   mobileWheelCardAuthor: {
     fontSize: 11,
-    color: '#9CA3AF',
+    color: colors.subtle,
   },
   mobileWheelCardOpenText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#0D9488',
+    color: colors.primary,
   },
   mobileCreateModalCard: {
     width: '90%',
     maxWidth: 360,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: isDark ? colors.elevated : '#FFFFFF',
     borderRadius: 24,
     padding: 20,
     shadowColor: '#000',
@@ -2021,30 +1879,30 @@ const styles = StyleSheet.create({
   mobileCreateModalTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#111827',
+    color: colors.text,
     marginBottom: 6,
   },
   mobileCreateModalDesc: {
     fontSize: 12,
-    color: '#6B7280',
+    color: colors.subtle,
     marginBottom: 16,
     lineHeight: 18,
   },
   mobileCreateModalLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#374151',
+    color: colors.text,
     marginBottom: 6,
   },
   mobileCreateModalInput: {
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: colors.hairline,
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 14,
-    color: '#111827',
-    backgroundColor: '#F9FAFB',
+    color: colors.text,
+    backgroundColor: isDark ? colors.surface : '#F9FAFB',
     marginBottom: 18,
   },
   mobileCreateModalActions: {
@@ -2059,11 +1917,11 @@ const styles = StyleSheet.create({
   },
   mobileCreateModalCancelText: {
     fontSize: 13,
-    color: '#6B7280',
+    color: colors.subtle,
     fontWeight: '600',
   },
   mobileCreateModalSubmitBtn: {
-    backgroundColor: '#0D9488',
+    backgroundColor: colors.primary,
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 10,
@@ -2078,6 +1936,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     minHeight: 300,
+    backgroundColor: colors.canvas,
   },
   arenaContainer: {
     alignItems: 'center',
@@ -2097,11 +1956,11 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#374151',
+    color: colors.text,
   },
   emptyDesc: {
     fontSize: 12,
-    color: '#6B7280',
+    color: colors.subtle,
     textAlign: 'center',
     maxWidth: 260,
   },
@@ -2109,7 +1968,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#0D9488',
+    backgroundColor: colors.primary,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 10,
@@ -2132,7 +1991,7 @@ const styles = StyleSheet.create({
   wheelCardTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#111827',
+    color: colors.text,
     marginBottom: 10,
   },
   pointerRight: {
@@ -2152,35 +2011,37 @@ const styles = StyleSheet.create({
   rowTwoWheels: {
     flexDirection: 'row',
     justifyContent: 'space-around',
+    alignItems: 'center',
     width: '100%',
   },
   gridThreeWheels: {
     width: '100%',
   },
-  gridFourWheels: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-around',
-    gap: 8,
+  gridFourWheelsContainer: {
     width: '100%',
+  },
+  smallWheelItemWrapper: {
+    flex: 1,
+    alignItems: 'center',
+    maxWidth: '50%',
   },
   cleanSmallWheelCard: {
     alignItems: 'center',
     paddingVertical: 6,
-    paddingHorizontal: 16,
+    paddingHorizontal: 4,
   },
   smallWheelTitle: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#1F2937',
+    color: colors.text,
     marginBottom: 6,
     maxWidth: 130,
   },
   tabbedBoard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: isDark ? colors.surface : '#FFFFFF',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: colors.hairline,
     padding: 12,
   },
   boardHeaderRow: {
@@ -2189,14 +2050,14 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingBottom: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: colors.hairline,
   },
   collapseBoardBtn: {
     padding: 6,
     borderRadius: 10,
-    backgroundColor: '#F0FDFA',
+    backgroundColor: isDark ? colors.elevated : '#F0FDFA',
     borderWidth: 1,
-    borderColor: '#CCFBF1',
+    borderColor: colors.hairline,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2205,13 +2066,25 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   tabPill: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    width: 88,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
     borderRadius: 10,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: isDark ? colors.elevated : '#F1F5F9',
   },
   tabPillActive: {
-    backgroundColor: '#0D9488',
+    backgroundColor: colors.primary,
+  },
+  tabPillResults: {
+    width: 'auto',
+    minWidth: 88,
+    height: 32,
+    paddingHorizontal: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
   },
   tabPillActiveResults: {
     backgroundColor: '#F59E0B',
@@ -2230,13 +2103,13 @@ const styles = StyleSheet.create({
   },
   boardActionBtnIconOnly: {
     flex: 1,
+    height: 38,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    paddingVertical: 9,
+    borderColor: colors.hairline,
     borderRadius: 10,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: isDark ? colors.elevated : '#F9FAFB',
   },
   resultsHeaderRow: {
     flexDirection: 'row',
@@ -2244,22 +2117,24 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingBottom: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: colors.hairline,
     marginBottom: 8,
   },
   resultsHeaderLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    flex: 1,
   },
   resultsHeaderTitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
-    color: '#111827',
+    color: colors.text,
+    flexShrink: 1,
   },
   resultsHeaderCount: {
     fontSize: 12,
-    color: '#6B7280',
+    color: colors.subtle,
     fontWeight: '600',
   },
   resultsClearBtn: {
@@ -2291,12 +2166,12 @@ const styles = StyleSheet.create({
   emptyResultsTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#1F2937',
+    color: colors.text,
     marginBottom: 4,
   },
   emptyResultsDesc: {
     fontSize: 11,
-    color: '#6B7280',
+    color: colors.subtle,
     textAlign: 'center',
     maxWidth: 200,
   },
@@ -2337,7 +2212,8 @@ const styles = StyleSheet.create({
   tabPillText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#4B5563',
+    color: colors.subtle,
+    textAlign: 'center',
   },
   tabPillTextActive: {
     color: '#FFFFFF',
@@ -2356,13 +2232,20 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     fontWeight: '700',
-    color: '#111827',
+    color: colors.text,
     borderBottomWidth: 1,
-    borderBottomColor: '#0D9488',
+    borderBottomColor: colors.primary,
     paddingVertical: 2,
   },
   delWheelBtn: {
-    padding: 4,
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: isDark ? 'rgba(239, 68, 68, 0.3)' : '#FECDD3',
+    backgroundColor: isDark ? 'rgba(239, 68, 68, 0.15)' : '#FFF1F2',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   counterRow: {
     flexDirection: 'row',
@@ -2371,23 +2254,23 @@ const styles = StyleSheet.create({
   counterLabel: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#4B5563',
+    color: colors.subtle,
   },
   counterValue: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#0D9488',
+    color: colors.primary,
   },
   boardTextarea: {
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: colors.hairline,
     borderRadius: 10,
     padding: 10,
     fontSize: 12,
-    color: '#111827',
+    color: colors.text,
     minHeight: 120,
     textAlignVertical: 'top',
-    backgroundColor: '#FAFAFA',
+    backgroundColor: isDark ? colors.elevated : '#FAFAFA',
   },
   boardActionsRow: {
     flexDirection: 'row',
@@ -2400,14 +2283,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 4,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: colors.hairline,
     paddingVertical: 7,
     borderRadius: 8,
   },
   boardActionBtnText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#374151',
+    color: colors.text,
   },
   togglesRow: {
     flexDirection: 'row',
@@ -2415,7 +2298,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
+    borderTopColor: colors.hairline,
   },
   toggleItem: {
     flexDirection: 'row',
@@ -2424,11 +2307,11 @@ const styles = StyleSheet.create({
   },
   toggleItemText: {
     fontSize: 11,
-    color: '#4B5563',
+    color: colors.text,
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: 'rgba(0,0,0,0.65)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
@@ -2436,15 +2319,15 @@ const styles = StyleSheet.create({
   modalBox: {
     width: '100%',
     maxWidth: 380,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: isDark ? colors.elevated : '#FFFFFF',
     borderRadius: 24,
     padding: 20,
     alignItems: 'center',
     position: 'relative',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: isDark ? colors.hairline : '#E2E8F0',
     shadowColor: '#000',
-    shadowOpacity: 0.12,
+    shadowOpacity: isDark ? 0.35 : 0.12,
     shadowOffset: { width: 0, height: 8 },
     shadowRadius: 16,
     elevation: 6,
@@ -2470,13 +2353,13 @@ const styles = StyleSheet.create({
   winnerHeaderBadgeText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#0D9488',
+    color: colors.primary,
   },
   singleWinnerCard: {
     width: '100%',
-    backgroundColor: '#F0FDFA',
+    backgroundColor: isDark ? colors.surface : '#F0FDFA',
     borderWidth: 1,
-    borderColor: '#99F6E4',
+    borderColor: isDark ? colors.hairline : '#99F6E4',
     borderRadius: 18,
     paddingVertical: 20,
     paddingHorizontal: 16,
@@ -2487,7 +2370,7 @@ const styles = StyleSheet.create({
   singleWinnerWheelTitle: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#0F766E',
+    color: isDark ? '#FBBF24' : '#0F766E',
     textTransform: 'uppercase',
     letterSpacing: 0.8,
     marginBottom: 6,
@@ -2495,7 +2378,7 @@ const styles = StyleSheet.create({
   singleWinnerName: {
     fontSize: 24,
     fontWeight: '900',
-    color: '#0F172A',
+    color: colors.text,
     textAlign: 'center',
   },
   multiWinnersScroll: {
@@ -2507,9 +2390,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#F0FDFA',
+    backgroundColor: isDark ? colors.surface : '#F0FDFA',
     borderWidth: 1,
-    borderColor: '#99F6E4',
+    borderColor: isDark ? colors.hairline : '#99F6E4',
     borderRadius: 14,
     paddingHorizontal: 14,
     paddingVertical: 12,
@@ -2518,7 +2401,7 @@ const styles = StyleSheet.create({
   multiWinnerWheelTitle: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#0F766E',
+    color: isDark ? '#FBBF24' : '#0F766E',
     textTransform: 'uppercase',
     letterSpacing: 0.6,
     marginBottom: 2,
@@ -2526,14 +2409,14 @@ const styles = StyleSheet.create({
   multiWinnerName: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#0F172A',
+    color: colors.text,
   },
   multiWinnerRemoveIconBtn: {
     padding: 6,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#FFE4E6',
-    backgroundColor: '#FFF1F2',
+    borderColor: isDark ? 'rgba(239, 68, 68, 0.3)' : '#FFE4E6',
+    backgroundColor: isDark ? 'rgba(239, 68, 68, 0.15)' : '#FFF1F2',
   },
   modalButtonsCol: {
     width: '100%',
@@ -2547,7 +2430,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   primaryModalBtn: {
-    backgroundColor: '#0D9488',
+    backgroundColor: colors.primary,
     width: '100%',
     paddingVertical: 11,
     borderRadius: 12,
@@ -2565,8 +2448,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     borderWidth: 1,
-    borderColor: '#FECDD3',
-    backgroundColor: '#FFF1F2',
+    borderColor: isDark ? 'rgba(239, 68, 68, 0.35)' : '#FECDD3',
+    backgroundColor: isDark ? 'rgba(239, 68, 68, 0.15)' : '#FFF1F2',
     paddingVertical: 10,
     borderRadius: 12,
     width: '100%',
@@ -2574,7 +2457,7 @@ const styles = StyleSheet.create({
   secondaryRemoveBtnText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#E11D48',
+    color: isDark ? '#F87171' : '#E11D48',
   },
   folderModalHeader: {
     flexDirection: 'row',
@@ -2583,16 +2466,16 @@ const styles = StyleSheet.create({
     width: '100%',
     paddingBottom: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: colors.hairline,
   },
   folderModalTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#111827',
+    color: colors.text,
   },
   saveFolderCard: {
     width: '100%',
-    backgroundColor: '#F9FAFB',
+    backgroundColor: isDark ? colors.surface : '#F9FAFB',
     padding: 10,
     borderRadius: 12,
     marginTop: 10,
@@ -2600,23 +2483,24 @@ const styles = StyleSheet.create({
   saveFolderLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#374151',
+    color: colors.text,
   },
   saveFolderInput: {
     flex: 1,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: colors.hairline,
     borderRadius: 8,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: isDark ? colors.elevated : '#FFFFFF',
     paddingHorizontal: 8,
     paddingVertical: 4,
     fontSize: 11,
+    color: colors.text,
   },
   saveFolderBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#0D9488',
+    backgroundColor: colors.primary,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
@@ -2629,7 +2513,7 @@ const styles = StyleSheet.create({
   savedFoldersListTitle: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#6B7280',
+    color: colors.subtle,
     marginBottom: 6,
     textTransform: 'uppercase',
   },
@@ -2640,31 +2524,31 @@ const styles = StyleSheet.create({
   emptyFolderText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#4B5563',
+    color: colors.text,
   },
   emptyFolderSub: {
     fontSize: 10,
-    color: '#9CA3AF',
+    color: colors.subtle,
     textAlign: 'center',
     marginTop: 2,
   },
   folderCard: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: isDark ? colors.surface : '#F9FAFB',
     borderRadius: 10,
     padding: 10,
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: colors.hairline,
   },
   folderCardName: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#111827',
+    color: colors.text,
     maxWidth: 100,
   },
   folderCardCount: {
     fontSize: 10,
-    color: '#6B7280',
+    color: colors.subtle,
   },
   folderActionBtn: {
     padding: 4,
@@ -2673,7 +2557,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
-    backgroundColor: '#CCFBF1',
+    backgroundColor: isDark ? 'rgba(52, 211, 153, 0.15)' : '#CCFBF1',
     paddingHorizontal: 6,
     paddingVertical: 3,
     borderRadius: 6,
@@ -2681,53 +2565,55 @@ const styles = StyleSheet.create({
   restoreBtnText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#0D9488',
+    color: colors.primary,
   },
   previewBox: {
     marginTop: 8,
     paddingTop: 6,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: colors.hairline,
   },
   previewTitle: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#6B7280',
+    color: colors.subtle,
     marginBottom: 4,
   },
   previewItemText: {
     fontSize: 10,
-    color: '#4B5563',
+    color: colors.subtle,
     lineHeight: 14,
   },
   mobileWheelTitleBadge: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 4,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: isDark ? colors.elevated : '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: colors.hairline,
     marginBottom: 6,
-    maxWidth: 160,
+    width: 124,
   },
   mobileWheelTitleBadgeActive: {
-    borderColor: '#0D9488',
-    backgroundColor: '#0D9488',
+    borderColor: colors.primary,
+    backgroundColor: colors.primary,
   },
   mobileWheelTitleText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#374151',
+    color: colors.text,
   },
   mobileWheelTitleTextActive: {
     color: '#FFFFFF',
   },
   resultsHintText: {
     fontSize: 11,
-    color: '#6B7280',
+    color: colors.subtle,
     marginTop: 4,
   },
 });
+}

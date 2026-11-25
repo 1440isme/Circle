@@ -151,6 +151,9 @@ import { MobilePollView } from '../../src/components/tools/MobilePollView';
 import { MobileChatPollCard } from '../../src/components/chat/MobileChatPollCard';
 import { MobileChatLocationCard } from '../../src/components/chat/MobileChatLocationCard';
 import { MobileCreatePollModal } from '../../src/components/chat/MobileCreatePollModal';
+import { MobileLiveWheelPickerModal } from '../../src/components/chat/MobileLiveWheelPickerModal';
+import { MobileLiveWheelOverlay } from '../../src/components/chat/MobileLiveWheelOverlay';
+import { MobileLiveWheelChatEmbed } from '../../src/components/chat/MobileLiveWheelChatEmbed';
 import * as Location from 'expo-location';
 
 function getInitials(name: string): string {
@@ -1235,6 +1238,12 @@ const MobileSwipeMessageBubble = React.memo(function MobileSwipeMessageBubble({
                   colors={colors}
                   onViewOnCalendar={onViewOnCalendar}
                 />
+              ) : Boolean(msg.content?.startsWith('[LIVE_WHEEL]:')) ? (
+                <MobileLiveWheelChatEmbed
+                  content={msg.content}
+                  circleId={msg.circleId || circleId || ''}
+                  isSenderMe={isSenderMe}
+                />
               ) : callSummaryData ? (
                 <View style={styles.callSummaryCard}>
                   <View style={styles.callSummaryHeader}>
@@ -1796,6 +1805,7 @@ export default function CircleWorkspaceScreen() {
   const [isFullEmojiModalVisible, setIsFullEmojiModalVisible] = useState(false);
   const [targetReactMessageId, setTargetReactMessageId] = useState<string | null>(null);
   const [isCreatePollModalVisible, setIsCreatePollModalVisible] = useState(false);
+  const [isLiveWheelPickerVisible, setIsLiveWheelPickerVisible] = useState(false);
   const [isLocatingChat, setIsLocatingChat] = useState(false);
   const [momentsMemberFilter, setMomentsMemberFilter] = useState<string | 'all'>('all');
   const [isMomentsFilterOpen, setIsMomentsFilterOpen] = useState(false);
@@ -3556,6 +3566,28 @@ export default function CircleWorkspaceScreen() {
 
                   <TouchableOpacity
                     activeOpacity={0.75}
+                    onPress={() => {
+                      setIsPlusMenuOpen(false);
+                      setIsLiveWheelPickerVisible(true);
+                    }}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 12,
+                      minHeight: 46,
+                      paddingHorizontal: 14,
+                      borderBottomWidth: StyleSheet.hairlineWidth,
+                      borderBottomColor: colors.hairline,
+                    }}
+                  >
+                    <Compass size={18} color="#2563EB" />
+                    <Text style={{ fontSize: 13.5, fontWeight: '600', color: colors.text }}>
+                      {t.luckyWheel.createRandomWheel || (locale === 'vi' ? 'Tạo vòng quay ngẫu nhiên' : 'Create Random Wheel')}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    activeOpacity={0.75}
                     disabled={isLocatingChat}
                     onPress={() => {
                       setIsPlusMenuOpen(false);
@@ -4149,6 +4181,8 @@ export default function CircleWorkspaceScreen() {
               ? t.chat.calendarSharedLabel
               : rawContent.startsWith('[LOCATION_PIN]:')
               ? t.chat.locationSharedLabel
+              : rawContent.startsWith('[LIVE_WHEEL]:')
+              ? (locale === 'vi' ? '🎡 Vòng quay may mắn' : '🎡 Lucky Wheel')
               : rawContent.includes('"callType"')
               ? t.nav.groupCall
               : rawContent;
@@ -5148,6 +5182,17 @@ export default function CircleWorkspaceScreen() {
         }}
       />
 
+      {/* Mobile Live Wheel Picker Sheet */}
+      <MobileLiveWheelPickerModal
+        visible={isLiveWheelPickerVisible}
+        onClose={() => setIsLiveWheelPickerVisible(false)}
+        circleId={circleId}
+        channelId={currentChannelId}
+      />
+
+      {/* Mobile Live Wheel Realtime Overlay */}
+      <MobileLiveWheelOverlay circleId={circleId} />
+
       {/* Inline Member Filter Dropdown for Moments Tab */}
       {isMomentsFilterOpen && activeTab === 'moments' && (
         <View style={styles.momentsFilterDropdownOverlay}>
@@ -5263,41 +5308,44 @@ export default function CircleWorkspaceScreen() {
           style={{ flex: 1, backgroundColor: colors.canvas }}
           {...toolEdgePan.panHandlers}
         >
-          {/* Universal Contextual Back Button: Fixed top-left matching header position for every tier */}
-          <View
-            pointerEvents="box-none"
-            style={{
-              position: 'absolute',
-              top: Platform.OS === 'ios' ? 52 : 36,
-              left: 16,
-              zIndex: 100,
-            }}
-          >
-            <TouchableOpacity
-              activeOpacity={0.7}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              onPress={handleHierarchicalBack}
-              style={[
-                styles.floatingNavBtn,
-                {
-                  backgroundColor: isGlass
-                    ? (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)')
-                    : colors.wash,
-                  borderColor: isGlass
-                    ? (isDark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.06)')
-                    : colors.hairline,
-                },
-              ]}
-              accessibilityLabel={t.common.back}
+          {selectedTool !== 'album' && selectedTool !== 'calendar' &&
+            selectedTool !== 'wheel' && selectedTool !== 'anonymous' && (
+            <View
+              pointerEvents="box-none"
+              style={{
+                position: 'absolute',
+                top: Platform.OS === 'ios' ? 52 : 36,
+                left: 16,
+                zIndex: 100,
+              }}
             >
-              <ArrowLeft size={18} color={colors.text} />
-            </TouchableOpacity>
-          </View>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                onPress={handleHierarchicalBack}
+                style={[
+                  styles.floatingNavBtn,
+                  {
+                    backgroundColor: isGlass
+                      ? (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)')
+                      : colors.wash,
+                    borderColor: isGlass
+                      ? (isDark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.06)')
+                      : colors.hairline,
+                  },
+                ]}
+                accessibilityLabel={t.common.back}
+              >
+                <ArrowLeft size={18} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+          )}
 
           <View style={{ flex: 1 }}>
             {selectedTool === 'album' ? (
               <MobileAlbumsView
                 circleId={circleId}
+                onBack={handleHierarchicalBack}
                 onRegisterBack={(handler) => {
                   toolSubLevelBackRef.current = handler;
                 }}
@@ -5305,6 +5353,7 @@ export default function CircleWorkspaceScreen() {
             ) : selectedTool === 'calendar' ? (
               <MobileCalendarView
                 circleId={circleId}
+                onBack={handleHierarchicalBack}
                 onRegisterBack={(handler) => {
                   toolSubLevelBackRef.current = handler;
                 }}
@@ -5328,6 +5377,7 @@ export default function CircleWorkspaceScreen() {
             ) : selectedTool === 'wheel' ? (
               <MobileWheelView
                 circleId={circleId}
+                onBack={handleHierarchicalBack}
                 onRegisterBack={(handler) => {
                   toolSubLevelBackRef.current = handler;
                 }}
@@ -5335,6 +5385,7 @@ export default function CircleWorkspaceScreen() {
             ) : selectedTool === 'anonymous' ? (
               <MobileAnonymousView
                 circleId={circleId}
+                onBack={handleHierarchicalBack}
                 onRegisterBack={(handler) => {
                   toolSubLevelBackRef.current = handler;
                 }}

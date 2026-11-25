@@ -709,6 +709,16 @@ describe('AuthService — Full Test Suite (TC-AUTH-001 to TC-AUTH-006)', () => {
       expect(results[0]!.displayName).toBe('Hạnh Ninh');
       expect((results[0] as any).email).toBeUndefined(); // STRICT PRIVACY GUARANTEE
     });
+
+    it('TC-AUTH-HANDLE-005: should return empty list when search query is empty, whitespace, or bare @', async () => {
+      const resultsEmpty = await service.searchPublicUsers('', mockUser.id);
+      const resultsWhitespace = await service.searchPublicUsers('   ', mockUser.id);
+      const resultsAt = await service.searchPublicUsers('@', mockUser.id);
+
+      expect(resultsEmpty).toEqual([]);
+      expect(resultsWhitespace).toEqual([]);
+      expect(resultsAt).toEqual([]);
+    });
   });
 });
 

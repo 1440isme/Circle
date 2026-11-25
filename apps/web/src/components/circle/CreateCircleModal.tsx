@@ -1,24 +1,61 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   X,
   Users,
-  Lock,
-  Globe,
   AlertCircle,
   Loader2,
   Check,
   Search,
-  Sparkles,
+  History,
+  Trash2,
 } from 'lucide-react';
 import { createCircleSchemas } from '@circle/shared';
-import {
-  useCreateCircleMutation,
-  useSelectableFriendsQuery,
-} from '../../hooks/use-circle-queries';
+import { PublicUserEntity } from '@circle/types';
+import { useCreateCircleMutation } from '../../hooks/use-circle-queries';
 import { useLanguageStore } from '../../stores/language.store';
 import { useCircleStore } from '../../stores/circle.store';
+import { searchPublicUsersApi } from '../../lib/auth';
+
+const RECENT_SEARCHES_KEY = 'circle_recent_user_searches';
+
+function getLocalRecentSearches(): PublicUserEntity[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(RECENT_SEARCHES_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveLocalRecentUser(user: PublicUserEntity) {
+  if (typeof window === 'undefined') return;
+  try {
+    const current = getLocalRecentSearches().filter((u) => u.id !== user.id);
+    const updated = [user, ...current].slice(0, 8);
+    localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(updated));
+  } catch {}
+}
+
+function removeLocalRecentUser(userId: string): PublicUserEntity[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const updated = getLocalRecentSearches().filter((u) => u.id !== userId);
+    localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(updated));
+    return updated;
+  } catch {
+    return [];
+  }
+}
+
+function clearLocalRecentSearches() {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem(RECENT_SEARCHES_KEY);
+  } catch {}
+}
 
 export const CreateCircleModal: React.FC = () => {
   const t = useLanguageStore((s) => s.t);
@@ -27,26 +64,65 @@ export const CreateCircleModal: React.FC = () => {
   const setCreateModalOpen = useCircleStore((s) => s.setCreateModalOpen);
 
   const [name, setName] = useState('');
-  const [selectedFriendIds, setSelectedFriendIds] = useState<string[]>([]);
+  const [selectedUsers, setSelectedUsers] = useState<PublicUserEntity[]>([]);
   const [friendSearch, setFriendSearch] = useState('');
+  const [searchResults, setSearchResults] = useState<PublicUserEntity[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [recentUsers, setRecentUsers] = useState<PublicUserEntity[]>([]);
   const [isPrivate, setIsPrivate] = useState(false);
 
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState<string | null>(null);
 
+  const searchTimerRef = useRef<NodeJS.Timeout | null>(null);
   const createCircleMutation = useCreateCircleMutation();
-  const { data: selectableFriends = [], isLoading: isLoadingFriends } =
-    useSelectableFriendsQuery();
 
   const handleClose = useCallback(() => {
     setFieldErrors({});
     setServerError(null);
     setName('');
-    setSelectedFriendIds([]);
+    setSelectedUsers([]);
     setFriendSearch('');
+    setSearchResults([]);
+    setIsSearching(false);
     setIsPrivate(false);
     setCreateModalOpen(false);
   }, [setCreateModalOpen]);
+
+  useEffect(() => {
+    if (isCreateModalOpen) {
+      setRecentUsers(getLocalRecentSearches());
+    }
+  }, [isCreateModalOpen]);
+
+  useEffect(() => {
+    const query = friendSearch.trim();
+    if (!query) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+
+    setIsSearching(true);
+    if (searchTimerRef.current) {
+      clearTimeout(searchTimerRef.current);
+    }
+
+    searchTimerRef.current = setTimeout(async () => {
+      try {
+        const results = await searchPublicUsersApi(query);
+        setSearchResults(results || []);
+      } catch {
+        setSearchResults([]);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 250);
+
+    return () => {
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    };
+  }, [friendSearch]);
 
   useEffect(() => {
     if (!isCreateModalOpen) return;
@@ -61,27 +137,43 @@ export const CreateCircleModal: React.FC = () => {
     return null;
   }
 
-  const handleToggleFriend = (friendId: string) => {
-    setSelectedFriendIds((prev) =>
-      prev.includes(friendId)
-        ? prev.filter((id) => id !== friendId)
-        : [...prev, friendId],
-    );
+  const handleToggleUser = (user: PublicUserEntity) => {
+    setSelectedUsers((prev) => {
+      const exists = prev.some((u) => u.id === user.id);
+      if (exists) {
+        return prev.filter((u) => u.id !== user.id);
+      } else {
+        if (prev.length >= 99) {
+          setServerError('Vòng tròn đạt giới hạn tối đa 100 thành viên');
+          return prev;
+        }
+        saveLocalRecentUser(user);
+        setRecentUsers(getLocalRecentSearches());
+        return [...prev, user];
+      }
+    });
     if (fieldErrors.name) {
       setFieldErrors((prev) => ({ ...prev, name: '' }));
     }
   };
 
-  const filteredFriends = selectableFriends.filter((f) => {
-    const query = friendSearch.toLowerCase().trim();
-    if (!query) return true;
-    const cleanQuery = query.replace(/^@/, '');
-    return (
-      f.displayName.toLowerCase().includes(query) ||
-      (f.handle && f.handle.toLowerCase().includes(cleanQuery)) ||
-      f.email.toLowerCase().includes(query)
-    );
-  });
+  const handleRemoveSelected = (userId: string) => {
+    setSelectedUsers((prev) => prev.filter((u) => u.id !== userId));
+  };
+
+  const handleRemoveRecent = (e: React.MouseEvent, userId: string) => {
+    e.stopPropagation();
+    const updated = removeLocalRecentUser(userId);
+    setRecentUsers(updated);
+  };
+
+  const handleClearAllRecent = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    clearLocalRecentSearches();
+    setRecentUsers([]);
+  };
+
+  const selectedFriendIds = selectedUsers.map((u) => u.id);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -91,9 +183,10 @@ export const CreateCircleModal: React.FC = () => {
     const { createCircleSchema } = createCircleSchemas(locale);
 
     const payload = {
-      ...(name.trim() ? { name: name.trim() } : {}),
+      name: name.trim(),
       ...(selectedFriendIds.length > 0 ? { memberIds: selectedFriendIds } : {}),
       isPrivate,
+      maxMembers: 100,
     };
 
     const validationResult = createCircleSchema.safeParse(payload);
@@ -118,7 +211,7 @@ export const CreateCircleModal: React.FC = () => {
     }
   };
 
-  const canSubmit = name.trim().length >= 2 || selectedFriendIds.length > 0;
+  const canSubmit = name.trim().length >= 2;
 
   return (
     <div
@@ -167,14 +260,14 @@ export const CreateCircleModal: React.FC = () => {
         )}
 
         <form onSubmit={handleSubmit} className="mt-5 space-y-4">
-          {/* Field 1: Circle Name (Optional) */}
+          {/* Field 1: Circle Name (Required) */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <label className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text">
-                {t.circle.nameLabel}
+                {t.circle.nameLabel} <span className="text-rose-500">*</span>
               </label>
               <span className="text-[11px] text-circle-slate dark:text-circle-dark-muted">
-                ({t.circle.nameOptionalHint.split('.')[0].toLowerCase()})
+                {name.length}/50
               </span>
             </div>
             <input
@@ -188,6 +281,7 @@ export const CreateCircleModal: React.FC = () => {
               }}
               placeholder={t.circle.namePlaceholder}
               maxLength={50}
+              required
               className={`w-full rounded-2xl border py-2.5 px-3.5 text-sm transition-all bg-circle-canvas dark:bg-circle-dark-canvas text-circle-charcoal dark:text-circle-dark-text placeholder:text-circle-slate/50 dark:placeholder:text-circle-dark-muted/50 focus:bg-white dark:focus:bg-circle-dark-elevated focus:outline-none focus:ring-2 ${
                 fieldErrors.name
                   ? 'border-rose-400 focus:border-rose-400 focus:ring-rose-200'
@@ -198,30 +292,48 @@ export const CreateCircleModal: React.FC = () => {
               <p className="text-[11px] text-rose-600 dark:text-rose-400 pl-1">
                 {fieldErrors.name}
               </p>
-            ) : (
-              <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted pl-1">
-                {t.circle.nameOptionalHint}
-              </p>
-            )}
+            ) : null}
           </div>
 
-          {/* Field 2: Select Friends Section (Optional) */}
+          {/* Field 2: Select Members Section */}
           <div className="space-y-2 pt-1">
             <div className="flex items-center justify-between">
               <label className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text">
                 {t.circle.selectFriendsLabel}
               </label>
-              {selectedFriendIds.length > 0 && (
+              {selectedUsers.length > 0 && (
                 <span className="rounded-full bg-circle-primary/20 dark:bg-circle-primary/10 px-2.5 py-0.5 text-[10px] font-semibold text-circle-sage dark:text-circle-primary">
                   {t.circle.selectedFriendsCount.replace(
                     '{count}',
-                    String(selectedFriendIds.length),
+                    String(selectedUsers.length),
                   )}
                 </span>
               )}
             </div>
 
-            {/* Friend Search Bar */}
+            {/* Selected Members Chips */}
+            {selectedUsers.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 p-2 rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas/60 max-h-24 overflow-y-auto">
+                {selectedUsers.map((user) => (
+                  <span
+                    key={user.id}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-white dark:bg-circle-dark-elevated px-2.5 py-1 text-[11px] font-medium text-circle-charcoal dark:text-circle-dark-text border border-circle-hairline dark:border-circle-dark-hairline shadow-2xs"
+                  >
+                    <span className="truncate max-w-[120px]">{user.displayName}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveSelected(user.id)}
+                      className="text-circle-slate dark:text-circle-dark-muted hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
+                      aria-label={t.common.delete}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {/* Member Search Bar */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-circle-slate dark:text-circle-dark-muted" />
               <input
@@ -229,60 +341,160 @@ export const CreateCircleModal: React.FC = () => {
                 value={friendSearch}
                 onChange={(e) => setFriendSearch(e.target.value)}
                 placeholder={t.circle.friendsSearchPlaceholder}
-                className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas py-2 pl-9 pr-3 text-xs text-circle-charcoal dark:text-circle-dark-text placeholder:text-circle-slate/50 dark:placeholder:text-circle-dark-muted/50 focus:bg-white dark:focus:bg-circle-dark-elevated focus:outline-none focus:ring-1 focus:ring-circle-sage"
+                className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas py-2 pl-9 pr-8 text-xs text-circle-charcoal dark:text-circle-dark-text placeholder:text-circle-slate/50 dark:placeholder:text-circle-dark-muted/50 focus:bg-white dark:focus:bg-circle-dark-elevated focus:outline-none focus:ring-1 focus:ring-circle-sage"
               />
+              {friendSearch.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setFriendSearch('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
             </div>
 
-            {/* Friends Scrollable List */}
-            <div className="max-h-40 overflow-y-auto rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/40 dark:bg-circle-dark-canvas/40 p-1.5 space-y-1">
-              {isLoadingFriends ? (
-                <div className="flex items-center justify-center p-4 text-xs text-circle-slate dark:text-circle-dark-muted gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin text-circle-sage dark:text-circle-primary" />
-                  <span>{t.circle.loadingFriends}</span>
-                </div>
-              ) : filteredFriends.length === 0 ? (
-                <div className="p-4 text-center text-xs text-circle-slate dark:text-circle-dark-muted">
-                  {t.circle.noFriendsFound}
-                </div>
-              ) : (
-                filteredFriends.map((friend) => {
-                  const isSelected = selectedFriendIds.includes(friend.id);
-                  return (
-                    <div
-                      key={friend.id}
-                      onClick={() => handleToggleFriend(friend.id)}
-                      className={`flex items-center justify-between p-2 rounded-xl cursor-pointer transition-colors ${
-                        isSelected
-                          ? 'bg-circle-primary/15 dark:bg-circle-primary/20 text-circle-charcoal dark:text-circle-dark-text'
-                          : 'hover:bg-circle-wash/60 dark:hover:bg-circle-dark-wash/60 text-circle-charcoal dark:text-circle-dark-text'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-circle-primary/20 text-circle-sage dark:text-circle-primary text-xs font-bold">
-                          {friend.displayName.slice(0, 2).toUpperCase()}
-                        </div>
-                        <div className="truncate">
-                          <p className="text-xs font-semibold truncate">
-                            {friend.displayName}
-                          </p>
-                          <p className="text-[10px] font-mono text-circle-sage dark:text-circle-primary truncate">
-                            @{friend.handle || friend.email.split('@')[0]}
-                          </p>
-                        </div>
-                      </div>
-
+            {/* Dynamic Results / Recent Searches Container */}
+            <div className="max-h-44 overflow-y-auto rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/40 dark:bg-circle-dark-canvas/40 p-1.5 space-y-1">
+              {friendSearch.trim().length > 0 ? (
+                /* Mode 1: Search Active */
+                isSearching ? (
+                  <div className="flex items-center justify-center p-4 text-xs text-circle-slate dark:text-circle-dark-muted gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin text-circle-sage dark:text-circle-primary" />
+                    <span>{t.circle.loadingFriends}</span>
+                  </div>
+                ) : searchResults.length === 0 ? (
+                  <div className="p-4 text-center text-xs text-circle-slate dark:text-circle-dark-muted">
+                    {t.circle.noFriendsFound}
+                  </div>
+                ) : (
+                  searchResults.map((user) => {
+                    const isSelected = selectedUsers.some((u) => u.id === user.id);
+                    return (
                       <div
-                        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors ${
+                        key={user.id}
+                        onClick={() => handleToggleUser(user)}
+                        className={`flex items-center justify-between p-2 rounded-xl cursor-pointer transition-colors ${
                           isSelected
-                            ? 'border-circle-sage dark:border-circle-primary bg-circle-sage dark:bg-circle-primary text-white dark:text-circle-charcoal'
-                            : 'border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface'
+                            ? 'bg-circle-primary/15 dark:bg-circle-primary/20 text-circle-charcoal dark:text-circle-dark-text'
+                            : 'hover:bg-circle-wash/60 dark:hover:bg-circle-dark-wash/60 text-circle-charcoal dark:text-circle-dark-text'
                         }`}
                       >
-                        {isSelected && <Check className="h-3 w-3 stroke-[2.5]" />}
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-circle-primary/20 text-circle-sage dark:text-circle-primary text-xs font-bold overflow-hidden">
+                            {user.avatarUrl ? (
+                              <img
+                                src={user.avatarUrl}
+                                alt={user.displayName}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              user.displayName.slice(0, 2).toUpperCase()
+                            )}
+                          </div>
+                          <div className="truncate">
+                            <p className="text-xs font-semibold truncate">
+                              {user.displayName}
+                            </p>
+                            <p className="text-[10px] font-mono text-circle-sage dark:text-circle-primary truncate">
+                              @{user.handle}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div
+                          className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors ${
+                            isSelected
+                              ? 'border-circle-sage dark:border-circle-primary bg-circle-sage dark:bg-circle-primary text-white dark:text-circle-charcoal'
+                              : 'border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface'
+                          }`}
+                        >
+                          {isSelected && <Check className="h-3 w-3 stroke-[2.5]" />}
+                        </div>
                       </div>
+                    );
+                  })
+                )
+              ) : (
+                /* Mode 2: Search Empty — Show Recent Searches OR clean prompt */
+                recentUsers.length > 0 ? (
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between px-2 py-1 text-[11px] text-circle-slate dark:text-circle-dark-muted font-medium">
+                      <span className="flex items-center gap-1.5">
+                        <History className="h-3 w-3" />
+                        {t.circle.recentSearches}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleClearAllRecent}
+                        className="text-[10px] hover:text-rose-500 transition-colors"
+                      >
+                        {t.circle.clearRecentSearches}
+                      </button>
                     </div>
-                  );
-                })
+                    {recentUsers.map((user) => {
+                      const isSelected = selectedUsers.some((u) => u.id === user.id);
+                      return (
+                        <div
+                          key={user.id}
+                          onClick={() => handleToggleUser(user)}
+                          className={`group flex items-center justify-between p-2 rounded-xl cursor-pointer transition-colors ${
+                            isSelected
+                              ? 'bg-circle-primary/15 dark:bg-circle-primary/20 text-circle-charcoal dark:text-circle-dark-text'
+                              : 'hover:bg-circle-wash/60 dark:hover:bg-circle-dark-wash/60 text-circle-charcoal dark:text-circle-dark-text'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-circle-primary/20 text-circle-sage dark:text-circle-primary text-xs font-bold overflow-hidden">
+                              {user.avatarUrl ? (
+                                <img
+                                  src={user.avatarUrl}
+                                  alt={user.displayName}
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                user.displayName.slice(0, 2).toUpperCase()
+                              )}
+                            </div>
+                            <div className="truncate">
+                              <p className="text-xs font-semibold truncate">
+                                {user.displayName}
+                              </p>
+                              <p className="text-[10px] font-mono text-circle-sage dark:text-circle-primary truncate">
+                                @{user.handle}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={(e) => handleRemoveRecent(e, user.id)}
+                              className="opacity-0 group-hover:opacity-100 p-1 text-circle-slate dark:text-circle-dark-muted hover:text-rose-500 transition-all"
+                              title={t.common.delete}
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                            <div
+                              className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors ${
+                                isSelected
+                                  ? 'border-circle-sage dark:border-circle-primary bg-circle-sage dark:bg-circle-primary text-white dark:text-circle-charcoal'
+                                  : 'border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface'
+                              }`}
+                            >
+                              {isSelected && <Check className="h-3 w-3 stroke-[2.5]" />}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="p-5 text-center text-xs text-circle-slate dark:text-circle-dark-muted flex flex-col items-center justify-center gap-1.5">
+                    <Search className="h-4 w-4 opacity-40 text-circle-slate dark:text-circle-dark-muted" />
+                    <span>{t.circle.searchPrompt}</span>
+                  </div>
+                )
               )}
             </div>
           </div>
