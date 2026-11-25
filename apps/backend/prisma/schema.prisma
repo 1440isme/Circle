@@ -96,6 +96,7 @@ model User {
   filedReports           CircleReport[]          @relation("ReportedBy")
   receivedReports        CircleReport[]          @relation("ReportedUser")
   calendarEventRsvps     CalendarEventRsvp[]
+  calendarReminders      CalendarReminderDelivery[]
   anonymousPostReactions AnonymousPostReaction[]
 
   @@index([email])
@@ -169,6 +170,18 @@ model Notification {
   @@index([userId, type])
 }
 
+model CalendarReminderDelivery {
+  eventId    String
+  userId     String
+  reminderAt DateTime
+
+  event CalendarEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@id([eventId, userId, reminderAt])
+}
+
 model DeviceToken {
   id         String   @id @default(cuid())
   userId     String
@@ -220,6 +233,7 @@ model Circle {
   callSessions       CallSession[]
   momentVisibilities MomentVisibility[]
   reports            CircleReport[]
+  meetingPoint       CircleMeetingPoint?
 
   @@index([handle])
   @@index([inviteCode])
@@ -449,12 +463,14 @@ model SharedAlbum {
 // =============================================================================
 
 model PlanningSheet {
-  id          String   @id @default(cuid())
-  circleId    String
-  createdById String
-  title       String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String   @id @default(cuid())
+  circleId     String
+  createdById  String
+  title        String
+  templateType String   @default("custom")
+  metadata     Json?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   circle  Circle        @relation(fields: [circleId], references: [id], onDelete: Cascade)
   creator CircleMember  @relation(fields: [createdById], references: [id], onDelete: Cascade)
@@ -465,11 +481,13 @@ model PlanningSheet {
 }
 
 model SheetColumn {
-  id          String   @id @default(cuid())
-  sheetId     String
-  columnIndex Int
-  columnTitle String
-  createdAt   DateTime @default(now())
+  id           String   @id @default(cuid())
+  sheetId      String
+  columnIndex  Int
+  columnTitle  String
+  columnType   String   @default("text")
+  columnConfig Json?
+  createdAt    DateTime @default(now())
 
   sheet PlanningSheet @relation(fields: [sheetId], references: [id], onDelete: Cascade)
   cells SheetCell[]
@@ -522,13 +540,16 @@ model PinnedRecord {
 }
 
 model GroupPoll {
-  id          String    @id @default(cuid())
-  circleId    String
-  createdById String?
-  question    String
-  deadline    DateTime?
-  isClosed    Boolean   @default(false)
-  createdAt   DateTime  @default(now())
+  id               String    @id @default(cuid())
+  circleId         String
+  createdById      String?
+  question         String
+  isMultipleChoice Boolean   @default(false)
+  isAnonymous      Boolean   @default(false)
+  deadlineChanges  Json?
+  deadline         DateTime?
+  isClosed         Boolean   @default(false)
+  createdAt        DateTime  @default(now())
 
   circle  Circle        @relation(fields: [circleId], references: [id], onDelete: Cascade)
   creator CircleMember? @relation(fields: [createdById], references: [id], onDelete: SetNull)
@@ -562,7 +583,7 @@ model PollVote {
   option PollOption   @relation(fields: [optionId], references: [id], onDelete: Cascade)
   member CircleMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
 
-  @@unique([pollId, memberId])
+  @@unique([pollId, memberId, optionId])
   @@index([pollId])
   @@index([memberId])
 }
@@ -658,9 +679,11 @@ model CalendarEvent {
   circle  Circle              @relation(fields: [circleId], references: [id], onDelete: Cascade)
   creator CircleMember        @relation(fields: [createdById], references: [id], onDelete: Cascade)
   rsvps   CalendarEventRsvp[]
+  reminderDeliveries CalendarReminderDelivery[]
 
   @@index([circleId, startTime])
   @@index([createdById])
+  @@index([reminderTime])
 }
 
 model CalendarEventRsvp {
@@ -695,6 +718,22 @@ model LiveLocationShare {
 
   @@index([circleId, isActive])
   @@index([memberId])
+}
+
+model CircleMeetingPoint {
+  id          String   @id @default(cuid())
+  circleId    String   @unique
+  title       String
+  latitude    Float
+  longitude   Float
+  address     String?
+  updatedById String?
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+
+  circle Circle @relation(fields: [circleId], references: [id], onDelete: Cascade)
+
+  @@index([circleId])
 }
 
 model CallSession {

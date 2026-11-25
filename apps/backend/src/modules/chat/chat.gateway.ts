@@ -423,6 +423,12 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
+  broadcastSheetDeleted(circleId: string, payload: any) {
+    if (this.server) {
+      this.server.to(`circle:${circleId}`).emit('circle:sheet-deleted', payload);
+    }
+  }
+
   broadcastLiveLocationUpdated(circleId: string, payload: any) {
     if (this.server) {
       this.server.to(`circle:${circleId}`).emit('circle:location-updated', payload);
@@ -435,10 +441,20 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
+  broadcastMeetingPointUpdated(circleId: string, payload: any) {
+    if (this.server) {
+      this.server.to(`circle:${circleId}`).emit('circle:meeting-point-updated', payload);
+    }
+  }
+
   broadcastPollCreated(circleId: string, payload: any) {
     if (this.server) {
       this.server.to(`circle:${circleId}`).emit('circle:poll-created', payload);
     }
+  }
+
+  broadcastPollUpdated(circleId: string, pollId: string) {
+    this.server?.to(`circle:${circleId}`).emit('circle:poll-updated', { circleId, pollId });
   }
 
   broadcastPollVoted(circleId: string, payload: any) {
@@ -450,6 +466,12 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   broadcastPollClosed(circleId: string, payload: any) {
     if (this.server) {
       this.server.to(`circle:${circleId}`).emit('circle:poll-closed', payload);
+    }
+  }
+
+  broadcastPollDeleted(circleId: string, payload: any) {
+    if (this.server) {
+      this.server.to(`circle:${circleId}`).emit('circle:poll-deleted', payload);
     }
   }
 

@@ -24,7 +24,8 @@ import {
   isBiometricUnlockEnabled,
   authenticateWithBiometrics,
 } from '../src/services/biometric.service';
-import { initPushNotifications } from '../src/services/notifications.service';
+import { initPushNotifications, markNotificationAsReadApi } from '../src/services/notifications.service';
+import { openMobileNotification } from '../src/services/notification-navigation';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -74,19 +75,22 @@ function RootNavigator() {
   useEffect(() => {
     if (!isAuthenticated || isLoading) return;
     let cleanup: (() => void) | null = null;
+    let cancelled = false;
 
     initPushNotifications((data) => {
-      if (data?.deepLink) {
-        router.push(data.deepLink as any);
-      } else if (data?.targetType === 'circle' && data?.targetId) {
-        router.push(`/circle/${data.targetId}` as any);
+      if (cancelled) return;
+      if (typeof data.notificationId === 'string') {
+        void markNotificationAsReadApi(data.notificationId).catch(() => {});
       }
+      openMobileNotification(router, data);
     }).then((unsub) => {
-      cleanup = unsub;
+      if (cancelled) unsub?.();
+      else cleanup = unsub;
     });
 
     return () => {
-      if (cleanup) cleanup();
+      cancelled = true;
+      cleanup?.();
     };
   }, [isAuthenticated, isLoading, router]);
 

@@ -18,8 +18,13 @@ import {
   Navigation,
   AlertTriangle,
   Compass,
+  BarChart2,
+  Calendar,
+  FileSpreadsheet,
+  Camera,
 } from 'lucide-react';
 import { MessageEntity, MessageType } from '@circle/types';
+import { getRichReplyPreviewData } from '@circle/shared';
 import { useLanguageStore } from '../../stores/language.store';
 import { useThemeStore } from '../../stores/theme.store';
 import { useUploadMedia } from '../../hooks/use-upload-media';
@@ -81,10 +86,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
   reportTyping,
 }) => {
   const t = useLanguageStore((s) => s.t);
-  const locale = useLanguageStore((s) => s.locale);
   const [isLiveWheelSetupOpen, setIsLiveWheelSetupOpen] = useState(false);
-  const uiStyle = useThemeStore((s) => s.uiStyle);
-  const isGlass = uiStyle === 'glass';
   const [content, setContent] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -547,33 +549,57 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
       )}
 
       {/* Reply Quote Banner */}
-      {replyingMessage && (
-        <div className="mb-2 flex items-center justify-between rounded-xl chat-composer-reply-banner px-3 py-1.5 text-xs border animate-in fade-in duration-150">
-          <div className="flex items-center gap-2 truncate">
-            <span className="font-semibold chat-composer-reply-author">
-              {t.chat.replyingTo.replace(
-                '{name}',
-                replyingMessage.sender?.nickname ||
-                  replyingMessage.sender?.user?.profile?.displayName ||
-                  t.auth.guest,
-              )}
-            </span>
-            <span className="text-circle-slate dark:text-circle-dark-muted truncate opacity-85">
-              {replyingMessage.type === MessageType.FILE
-                ? `[${t.chat.fileDownload}]`
-                : replyingMessage.content}
-            </span>
+      {replyingMessage && (() => {
+        const preview = getRichReplyPreviewData(replyingMessage, t);
+        return (
+          <div className="mb-2 flex items-center justify-between rounded-xl chat-composer-reply-banner px-3 py-1.5 text-xs border animate-in fade-in duration-150">
+            <div className="flex items-center gap-2 truncate min-w-0 flex-1">
+              {preview.thumbnailUrl ? (
+                <img
+                  src={preview.thumbnailUrl}
+                  alt="preview"
+                  className="w-6 h-6 rounded-md object-cover shrink-0 border border-black/10 dark:border-white/10"
+                />
+              ) : preview.kind === 'location' ? (
+                <MapPin className="h-3.5 w-3.5 text-rose-500 shrink-0" />
+              ) : preview.kind === 'poll' ? (
+                <BarChart2 className="h-3.5 w-3.5 text-circle-sage dark:text-circle-primary shrink-0" />
+              ) : preview.kind === 'calendar' ? (
+                <Calendar className="h-3.5 w-3.5 text-circle-sage dark:text-circle-primary shrink-0" />
+              ) : preview.kind === 'planning' ? (
+                <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+              ) : preview.kind === 'moment' ? (
+                <Camera className="h-3.5 w-3.5 text-circle-sage dark:text-circle-primary shrink-0" />
+              ) : preview.kind === 'image' ? (
+                <ImageIcon className="h-3.5 w-3.5 text-circle-sage dark:text-circle-primary shrink-0" />
+              ) : preview.kind === 'file' ? (
+                <FileText className="h-3.5 w-3.5 text-circle-sage dark:text-circle-primary shrink-0" />
+              ) : null}
+              <div className="flex items-center gap-1.5 truncate min-w-0">
+                <span className="font-semibold chat-composer-reply-author shrink-0">
+                  {t.chat.replyingTo.replace(
+                    '{name}',
+                    replyingMessage.sender?.nickname ||
+                      replyingMessage.sender?.user?.profile?.displayName ||
+                      t.auth.guest,
+                  )}:
+                </span>
+                <span className="text-circle-slate dark:text-circle-dark-muted truncate opacity-85">
+                  {preview.title}
+                </span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={onCancelReply}
+              className="flex h-5 w-5 items-center justify-center rounded-full text-circle-slate dark:text-circle-dark-muted hover:bg-circle-hairline hover:text-circle-charcoal transition-colors ml-2 shrink-0"
+              title={t.chat.cancelReply}
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={onCancelReply}
-            className="flex h-5 w-5 items-center justify-center rounded-full text-circle-slate dark:text-circle-dark-muted hover:bg-circle-hairline hover:text-circle-charcoal transition-colors ml-2 shrink-0"
-            title={t.chat.cancelReply}
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Editing Message Banner (CHT-09) */}
       {editingMessage && (
@@ -662,11 +688,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
       <div className="flex items-center gap-2.5 w-full">
         {/* Left Input Capsule: (+) icon, Image icon, Text field, and Sticker/Emoji on far right */}
         <div
-          className={`flex-1 flex items-center gap-2 rounded-full border px-3 py-1.5 min-h-[48px] transition-all ${
-            isGlass
-              ? 'backdrop-blur-xl bg-white/95 dark:bg-circle-dark-surface/94 border-circle-hairline dark:border-white/15 shadow-sm'
-              : 'bg-white dark:bg-circle-dark-surface border-circle-hairline dark:border-circle-dark-hairline shadow-2xs'
-          }`}
+          className="flex-1 flex items-center gap-2 rounded-full border border-circle-hairline dark:border-circle-dark-hairline backdrop-blur-md bg-white/90 dark:bg-circle-dark-surface/90 px-3 py-1.5 min-h-[48px] transition-all shadow-2xs"
         >
           {/* Action 1: (+) Outline Neutral Plus Button with Context Menu */}
           <div className="relative" ref={plusMenuRef}>
@@ -685,16 +707,16 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
 
             {/* Attachment / Action Popover Menu */}
             {isPlusMenuOpen && (
-              <div className="absolute bottom-full left-0 mb-3 w-56 rounded-2xl glass p-1.5 shadow-xl animate-in zoom-in-95 duration-150 z-30 flex flex-col gap-1">
+              <div className="absolute bottom-full left-0 mb-3 w-56 rounded-2xl glass p-1.5 shadow-xl animate-in zoom-in-95 duration-150 z-30 flex flex-col gap-0.5">
                 <button
                   type="button"
                   onClick={() => {
                     setIsPlusMenuOpen(false);
                     fileInputRef.current?.click();
                   }}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors text-left"
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors text-left group"
                 >
-                  <FileText className="w-4 h-4 text-circle-slate dark:text-circle-dark-muted shrink-0" />
+                  <FileText className="w-4 h-4 text-circle-slate dark:text-circle-dark-muted group-hover:text-circle-charcoal dark:group-hover:text-white shrink-0 transition-colors" />
                   <span>{t.chat.attachFile}</span>
                 </button>
 
@@ -706,9 +728,9 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
                         setIsPlusMenuOpen(false);
                         setIsCreatePollOpen(true);
                       }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors text-left"
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors text-left group"
                     >
-                      <Vote className="w-4 h-4 text-circle-sage dark:text-circle-primary shrink-0" />
+                      <Vote className="w-4 h-4 text-circle-slate dark:text-circle-dark-muted group-hover:text-circle-charcoal dark:group-hover:text-white shrink-0 transition-colors" />
                       <span>{t.collab.createPoll}</span>
                     </button>
 
@@ -718,11 +740,11 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
                         setIsPlusMenuOpen(false);
                         setIsLiveWheelSetupOpen(true);
                       }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors text-left cursor-pointer"
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors text-left group"
                     >
-                      <Compass className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+                      <Compass className="w-4 h-4 text-circle-slate dark:text-circle-dark-muted group-hover:text-circle-charcoal dark:group-hover:text-white shrink-0 transition-colors" />
                       <span>
-                        {t.luckyWheel.createRandomWheel || (locale === 'vi' ? 'Tạo vòng quay ngẫu nhiên' : 'Create Random Wheel')}
+                        {t.luckyWheel.createRandomWheel}
                       </span>
                     </button>
                   </>
@@ -732,12 +754,12 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
                   type="button"
                   disabled={isLocating}
                   onClick={handleSendLocation}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors text-left disabled:opacity-50"
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors text-left group disabled:opacity-50"
                 >
                   {isLocating ? (
-                    <Loader2 className="w-4 h-4 animate-spin text-sky-500 shrink-0" />
+                    <Loader2 className="w-4 h-4 animate-spin text-circle-slate shrink-0" />
                   ) : (
-                    <MapPin className="w-4 h-4 text-sky-500 shrink-0" />
+                    <MapPin className="w-4 h-4 text-circle-slate dark:text-circle-dark-muted group-hover:text-circle-charcoal dark:group-hover:text-white shrink-0 transition-colors" />
                   )}
                   <span>{isLocating ? t.collab.locationRetrieving : t.collab.sendStaticLocation}</span>
                 </button>
@@ -795,9 +817,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
               ? 'bg-amber-600 text-white shadow-sm hover:bg-amber-700'
               : content.trim() || attachedFile
               ? 'chat-composer-send-btn-active shadow-sm'
-              : isGlass
-              ? 'backdrop-blur-md bg-white/80 dark:bg-circle-dark-surface/80 border border-white/60 dark:border-white/10 shadow-xs text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text hover:bg-white dark:hover:bg-circle-dark-surface'
-              : 'bg-white dark:bg-circle-dark-surface border border-circle-hairline dark:border-circle-dark-hairline shadow-2xs text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas'
+              : 'backdrop-blur-md bg-white/90 dark:bg-circle-dark-surface/90 border border-circle-hairline dark:border-circle-dark-hairline shadow-2xs text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas'
           }`}
           title={editingMessage ? t.chat.saveEdit : (content.trim() || attachedFile) ? t.chat.sendBtn : t.chat.recordVoiceMessage}
         >

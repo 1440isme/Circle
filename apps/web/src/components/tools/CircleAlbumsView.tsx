@@ -41,6 +41,7 @@ import {
 } from '../../hooks/use-circle-tools';
 import { useUploadMedia } from '../../hooks/use-upload-media';
 import { PhotoEntity } from '@circle/types';
+import { ConfirmModal } from '../ui/ConfirmModal';
 
 interface CircleAlbumsViewProps {
   circleId: string;
@@ -679,6 +680,7 @@ export const CircleAlbumsView: React.FC<CircleAlbumsViewProps> = ({ circleId }) 
   const [albumDateFrom, setAlbumDateFrom] = useState('');
   const [albumDateTo, setAlbumDateTo] = useState('');
   const [isConfirmDeleteAlbumOpen, setIsConfirmDeleteAlbumOpen] = useState(false);
+  const [isConfirmBatchDeletePhotosOpen, setIsConfirmBatchDeletePhotosOpen] = useState(false);
 
   // Inline rename album
   const [isEditingAlbumTitle, setIsEditingAlbumTitle] = useState(false);
@@ -1156,17 +1158,12 @@ export const CircleAlbumsView: React.FC<CircleAlbumsViewProps> = ({ circleId }) 
     });
   };
 
-  const handleBatchDeleteAlbumPhotos = async () => {
+  const handleBatchDeleteAlbumPhotos = () => {
     if (selectedAlbumPhotoIds.size === 0) return;
-    if (
-      !window.confirm(
-        locale === 'vi'
-          ? `Bạn có chắc chắn muốn xóa ${selectedAlbumPhotoIds.size} ảnh đã chọn khỏi album này?`
-          : `Are you sure you want to delete ${selectedAlbumPhotoIds.size} selected photos from this album?`,
-      )
-    ) {
-      return;
-    }
+    setIsConfirmBatchDeletePhotosOpen(true);
+  };
+
+  const handleExecuteBatchDeleteAlbumPhotos = async () => {
     setIsDeletingPhotos(true);
     try {
       await Promise.all(
@@ -1176,6 +1173,7 @@ export const CircleAlbumsView: React.FC<CircleAlbumsViewProps> = ({ circleId }) 
       );
       setSelectedAlbumPhotoIds(new Set());
       setIsAlbumSelectMode(false);
+      setIsConfirmBatchDeletePhotosOpen(false);
     } catch (err: any) {
       setAlbumError(err?.message || t.collab.deletePhotoError);
     } finally {
@@ -2487,6 +2485,22 @@ export const CircleAlbumsView: React.FC<CircleAlbumsViewProps> = ({ circleId }) 
           </div>
         </div>
       )}
+
+      {/* Unified Confirm Modal for Batch Photo Delete (Rule 9) */}
+      <ConfirmModal
+        isOpen={isConfirmBatchDeletePhotosOpen}
+        onClose={() => setIsConfirmBatchDeletePhotosOpen(false)}
+        onConfirm={handleExecuteBatchDeleteAlbumPhotos}
+        title={t.common.delete}
+        description={
+          locale === 'vi'
+            ? `Bạn có chắc chắn muốn xóa ${selectedAlbumPhotoIds.size} ảnh đã chọn khỏi album này?`
+            : `Are you sure you want to delete ${selectedAlbumPhotoIds.size} selected photos from this album?`
+        }
+        confirmLabel={t.common.delete}
+        variant="danger"
+        isLoading={isDeletingPhotos}
+      />
     </div>
   );
 };

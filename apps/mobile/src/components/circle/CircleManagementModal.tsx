@@ -59,6 +59,7 @@ import { triggerSelectionHaptic } from '../../services/sound.service';
 import { getGlassTheme } from '../../constants/glass-theme';
 import { copyTextSafe } from '../../utils/clipboard';
 import { searchPublicUsersApi } from '../../services/api';
+import { MobileConfirmModal } from '../ui/MobileConfirmModal';
 import {
   useCircleDetailQuery,
   useCircleMembersQuery,
@@ -75,7 +76,9 @@ import {
 } from '../../hooks/use-circle-queries';
 import { getStorageItem, setStorageItem } from '../../services/storage';
 import { useEdgeSwipeDismiss } from '../../hooks/use-edge-swipe';
-import { MemberRole, PublicUserEntity } from '@circle/types';
+import { mobileApiRequest } from '../../services/api';
+import { getActiveCircleMute } from '@circle/shared';
+import { CircleNotificationSettings, CircleMuteDuration, UpdateCircleNotificationSettingsInput, MemberRole, PublicUserEntity } from '@circle/types';
 import { MessageBubbleThemes, MessageTheme } from '@circle/shared';
 import { sendMobileCircleThemeUpdate } from '../../services/socket';
 
@@ -100,16 +103,14 @@ export function CircleManagementModal() {
     resolvedTheme,
     theme,
     setTheme,
-    uiStyle,
-    setUiStyle,
     messageTheme,
     setMessageTheme,
   } = useThemeStore();
   const t = useLanguageStore((s) => s.t);
   const user = useAuthStore((s) => s.user);
   const isDark = resolvedTheme === 'dark';
-  const isGlass = uiStyle === 'glass';
-  const glassTheme = getGlassTheme(isDark, uiStyle);
+  const isGlass = true;
+  const glassTheme = getGlassTheme(isDark);
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const segments = useSegments();
@@ -216,6 +217,7 @@ export function CircleManagementModal() {
   }, [friendSearch]);
 
   // Tab 3: Notifications & Privacy States & Popups
+  const [notificationBusy, setNotificationBusy] = useState(false);
   const [isChatMuted, setIsChatMuted] = useState(false);
   const [muteDuration, setMuteDuration] = useState('forever');
   const [isMuteDurationModalOpen, setIsMuteDurationModalOpen] = useState(false);
@@ -416,22 +418,54 @@ export function CircleManagementModal() {
   };
 
   // Tab 3: Chat Mute Toggle (Opens duration popup when turning ON)
-  const handleToggleChatMute = (willMute: boolean) => {
-    if (willMute) {
-      setIsMuteDurationModalOpen(true);
-    } else {
-      setIsChatMuted(false);
-      setSuccessMessage(t.circle.muteChatUnmutedToast);
-      setTimeout(() => setSuccessMessage(null), 2000);
+  useEffect(() => {
+    if (!visible || !circleId) return;
+    let active = true;
+    setNotificationBusy(true);
+    mobileApiRequest<CircleNotificationSettings>(`/notifications/circles/${circleId}/settings`)
+      .then(({ data }) => {
+        if (!active || !data) return;
+        const duration = getActiveCircleMute(data.mutedUntil);
+        setIsChatMuted(Boolean(duration));
+        setMuteDuration(duration ?? '8h');
+        setMessageNotificationLevel(data.notificationLevel === 'MENTIONS' ? 'mentions' : data.notificationLevel === 'NONE' ? 'none' : 'all');
+      })
+      .catch(() => { if (active) setErrorMessage(t.notificationsCenter.settingsError); })
+      .finally(() => { if (active) setNotificationBusy(false); });
+    return () => { active = false; };
+  }, [visible, circleId, t.notificationsCenter.settingsError]);
+
+  const saveNotificationSettings = async (input: UpdateCircleNotificationSettingsInput) => {
+    if (!circleId || notificationBusy) return false;
+    setNotificationBusy(true);
+    setErrorMessage(null);
+    try {
+      const { data } = await mobileApiRequest<CircleNotificationSettings>(`/notifications/circles/${circleId}/settings`, {
+        method: 'PATCH',
+        body: JSON.stringify(input),
+      });
+      const duration = getActiveCircleMute(data.mutedUntil);
+      setIsChatMuted(Boolean(duration));
+      if (duration) setMuteDuration(duration);
+      setMessageNotificationLevel(data.notificationLevel === 'MENTIONS' ? 'mentions' : data.notificationLevel === 'NONE' ? 'none' : 'all');
+      return true;
+    } catch {
+      setErrorMessage(t.notificationsCenter.settingsError);
+      return false;
+    } finally {
+      setNotificationBusy(false);
     }
   };
 
-  const handleSelectMuteDuration = (dur: string) => {
-    setMuteDuration(dur);
-    setIsChatMuted(true);
-    setIsMuteDurationModalOpen(false);
-    setSuccessMessage(t.circle.muteChatMutedToast);
-    setTimeout(() => setSuccessMessage(null), 2000);
+  const handleToggleChatMute = (willMute: boolean) => {
+    if (willMute) setIsMuteDurationModalOpen(true);
+    else void saveNotificationSettings({ mute: null });
+  };
+
+  const handleSelectMuteDuration = async (duration: string) => {
+    if (await saveNotificationSettings({ mute: duration as CircleMuteDuration })) {
+      setIsMuteDurationModalOpen(false);
+    }
   };
 
   const getMuteDurationLabel = (dur: string) => {
@@ -832,58 +866,17 @@ export function CircleManagementModal() {
             </TouchableOpacity>
           </View>
 
-          {/* Inline Confirmation Banner */}
-          {pendingConfirm && (
-            <View
-              style={[
-                styles.confirmInlineCard,
-                {
-                  backgroundColor: isDark ? 'rgba(220, 38, 38, 0.14)' : 'rgba(220, 38, 38, 0.06)',
-                  borderColor: isDark ? 'rgba(248, 113, 113, 0.35)' : 'rgba(220, 38, 38, 0.25)',
-                },
-              ]}
-            >
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <AlertTriangle size={16} color={colors.danger} />
-                <Text style={[styles.confirmInlineTitle, { color: colors.text }]}>
-                  {pendingConfirm.title}
-                </Text>
-              </View>
-              <Text style={[styles.confirmInlineDesc, { color: colors.subtle }]}>
-                {pendingConfirm.message}
-              </Text>
-              <View style={styles.btnRow}>
-                <TouchableOpacity
-                  onPress={() => setPendingConfirm(null)}
-                  disabled={isConfirmBusy}
-                  style={[styles.actionBtn, { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.hairline }]}
-                >
-                  <Text style={[styles.actionBtnText, { color: colors.text }]}>{t.common.cancel}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={handleConfirmPendingAction}
-                  disabled={isConfirmBusy}
-                  style={[
-                    styles.actionBtn,
-                    { backgroundColor: pendingConfirm.danger ? '#DC2626' : colors.primary },
-                  ]}
-                >
-                  {isConfirmBusy ? (
-                    <ActivityIndicator color={pendingConfirm.danger ? '#FFFFFF' : colors.onPrimary} size="small" />
-                  ) : (
-                    <Text
-                      style={[
-                        styles.actionBtnText,
-                        { color: pendingConfirm.danger ? '#FFFFFF' : colors.onPrimary },
-                      ]}
-                    >
-                      {pendingConfirm.confirmLabel}
-                    </Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </View>
-          )}
+          {/* Unified Confirmation Modal (Rule 9) */}
+          <MobileConfirmModal
+            visible={!!pendingConfirm}
+            onClose={() => setPendingConfirm(null)}
+            onConfirm={handleConfirmPendingAction}
+            title={pendingConfirm?.title || ''}
+            description={pendingConfirm?.message}
+            confirmLabel={pendingConfirm?.confirmLabel}
+            variant={pendingConfirm?.danger ? 'danger' : 'primary'}
+            isLoading={isConfirmBusy}
+          />
 
           {/* Feedback Banners */}
           {errorMessage && (
@@ -1506,6 +1499,7 @@ export function CircleManagementModal() {
                     <Switch
                       value={isChatMuted}
                       onValueChange={handleToggleChatMute}
+                      disabled={notificationBusy}
                       trackColor={{ false: colors.hairline, true: colors.primary }}
                     />
                   </View>
@@ -1638,46 +1632,6 @@ export function CircleManagementModal() {
              ========================================================================= */}
           {(activeTab === 'circleSettings' || activeTab === 'settings') && (
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.tabContent}>
-              {/* Section 0: Màu chủ đề đoạn chat */}
-              <View style={styles.sectionGroupWrapper}>
-                <Text style={[styles.sectionGroupTitle, { color: colors.subtle }]}>
-                  {t.circle.themeColorHeader}
-                </Text>
-                <View style={[styles.menuSectionCard, { backgroundColor: colors.surface, borderColor: colors.hairline, padding: 16 }]}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                    {(Object.keys(MessageBubbleThemes) as MessageTheme[]).map((key) => {
-                      const item = MessageBubbleThemes[key];
-                      const isSelected = formThemeColor === key;
-                      return (
-                        <TouchableOpacity
-                          key={key}
-                          activeOpacity={0.7}
-                          onPress={() => handleThemeColorChange(key)}
-                          style={{
-                            width: 38,
-                            height: 38,
-                            borderRadius: 19,
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            borderWidth: isSelected ? 2.5 : 0,
-                            borderColor: item.color,
-                          }}
-                        >
-                          <View
-                            style={{
-                              width: isSelected ? 24 : 30,
-                              height: isSelected ? 24 : 30,
-                              borderRadius: isSelected ? 12 : 15,
-                              backgroundColor: item.color,
-                            }}
-                          />
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                </View>
-              </View>
-
               {/* Section 1: Cần trưởng nhóm phê duyệt & Giới hạn thành viên */}
               <View style={styles.sectionGroupWrapper}>
                 <Text style={[styles.sectionGroupTitle, { color: colors.subtle }]}>
@@ -1947,6 +1901,7 @@ export function CircleManagementModal() {
                     ].map((item) => (
                       <TouchableOpacity
                         key={item.key}
+                        disabled={notificationBusy}
                         onPress={() => handleSelectMuteDuration(item.key)}
                         style={[
                           styles.popupOptionItem,
@@ -1992,9 +1947,10 @@ export function CircleManagementModal() {
                     ].map((item) => (
                       <TouchableOpacity
                         key={item.key}
-                        onPress={() => {
-                          setMessageNotificationLevel(item.key as any);
-                          setIsMsgLevelModalOpen(false);
+                        disabled={notificationBusy}
+                        onPress={async () => {
+                          const notificationLevel = item.key === 'mentions' ? 'MENTIONS' : item.key === 'none' ? 'NONE' : 'ALL';
+                          if (await saveNotificationSettings({ notificationLevel })) setIsMsgLevelModalOpen(false);
                         }}
                         style={[
                           styles.popupOptionItem,

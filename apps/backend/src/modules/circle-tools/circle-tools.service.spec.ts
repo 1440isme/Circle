@@ -2,7 +2,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { CircleToolsService } from './circle-tools.service';
 import { PrismaService } from '../../database/prisma.service';
 import { ChatGateway } from '../chat/chat.gateway';
-import { ForbiddenException, BadRequestException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
+import { ForbiddenException, BadRequestException, ConflictException } from '@nestjs/common';
 
 describe('CircleToolsService', () => {
   let service: CircleToolsService;
@@ -15,11 +16,15 @@ describe('CircleToolsService', () => {
       broadcastCalendarEventRsvp: jest.fn(),
       broadcastSheetCellUpdated: jest.fn(),
       broadcastSheetStructureUpdated: jest.fn(),
+      broadcastSheetDeleted: jest.fn(),
       broadcastLiveLocationUpdated: jest.fn(),
       broadcastLiveLocationStopped: jest.fn(),
+      broadcastMeetingPointUpdated: jest.fn(),
       broadcastPollCreated: jest.fn(),
       broadcastPollVoted: jest.fn(),
+      broadcastPollUpdated: jest.fn(),
       broadcastPollClosed: jest.fn(),
+      broadcastPollDeleted: jest.fn(),
       broadcastWheelSpun: jest.fn(),
       broadcastLiveWheel: jest.fn(),
       broadcastLiveWheelStageCreated: jest.fn(),
@@ -134,7 +139,8 @@ describe('CircleToolsService', () => {
         create: jest.fn(),
       },
       pollVote: {
-        upsert: jest.fn(),
+        findMany: jest.fn().mockResolvedValue([]),
+        createMany: jest.fn(),
       },
       $transaction: jest.fn((callback: any) => callback(mockPrisma)),
     };
@@ -1213,14 +1219,160 @@ it('should throw BadRequestException if event has already started when respondin
           votes: [{ id: 'v-1', memberId: 'mem-1', optionId: 'opt-1' }],
         });
 
-      mockPrisma.pollVote.upsert.mockResolvedValue({ id: 'v-1' });
-
       const res = await service.votePoll('circle-1', 'poll-1', 'user-1', { optionId: 'opt-1' });
 
+      expect(mockPrisma.$transaction).toHaveBeenCalledWith(expect.any(Function), {
+        isolationLevel: 'Serializable',
+      });
       expect(res.totalVotes).toBe(1);
       expect(res.options?.[0]?.percentage).toBe(100);
       expect(res.userVotedOptionId).toBe('opt-1');
       expect(mockChatGateway.broadcastPollVoted).toHaveBeenCalledWith('circle-1', expect.any(Object));
+    });
+
+    const editablePoll = {
+      id: 'poll-1',
+      circleId: 'circle-1',
+      createdById: member.id,
+      question: 'Where?',
+      deadline: null,
+      deadlineChanges: null,
+      isClosed: false,
+      _count: { votes: 0 },
+      options: [],
+      votes: [],
+    };
+
+    it('updates a vote-free poll and replaces its options in one transaction', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValue(member);
+      mockPrisma.groupPoll.findFirst
+        .mockResolvedValueOnce(editablePoll)
+        .mockResolvedValueOnce({ ...editablePoll, question: 'When?' });
+
+      const result = await service.updatePoll('circle-1', 'poll-1', 'user-1', {
+        question: ' When? ',
+        options: [' First ', 'Second'],
+        isMultipleChoice: true,
+      });
+
+      expect(result.question).toBe('When?');
+      expect(result.canManage).toBe(true);
+      expect(mockPrisma.$transaction).toHaveBeenCalledWith(expect.any(Function), {
+        isolationLevel: 'Serializable',
+      });
+      expect(mockPrisma.groupPoll.update).toHaveBeenCalledWith({
+        where: { id: 'poll-1' },
+        data: {
+          question: 'When?',
+          isMultipleChoice: true,
+          options: {
+            deleteMany: {},
+            create: [
+              { optionText: 'First', orderIndex: 0 },
+              { optionText: 'Second', orderIndex: 1 },
+            ],
+          },
+        },
+      });
+      expect(mockChatGateway.broadcastPollUpdated).toHaveBeenCalledWith('circle-1', 'poll-1');
+    });
+
+    it.each([
+      ['expired', new Date(0), false],
+      ['closed', null, true],
+    ])('rejects all changes to a %s poll without votes', async (_status, deadline, isClosed) => {
+      mockPrisma.circleMember.findUnique.mockResolvedValue(member);
+      mockPrisma.groupPoll.findFirst.mockResolvedValue({ ...editablePoll, deadline, isClosed });
+
+      await expect(service.updatePoll('circle-1', 'poll-1', 'user-1', {
+        question: 'Updated',
+        options: ['A', 'B'],
+        isMultipleChoice: true,
+      })).rejects.toBeInstanceOf(ConflictException);
+      await expect(service.updatePoll('circle-1', 'poll-1', 'user-1', {
+        deadline: new Date(Date.now() + 60_000).toISOString(),
+      })).rejects.toBeInstanceOf(ConflictException);
+
+      expect(mockPrisma.groupPoll.update).not.toHaveBeenCalled();
+      expect(mockChatGateway.broadcastPollUpdated).not.toHaveBeenCalled();
+    });
+
+    it('rejects a content edit after a vote and keeps the original options', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValue(member);
+      mockPrisma.groupPoll.findFirst.mockResolvedValue({
+        ...editablePoll,
+        _count: { votes: 1 },
+      });
+
+      await expect(service.updatePoll('circle-1', 'poll-1', 'user-1', { options: ['A', 'B'], isMultipleChoice: true }))
+        .rejects.toBeInstanceOf(ConflictException);
+      expect(mockPrisma.groupPoll.update).not.toHaveBeenCalled();
+      expect(mockChatGateway.broadcastPollUpdated).not.toHaveBeenCalled();
+    });
+
+    it('rejects concurrent poll writes that fail serialization', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValue(member);
+      mockPrisma.$transaction.mockRejectedValueOnce(new Prisma.PrismaClientKnownRequestError('conflict', {
+        code: 'P2034',
+        clientVersion: '5.22.0',
+      }));
+
+      await expect(service.updatePoll('circle-1', 'poll-1', 'user-1', { question: 'New question' }))
+        .rejects.toBeInstanceOf(ConflictException);
+      expect(mockChatGateway.broadcastPollUpdated).not.toHaveBeenCalled();
+    });
+
+    it('records a deadline change after voting without changing the options', async () => {
+      const deadline = new Date(Date.now() + 60_000);
+      const previousChange = { changedAt: '2026-11-25T01:00:00.000Z', deadline: null };
+      mockPrisma.circleMember.findUnique.mockResolvedValue({ ...member, id: 'admin-1', role: 'ADMIN' });
+      mockPrisma.groupPoll.findFirst.mockResolvedValue({
+        ...editablePoll,
+        _count: { votes: 1 },
+        deadlineChanges: [previousChange],
+      });
+
+      await service.updatePoll('circle-1', 'poll-1', 'user-1', { deadline: deadline.toISOString() });
+
+      expect(mockPrisma.groupPoll.update).toHaveBeenCalledWith({
+        where: { id: 'poll-1' },
+        data: {
+          question: undefined,
+          deadline,
+          deadlineChanges: [previousChange, { changedAt: expect.any(String), deadline: deadline.toISOString() }],
+        },
+      });
+    });
+
+    it('rejects updates by an ordinary member who did not create the poll', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValue({ ...member, id: 'another-member' });
+      mockPrisma.groupPoll.findFirst.mockResolvedValue(editablePoll);
+
+      await expect(service.updatePoll('circle-1', 'poll-1', 'user-1', { question: 'New question' }))
+        .rejects.toBeInstanceOf(ForbiddenException);
+      expect(mockPrisma.groupPoll.update).not.toHaveBeenCalled();
+    });
+
+    it('keeps anonymous voters out of poll list and detail responses', async () => {
+      const vote = { id: 'v-1', memberId: member.id, optionId: 'opt-1', votedAt: new Date() };
+      const poll = {
+        ...editablePoll,
+        isAnonymous: true,
+        votes: [vote],
+        options: [{ id: 'opt-1', votes: [vote] }],
+      };
+      mockPrisma.circleMember.findUnique.mockResolvedValue(member);
+      mockPrisma.groupPoll.findFirst.mockResolvedValue(poll);
+      mockPrisma.groupPoll.findMany.mockResolvedValue([poll]);
+
+      const detail = await service.getPollById('circle-1', 'poll-1', 'user-1');
+      const [listed] = await service.getPolls('circle-1', 'user-1');
+      for (const result of [detail, listed]) {
+        expect(result).not.toHaveProperty('votes');
+        expect(result!.options[0]!.votes).toEqual([
+          { id: vote.id, votedAt: vote.votedAt, isAnonymous: true },
+        ]);
+      }
     });
 
     it('should close poll if owner or creator', async () => {

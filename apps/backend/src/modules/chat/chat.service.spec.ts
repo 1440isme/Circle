@@ -39,6 +39,7 @@ describe('ChatService — Module 4 Realtime Group Messaging', () => {
       findFirst: jest.fn(),
       findMany: jest.fn(),
       create: jest.fn(),
+      update: jest.fn(),
       delete: jest.fn(),
     },
     pinnedRecord: {
@@ -304,6 +305,31 @@ describe('ChatService — Module 4 Realtime Group Messaging', () => {
       expect(res.success).toBe(true);
       expect(res.data.action).toBe('removed');
       expect(mockGateway.broadcastReaction).toHaveBeenCalledWith('channel-1', expect.objectContaining({ action: 'removed', emoji: '❤️' }));
+    });
+
+    it('TC-CHAT-010b: should replace reaction when reacting with different emoji', async () => {
+      const targetMsg = {
+        id: 'msg-1',
+        channelId: 'channel-1',
+        deletedAt: null,
+        channel: mockChannel,
+      };
+
+      mockPrisma.message.findUnique.mockResolvedValue(targetMsg);
+      mockPrisma.circleMember.findUnique.mockResolvedValue(mockMember);
+      mockPrisma.reaction.findFirst.mockResolvedValue({ id: 'r-1', messageId: 'msg-1', memberId: 'member-1', emoji: '👍' });
+      mockPrisma.reaction.update.mockResolvedValue({ id: 'r-1', emoji: '❤️' });
+      mockPrisma.reaction.findMany.mockResolvedValue([{ id: 'r-1', messageId: 'msg-1', memberId: 'member-1', emoji: '❤️' }]);
+
+      const res = await service.reactToMessage('user-1', 'msg-1', { emoji: '❤️' }, 'vi');
+
+      expect(res.success).toBe(true);
+      expect(res.data.action).toBe('added');
+      expect(mockPrisma.reaction.update).toHaveBeenCalledWith({
+        where: { id: 'r-1' },
+        data: { emoji: '❤️' },
+      });
+      expect(mockGateway.broadcastReaction).toHaveBeenCalledWith('channel-1', expect.objectContaining({ action: 'added', emoji: '❤️' }));
     });
   });
 

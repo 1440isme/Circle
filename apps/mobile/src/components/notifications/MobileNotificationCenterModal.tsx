@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { openMobileNotification } from '../../services/notification-navigation';
 import {
   X,
   CheckCheck,
@@ -22,6 +23,7 @@ import {
   Info,
   CheckCircle2,
 } from 'lucide-react-native';
+import { getNotificationText } from '@circle/shared';
 import { NotificationEntity, NotificationType } from '@circle/types';
 import { useLanguageStore } from '../../stores/language.store';
 import { useThemeStore } from '../../stores/theme.store';
@@ -48,7 +50,7 @@ export function MobileNotificationCenterModal({
 }: MobileNotificationCenterModalProps) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const t = useLanguageStore((s) => s.t).notificationsCenter;
+  const { locale, t: { notificationsCenter: t } } = useLanguageStore();
   const { colors, resolvedTheme, uiStyle } = useThemeStore();
   const isDark = resolvedTheme === 'dark';
 
@@ -56,12 +58,14 @@ export function MobileNotificationCenterModal({
   const [notifications, setNotifications] = useState<NotificationEntity[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
 
   // Fetch notifications
   const loadNotifications = useCallback(
     async (cursor?: string | null, isInitial = false) => {
+      setLoadFailed(false);
       if (isInitial) setIsLoading(true);
       else setIsLoadingMore(true);
 
@@ -69,15 +73,15 @@ export function MobileNotificationCenterModal({
         const res = await getNotificationsApi(cursor, filter === 'unread');
         if (res.success && res.data) {
           if (cursor) {
-            setNotifications((prev) => [...prev, ...res.data]);
+            setNotifications((prev) => [...prev, ...res.data.filter((item) => !prev.some((old) => old.id === item.id))]);
           } else {
             setNotifications(res.data);
           }
           setNextCursor((res as any).nextCursor || null);
           setHasMore(Boolean((res as any).hasMore));
         }
-      } catch (err) {
-        console.error('Failed to load mobile notifications:', err);
+      } catch {
+        setLoadFailed(true);
       } finally {
         if (isInitial) setIsLoading(false);
         else setIsLoadingMore(false);
@@ -95,11 +99,10 @@ export function MobileNotificationCenterModal({
   // Realtime Socket listener
   useEffect(() => {
     let isMounted = true;
-    let activeSocket: any = null;
+    let detach: (() => void) | undefined;
 
     getMobileSocket().then((socket) => {
       if (!isMounted || !socket) return;
-      activeSocket = socket;
 
       const handleNewNotif = (payload: {
         notification: NotificationEntity;
@@ -121,14 +124,15 @@ export function MobileNotificationCenterModal({
 
       socket.on('notification:new', handleNewNotif);
       socket.on('notification:unread_count', handleCount);
+      detach = () => {
+        socket.off('notification:new', handleNewNotif);
+        socket.off('notification:unread_count', handleCount);
+      };
     });
 
     return () => {
       isMounted = false;
-      if (activeSocket) {
-        activeSocket.off('notification:new');
-        activeSocket.off('notification:unread_count');
-      }
+      detach?.();
     };
   }, [filter, onUnreadCountChange]);
 
@@ -181,11 +185,7 @@ export function MobileNotificationCenterModal({
     }
     onClose();
 
-    if (item.deepLink) {
-      router.push(item.deepLink as any);
-    } else if (item.targetType === 'circle' && item.targetId) {
-      router.push(`/circle/${item.targetId}` as any);
-    }
+    openMobileNotification(router, item);
   };
 
   const formatRelativeTime = (dateStr: string) => {
@@ -201,12 +201,17 @@ export function MobileNotificationCenterModal({
 
   const renderIcon = (type: string) => {
     switch (type) {
+      case NotificationType.CIRCLE_JOIN_REQUEST:
       case NotificationType.CIRCLE_INVITE:
         return <Users size={18} color={colors.primary} />;
       case NotificationType.CHAT_MESSAGE:
         return <MessageSquare size={18} color={colors.sage} />;
+      case NotificationType.CALENDAR_EVENT:
+      case NotificationType.CALENDAR_CHANGED:
+      case NotificationType.CALENDAR_CANCELLED:
       case NotificationType.CALENDAR_REMINDER:
         return <Calendar size={18} color={colors.coral} />;
+      case NotificationType.POLL_CLOSED:
       case NotificationType.POLL_NEW:
         return <BarChart2 size={18} color={colors.primary} />;
       case NotificationType.CALL_MISSED:
@@ -337,6 +342,13 @@ export function MobileNotificationCenterModal({
                   {t.loading}
                 </Text>
               </View>
+            ) : loadFailed && notifications.length === 0 ? (
+              <View style={styles.centerContainer}>
+                <Text style={[styles.emptyTitle, { color: colors.text }]}>{t.errorLoading}</Text>
+                <TouchableOpacity onPress={() => loadNotifications(null, true)} accessibilityRole="button">
+                  <Text style={{ color: colors.primary }}>{t.retry}</Text>
+                </TouchableOpacity>
+              </View>
             ) : notifications.length === 0 ? (
               <View style={styles.centerContainer}>
                 <CheckCircle2 size={32} color={colors.primary} opacity={0.8} />
@@ -383,7 +395,7 @@ export function MobileNotificationCenterModal({
                         ]}
                         numberOfLines={1}
                       >
-                        {item.title}
+                        {(item.metadata?.circleId ? getNotificationText(item.type, item.metadata, locale)?.title : null) ?? item.title}
                       </Text>
                       <View style={styles.metaRow}>
                         <Text style={[styles.timeText, { color: colors.subtle }]}>
@@ -397,7 +409,7 @@ export function MobileNotificationCenterModal({
                       style={[styles.notifBody, { color: colors.subtle }]}
                       numberOfLines={2}
                     >
-                      {item.content}
+                      {(item.metadata?.circleId ? getNotificationText(item.type, item.metadata, locale)?.content : null) ?? item.content}
                     </Text>
                   </View>
 

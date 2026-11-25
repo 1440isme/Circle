@@ -12,7 +12,7 @@ import {
 } from '@nestjs/common';
 import { NotificationsService } from './notifications.service';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { AuthUserData } from '@circle/types';
+import { AuthUserData, UpdateCircleNotificationSettingsInput } from '@circle/types';
 import { QueryNotificationsDto } from './dto/query-notifications.dto';
 import { RegisterDeviceTokenDto, RevokeDeviceTokenDto } from './dto/register-device-token.dto';
 
@@ -32,6 +32,20 @@ export class NotificationsController {
       nextCursor: result.nextCursor,
       hasMore: result.hasMore,
     };
+  }
+
+  @Get('circles/:circleId/settings')
+  async getCircleSettings(@CurrentUser() user: AuthUserData, @Param('circleId') circleId: string) {
+    return { success: true, data: await this.notificationsService.getCircleSettings(user.id, circleId) };
+  }
+
+  @Patch('circles/:circleId/settings')
+  async updateCircleSettings(
+    @CurrentUser() user: AuthUserData,
+    @Param('circleId') circleId: string,
+    @Body() input: UpdateCircleNotificationSettingsInput,
+  ) {
+    return { success: true, data: await this.notificationsService.updateCircleSettings(user.id, circleId, input) };
   }
 
   @Get('unread-count')

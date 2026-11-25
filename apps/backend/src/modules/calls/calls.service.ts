@@ -3,12 +3,15 @@ import {
   NotFoundException,
   ForbiddenException,
   Logger,
+  Optional,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../database/prisma.service';
+import { NotificationEventsService } from '../notifications/notification-events.service';
 import {
   CallType,
   CallStatus,
+  NotificationType,
   IceServerConfig,
   IceServersResponse,
   InitiateCallResponse,
@@ -23,6 +26,7 @@ export class CallsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
+    @Optional() private readonly notificationEvents?: NotificationEventsService,
   ) {}
 
   /**
@@ -356,6 +360,7 @@ export class CallsService {
           endedDate,
           userId,
         );
+        await this.notifyMissedCall(session);
       }
     }
 
@@ -367,6 +372,29 @@ export class CallsService {
       endedAt,
       summaryMessage,
     };
+  }
+
+  private async notifyMissedCall(session: { id: string; circleId: string; startedAt: Date }) {
+    if (!this.notificationEvents) return;
+    try {
+      const participants = await this.prisma.callParticipant.findMany({
+        where: { callSessionId: session.id },
+        orderBy: [{ joinedAt: 'asc' }, { id: 'asc' }],
+        select: { member: { select: { userId: true } } },
+      });
+      const attended = [...new Set(participants.map(({ member }) => member.userId))];
+      if (attended.length !== 1) return;
+
+      await this.notificationEvents.notifyCircle({
+        circleId: session.circleId,
+        actorId: attended[0]!,
+        targetId: session.id,
+        type: NotificationType.CALL_MISSED,
+        membershipAt: session.startedAt,
+      });
+    } catch (error) {
+      this.logger.warn(`Could not notify missed Circle call ${session.id}: ${String(error)}`);
+    }
   }
 
   /**
@@ -566,6 +594,7 @@ export class CallsService {
         endedAt,
         userId,
       );
+      await this.notifyMissedCall(session);
     }
 
     return {

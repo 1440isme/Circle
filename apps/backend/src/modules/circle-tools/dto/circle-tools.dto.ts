@@ -16,13 +16,17 @@ import {
   RespondEventRsvpInput,
   EventRsvpStatus,
   CreatePlanningSheetInput,
+  UpdatePlanningSheetInput,
   AddSheetColumnInput,
+  UpdateSheetColumnInput,
   AddSheetRowInput,
   UpdateSheetCellInput,
   StartLiveLocationInput,
   UpdateLiveLocationInput,
   CreatePollInput,
+  UpdatePollInput,
   VotePollInput,
+  SetMeetingPointInput,
 } from '@circle/types';
 
 export class CreateSharedAlbumDto implements CreateSharedAlbumInput {
@@ -132,12 +136,28 @@ export class RespondEventRsvpDto implements RespondEventRsvpInput {
 
 export class CreatePlanningSheetDto implements CreatePlanningSheetInput {
   title: string;
-  columns?: string[];
+  templateType?: string;
+  columns?: Array<string | { columnTitle: string; columnType?: string; columnConfig?: Record<string, unknown> }>;
+  initialRows?: Array<Record<string | number, string>>;
   initialRowCount?: number;
+  metadata?: Record<string, unknown>;
+}
+
+export class UpdatePlanningSheetDto implements UpdatePlanningSheetInput {
+  title?: string;
+  metadata?: Record<string, unknown>;
 }
 
 export class AddSheetColumnDto implements AddSheetColumnInput {
   columnTitle: string;
+  columnType?: string;
+  columnConfig?: Record<string, unknown>;
+}
+
+export class UpdateSheetColumnDto implements UpdateSheetColumnInput {
+  columnTitle?: string;
+  columnType?: string;
+  columnConfig?: Record<string, unknown>;
 }
 
 export class AddSheetRowDto implements AddSheetRowInput {
@@ -146,6 +166,10 @@ export class AddSheetRowDto implements AddSheetRowInput {
 
 export class UpdateSheetCellDto implements UpdateSheetCellInput {
   cellValue: string;
+}
+
+export class SharePlanningSheetDto {
+  channelId?: string;
 }
 
 // =============================================================================
@@ -163,6 +187,13 @@ export class UpdateLiveLocationDto implements UpdateLiveLocationInput {
   longitude: number;
 }
 
+export class SetMeetingPointDto implements SetMeetingPointInput {
+  title: string;
+  latitude: number;
+  longitude: number;
+  address?: string;
+}
+
 // =============================================================================
 // 7. GROUP POLL (UC15)
 // =============================================================================
@@ -171,9 +202,19 @@ export class CreatePollDto implements CreatePollInput {
   question: string;
   options: string[];
   deadline?: string;
+  isMultipleChoice?: boolean;
+  isAnonymous?: boolean;
+}
+
+export class UpdatePollDto implements UpdatePollInput {
+  isMultipleChoice?: boolean;
+  question?: string;
+  options?: string[];
+  deadline?: string | null;
 }
 
 export class VotePollDto implements VotePollInput {
-  optionId: string;
+  optionId?: string;
+  optionIds?: string[];
 }
 

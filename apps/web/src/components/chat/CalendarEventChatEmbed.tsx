@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   CalendarDays,
   Clock,
@@ -14,6 +15,8 @@ import {
   Repeat,
   FileText,
   ArrowRight,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { CalendarEventMessagePayload, EventRsvpStatus } from '@circle/types';
 import { useCircleStore } from '../../stores/circle.store';
@@ -52,6 +55,7 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
   senderAvatarUrl,
   sentAt,
 }) => {
+  const router = useRouter();
   const activeCircleId = useCircleStore((s) => s.activeCircleId);
   const setActiveCircleView = useCircleStore((s) => s.setActiveCircleView);
   const setTargetCalendarEvent = useCircleStore((s) => s.setTargetCalendarEvent);
@@ -257,6 +261,49 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
   const isHappeningNow = !isCancelled && !isEnded && isStarted;
   const isLocked = isStarted || isCancelled;
 
+  const [isExpandedLogs, setIsExpandedLogs] = useState(false);
+
+  // Compute RSVP interaction logs
+  const rsvpLogs = useMemo(() => {
+    const list: Array<{ id: string; text: string }> = [];
+    const name = eventData.eventTitle || t.collab.calendarEventFallback || 'lịch hẹn';
+
+    // Creator / initial created log
+    const creator = isSenderMe ? (t.collab.meLabel || 'Bạn') : (eventData.creatorName || senderDisplayName || t.collab.memberDefault || 'Thành viên');
+    list.push({
+      id: 'created',
+      text: isSenderMe
+        ? (t.collab.eventCreatedLogMe || 'Bạn đã tạo lịch hẹn "{title}"').replace('{title}', name)
+        : (t.collab.eventCreatedLog || '{creator} đã tạo lịch hẹn "{title}"').replace('{creator}', creator).replace('{title}', name),
+    });
+
+    const userRsvps = rsvps?.userRsvps || [];
+    userRsvps.forEach((u: any, idx: number) => {
+      const isMe = u.userId === currentUserId || (isSenderMe && idx === 0);
+      const actor = isMe ? (t.collab.meLabel || 'Bạn') : (u.displayName || t.collab.memberDefault || 'Thành viên');
+      let statusText = t.collab.eventRsvpYes || 'tham gia';
+      if (u.status === EventRsvpStatus.MAYBE) {
+        statusText = t.collab.eventRsvpMaybe || 'có thể tham gia';
+      } else if (u.status === EventRsvpStatus.NO) {
+        statusText = t.collab.eventRsvpNo || 'từ chối';
+      }
+      const text = isMe
+        ? (t.collab.eventRsvpLogMe || 'Bạn đã xác nhận {status} lịch hẹn "{title}"')
+            .replace('{status}', statusText)
+            .replace('{title}', name)
+        : (t.collab.eventRsvpLog || '{actor} đã xác nhận {status} lịch hẹn "{title}"')
+            .replace('{actor}', actor)
+            .replace('{status}', statusText)
+            .replace('{title}', name);
+      list.push({
+        id: `${u.userId || idx}-${u.status}`,
+        text,
+      });
+    });
+
+    return list;
+  }, [rsvps?.userRsvps, eventData.eventTitle, eventData.creatorName, isSenderMe, currentUserId, senderDisplayName, t]);
+
   const myRsvp = useMemo(() => {
     const found = rsvps?.userRsvps?.find((u) => u.userId && u.userId === currentUserId)?.status;
     if (found) return found;
@@ -365,6 +412,7 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
     if (e) e.stopPropagation();
     setTargetCalendarEvent(eventData.startTime, eventData.eventId);
     setActiveCircleView('calendar');
+    router.push('/calendar');
   };
 
   const yesUsers = useMemo(
@@ -668,6 +716,40 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
           </button>
         )}
       </div>
+
+      {/* Inline Activity Logs for RSVP changes */}
+      {rsvpLogs.length > 0 && (
+        <div className="mt-2.5 flex flex-col items-center gap-1 text-center select-none">
+          {(isExpandedLogs ? rsvpLogs : [rsvpLogs[rsvpLogs.length - 1]]).map((log) => (
+            <div
+              key={log.id}
+              className="flex items-center justify-center gap-1.5 text-[11px] text-circle-slate dark:text-circle-dark-muted font-medium"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 opacity-80" />
+              <span>{log.text}</span>
+            </div>
+          ))}
+
+          {rsvpLogs.length > 1 && (
+            <button
+              type="button"
+              onClick={() => setIsExpandedLogs(!isExpandedLogs)}
+              className="inline-flex items-center gap-1 mt-0.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold text-circle-primary dark:text-circle-dark-primary bg-circle-primary/10 hover:bg-circle-primary/15 transition-all cursor-pointer active:scale-95"
+            >
+              <span>
+                {isExpandedLogs
+                  ? (t.common.collapse || 'Thu gọn')
+                  : (t.common.viewMoreCount?.replace('{count}', String(rsvpLogs.length)) || `Xem thêm (${rsvpLogs.length})`)}
+              </span>
+              {isExpandedLogs ? (
+                <ChevronUp className="w-2.5 h-2.5" />
+              ) : (
+                <ChevronDown className="w-2.5 h-2.5" />
+              )}
+            </button>
+          )}
+        </div>
+      )}
 
       {/* ===================================================================
           MODAL XÁC NHẬN PHẠM VI BÌNH CHỌN CHO SỰ KIỆN LẶP LẠI

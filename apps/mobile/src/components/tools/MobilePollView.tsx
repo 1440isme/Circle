@@ -10,6 +10,7 @@ import {
   Modal,
   KeyboardAvoidingView,
   Platform,
+  Switch,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -17,6 +18,7 @@ import {
   Vote,
   Plus,
   Trash2,
+  Pencil,
   Lock,
   Check,
   X,
@@ -24,22 +26,25 @@ import {
 import {
   getPollsApi,
   createPollApi,
+  updatePollApi,
   votePollApi,
   closePollApi,
   deletePollApi,
 } from '../../services/circle-tools.service';
 import { getMobileSocket } from '../../services/socket';
-import { GroupPollEntity } from '@circle/types';
+import { GroupPollEntity, UpdatePollInput } from '@circle/types';
+import { formatPollDeadlineInput, hasPollEnded, nextPollDeadlineDelay, parsePollDeadlineInput } from '@circle/shared';
 import { ColorTheme } from '../../constants/theme';
 import { useThemeStore } from '../../stores/theme.store';
 import { useLanguageStore } from '../../stores/language.store';
 
 interface MobilePollViewProps {
+  notificationPollId?: string;
   circleId: string;
   onRegisterBack?: (handler: (() => boolean) | null) => void;
 }
 
-export const MobilePollView: React.FC<MobilePollViewProps> = ({ circleId, onRegisterBack }) => {
+export const MobilePollView: React.FC<MobilePollViewProps> = ({ circleId, onRegisterBack, notificationPollId }) => {
   const { colors, resolvedTheme } = useThemeStore();
   const isDark = resolvedTheme === 'dark';
   const { t, locale } = useLanguageStore();
@@ -50,6 +55,11 @@ export const MobilePollView: React.FC<MobilePollViewProps> = ({ circleId, onRegi
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   const [polls, setPolls] = useState<GroupPollEntity[]>([]);
+  const [ballots, setBallots] = useState<Record<string, string[]>>({});
+  const [isVoting, setIsVoting] = useState(false);
+  const pollListRef = useRef<React.ElementRef<typeof ScrollView>>(null);
+  const scrolledNotificationId = useRef<string | null>(null);
+  const [expandedDeadlinePollId, setExpandedDeadlinePollId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // Inline feedback & per-poll 2-step confirm (zero Alert.alert)
@@ -63,6 +73,11 @@ export const MobilePollView: React.FC<MobilePollViewProps> = ({ circleId, onRegi
 
   // Modal: Create Poll
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [editingPoll, setEditingPoll] = useState<{
+    poll: GroupPollEntity;
+    contentLocked: boolean;
+    initialDeadline: string;
+  } | null>(null);
 
   useEffect(() => {
     if (onRegisterBack) {
@@ -77,8 +92,24 @@ export const MobilePollView: React.FC<MobilePollViewProps> = ({ circleId, onRegi
     }
     return () => onRegisterBack?.(null);
   }, [isCreateModalOpen, onRegisterBack]);
+  const [pollClock, setPollClock] = useState(Date.now);
+
+  useEffect(() => {
+    const delay = nextPollDeadlineDelay(polls, pollClock);
+    if (delay === null) return;
+    const timer = setTimeout(() => setPollClock(Date.now()), delay);
+    return () => clearTimeout(timer);
+  }, [polls, pollClock]);
+
+  const liveEditingPoll = editingPoll
+    ? polls.find((poll) => poll.id === editingPoll.poll.id) ?? editingPoll.poll
+    : null;
+  const editEnded = liveEditingPoll !== null && hasPollEnded(liveEditingPoll, Math.max(Date.now(), pollClock));
   const [question, setQuestion] = useState('');
+  const [deadline, setDeadline] = useState('');
   const [options, setOptions] = useState<string[]>(['', '']);
+  const [isMultipleChoice, setIsMultipleChoice] = useState(false);
+  const [isAnonymous, setIsAnonymous] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
 
@@ -123,6 +154,7 @@ export const MobilePollView: React.FC<MobilePollViewProps> = ({ circleId, onRegi
       sockInstance = sock;
 
       sock.on('circle:poll-created', refresh);
+      sock.on('circle:poll-updated', refresh);
       sock.on('circle:poll-voted', refresh);
       sock.on('circle:poll-closed', refresh);
       sock.on('circle:poll-deleted', refresh);
@@ -132,6 +164,7 @@ export const MobilePollView: React.FC<MobilePollViewProps> = ({ circleId, onRegi
       isMounted = false;
       if (sockInstance) {
         sockInstance.off('circle:poll-created', refresh);
+        sockInstance.off('circle:poll-updated', refresh);
         sockInstance.off('circle:poll-voted', refresh);
         sockInstance.off('circle:poll-closed', refresh);
         sockInstance.off('circle:poll-deleted', refresh);
@@ -140,14 +173,35 @@ export const MobilePollView: React.FC<MobilePollViewProps> = ({ circleId, onRegi
   }, [circleId]);
 
   const handleOpenCreateModal = () => {
+    setEditingPoll(null);
+    setDeadline('');
+    setIsMultipleChoice(false);
+    setIsAnonymous(false);
     setFormError(null);
     setQuestion('');
     setOptions(['', '']);
     setIsCreateModalOpen(true);
   };
 
+  const handleOpenEditModal = (poll: GroupPollEntity) => {
+    if (hasPollEnded(poll)) {
+      setPollClock(Date.now());
+      return;
+    }
+    const initialDeadline = formatPollDeadlineInput(poll.deadline).replace('T', ' ');
+    const contentLocked = poll.totalVotes > 0;
+    setEditingPoll({ poll, contentLocked, initialDeadline });
+    setFormError(null);
+    setQuestion(poll.question);
+    setIsMultipleChoice(Boolean(poll.isMultipleChoice));
+    setIsAnonymous(Boolean(poll.isAnonymous));
+    setOptions(poll.options.map((option) => option.optionText));
+    setDeadline(initialDeadline);
+    setIsCreateModalOpen(true);
+  };
+
   const handleAddOptionField = () => {
-    if (options.length < 6) {
+    if (options.length < 10) {
       setOptions([...options, '']);
     }
   };
@@ -165,45 +219,86 @@ export const MobilePollView: React.FC<MobilePollViewProps> = ({ circleId, onRegi
     if (formError) setFormError(null);
   };
 
-  const handleCreatePoll = async () => {
-    if (!question.trim()) {
-      setFormError(t.collab.pollValidationQuestion);
+  const handleSavePoll = async () => {
+    if (isCreating) return;
+    if (liveEditingPoll && hasPollEnded(liveEditingPoll)) {
+      setFormError(t.collab.pollEditEnded);
+      setPollClock(Date.now());
       return;
     }
-    const validOptions = options.map((o) => o.trim()).filter((o) => o.length > 0);
-    if (validOptions.length < 2) {
-      setFormError(t.collab.pollValidationOptions);
-      return;
+    setFormError(null);
+    const validOptions = options.map((option) => option.trim()).filter(Boolean);
+    if (!editingPoll?.contentLocked) {
+      if (!question.trim()) {
+        setFormError(t.collab.pollValidationQuestion);
+        return;
+      }
+      if (validOptions.length < 2 || validOptions.length > 10 ||
+          new Set(validOptions.map((option) => option.toLowerCase())).size !== validOptions.length) {
+        setFormError(t.collab.pollDistinctOptions);
+        return;
+      }
     }
 
+    const deadlineChanged = !editingPoll || deadline !== editingPoll.initialDeadline;
+    const parsedDeadline = deadlineChanged ? parsePollDeadlineInput(deadline) : null;
+    if (deadlineChanged && deadline.trim() && (!parsedDeadline || parsedDeadline <= new Date())) {
+      setFormError(t.collab.pollInvalidDeadline);
+      return;
+    }
     try {
       setIsCreating(true);
-      setFormError(null);
-      await createPollApi(circleId, {
-        question: question.trim(),
-        options: validOptions,
-      });
-      setQuestion('');
-      setOptions(['', '']);
+      if (editingPoll) {
+        const input: UpdatePollInput = {};
+        if (!editingPoll.contentLocked) {
+          if (question.trim() !== editingPoll.poll.question) input.question = question.trim();
+          if (isMultipleChoice !== Boolean(editingPoll.poll.isMultipleChoice)) {
+            input.isMultipleChoice = isMultipleChoice;
+          }
+          const previousOptions = editingPoll.poll.options.map((option) => option.optionText);
+          if (validOptions.length !== previousOptions.length ||
+              validOptions.some((option, index) => option !== previousOptions[index])) {
+            input.options = validOptions;
+          }
+        }
+        if (deadlineChanged) input.deadline = parsedDeadline?.toISOString() ?? null;
+        if (Object.keys(input).length === 0) {
+          setIsCreateModalOpen(false);
+          return;
+        }
+        await updatePollApi(circleId, editingPoll.poll.id, input);
+      } else {
+        await createPollApi(circleId, {
+          question: question.trim(),
+          options: validOptions,
+          deadline: parsedDeadline?.toISOString(),
+          isMultipleChoice,
+          isAnonymous,
+        });
+      }
       setIsCreateModalOpen(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      showNotice(t.collab.pollCreatedSuccess, 'success');
+      showNotice(editingPoll ? t.collab.pollUpdatedSuccess : t.collab.pollCreatedSuccess, 'success');
       loadPolls(true);
     } catch (err: any) {
-      setFormError(err?.message || t.collab.createPollError);
+      setFormError(err?.message || (editingPoll ? t.collab.pollUpdateError : t.collab.createPollError));
     } finally {
       setIsCreating(false);
     }
   };
 
-  const handleVote = async (pollId: string, optionId: string) => {
+  const handleVote = async (pollId: string, optionIds: string[]) => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      await votePollApi(circleId, pollId, { optionId });
+      setIsVoting(true);
+      const updated = await votePollApi(circleId, pollId, { optionIds });
+      setPolls((current) => current.map((poll) => poll.id === pollId ? updated : poll));
       showNotice(t.collab.pollVoteSubmitted, 'success');
       loadPolls(true);
     } catch (err: any) {
       showNotice(err?.message || t.collab.votePollError, 'error');
+    } finally {
+      setIsVoting(false);
     }
   };
 
@@ -289,6 +384,7 @@ export const MobilePollView: React.FC<MobilePollViewProps> = ({ circleId, onRegi
         </View>
       ) : (
         <ScrollView
+          ref={pollListRef}
           style={styles.scrollList}
           contentContainerStyle={[
             styles.listContent,
@@ -296,7 +392,16 @@ export const MobilePollView: React.FC<MobilePollViewProps> = ({ circleId, onRegi
           ]}
         >
           {polls.map((poll) => {
-            const isClosed = poll.isClosed;
+            const isClosed = hasPollEnded(poll, Math.max(Date.now(), pollClock));
+              const recordedVotes = poll.userVotedOptionIds ?? (poll.userVotedOptionId ? [poll.userVotedOptionId] : []);
+              const ballot = (ballots[poll.id] ?? []).filter((id) => poll.options.some((option) => option.id === id));
+              const canVote = !isClosed && recordedVotes.length === 0;
+              const toggleOption = (id: string) => setBallots((current) => ({
+                ...current,
+                [poll.id]: poll.isMultipleChoice
+                  ? ballot.includes(id) ? ballot.filter((selected) => selected !== id) : [...ballot, id]
+                  : [id],
+              }));
             const isConfirmingThis = confirmAction?.pollId === poll.id;
             const totalVotesLabel =
               poll.totalVotes === 0
@@ -308,6 +413,12 @@ export const MobilePollView: React.FC<MobilePollViewProps> = ({ circleId, onRegi
             return (
               <View
                 key={poll.id}
+                onLayout={(event) => {
+                  if (poll.id === notificationPollId && scrolledNotificationId.current !== poll.id) {
+                    scrolledNotificationId.current = poll.id;
+                    pollListRef.current?.scrollTo({ y: Math.max(0, event.nativeEvent.layout.y - topClearance), animated: true });
+                  }
+                }}
                 style={[
                   styles.pollCard,
                   { backgroundColor: colors.surface, borderColor: colors.hairline },
@@ -349,7 +460,17 @@ export const MobilePollView: React.FC<MobilePollViewProps> = ({ circleId, onRegi
                     </Text>
                   </View>
 
+                  {poll.canManage && (
                   <View style={styles.cardActions}>
+                    {!isClosed && (
+                      <TouchableOpacity
+                        onPress={() => handleOpenEditModal(poll)}
+                        style={styles.iconBtn}
+                        accessibilityLabel={t.collab.pollEditTitle}
+                      >
+                        <Pencil size={14} color={colors.subtle} />
+                      </TouchableOpacity>
+                    )}
                     {!isClosed && (
                       <TouchableOpacity
                         onPress={() =>
@@ -381,6 +502,7 @@ export const MobilePollView: React.FC<MobilePollViewProps> = ({ circleId, onRegi
                       <Trash2 size={14} color={colors.danger} />
                     </TouchableOpacity>
                   </View>
+                  )}
                 </View>
 
                 {/* Inline 2-step Close / Delete confirmation */}
@@ -441,20 +563,44 @@ export const MobilePollView: React.FC<MobilePollViewProps> = ({ circleId, onRegi
                   </View>
                 )}
 
+                {/* Badges */}
+                {((poll as any).isMultipleChoice || (poll as any).isAnonymous) && (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                    {(poll as any).isMultipleChoice && (
+                      <View style={{ paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, backgroundColor: '#6366f120' }}>
+                        <Text style={{ fontSize: 10, fontWeight: '700', color: '#6366f1' }}>
+                          {t.collab.pollIsMultipleChoice || 'Nhiều lựa chọn'}
+                        </Text>
+                      </View>
+                    )}
+                    {(poll as any).isAnonymous && (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, backgroundColor: '#10b98120' }}>
+                        <Lock size={10} color="#10b981" />
+                        <Text style={{ fontSize: 10, fontWeight: '700', color: '#10b981' }}>
+                          {t.collab.pollIsAnonymous || 'Ẩn danh'}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                )}
+
                 {/* Question */}
                 <Text style={[styles.pollQuestion, { color: colors.text }]}>{poll.question}</Text>
 
+                {canVote && <Text style={{ color: colors.subtle, fontSize: 12 }}>{t.collab.pollBallotFinal}</Text>}
                 {/* Options */}
                 <View style={styles.optionsList}>
                   {poll.options.map((opt) => {
-                    const isSelected = poll.userVotedOptionId === opt.id;
+                    const isSelected = (recordedVotes.length ? recordedVotes : ballot).includes(opt.id);
 
                     return (
                       <TouchableOpacity
                         key={opt.id}
                         activeOpacity={0.8}
-                        disabled={isClosed}
-                        onPress={() => handleVote(poll.id, opt.id)}
+                        disabled={!canVote || isVoting}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: isSelected, disabled: !canVote || isVoting }}
+                        onPress={() => toggleOption(opt.id)}
                         style={[
                           styles.optionCard,
                           {
@@ -519,6 +665,16 @@ export const MobilePollView: React.FC<MobilePollViewProps> = ({ circleId, onRegi
                       </TouchableOpacity>
                     );
                   })}
+                  {canVote && (
+                    <TouchableOpacity
+                      accessibilityRole="button"
+                      disabled={ballot.length === 0 || isVoting}
+                      onPress={() => handleVote(poll.id, ballot)}
+                      style={{ minHeight: 44, justifyContent: 'center', alignItems: 'center', borderRadius: 12, backgroundColor: colors.primary, opacity: ballot.length && !isVoting ? 1 : 0.5 }}
+                    >
+                      <Text style={{ color: colors.onPrimary, fontWeight: '700' }}>{t.collab.pollSubmitVote}</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
 
                 {/* Footer info */}
@@ -535,11 +691,33 @@ export const MobilePollView: React.FC<MobilePollViewProps> = ({ circleId, onRegi
                     {poll.deadline
                       ? t.collab.pollDeadlinePrefix.replace(
                           '{date}',
-                          new Date(poll.deadline).toLocaleDateString(dateLocale),
+                          new Date(poll.deadline).toLocaleString(dateLocale, { dateStyle: 'short', timeStyle: 'short' }),
                         )
                       : new Date(poll.createdAt).toLocaleDateString(dateLocale)}
                   </Text>
                 </View>
+                {!!poll.deadlineChanges?.length && (
+                  <View style={{ gap: 4, marginTop: 8 }}>
+                    <TouchableOpacity
+                      onPress={() => setExpandedDeadlinePollId(expandedDeadlinePollId === poll.id ? null : poll.id)}
+                      accessibilityRole="button"
+                      accessibilityState={{ expanded: expandedDeadlinePollId === poll.id }}
+                    >
+                      <Text style={[styles.pollDate, { color: colors.subtle }]}>{t.collab.pollDeadlineHistory}</Text>
+                    </TouchableOpacity>
+                    {expandedDeadlinePollId === poll.id && poll.deadlineChanges.map((change, index) => {
+                      const changedAt = new Date(change.changedAt).toLocaleString(dateLocale);
+                      const label = change.deadline
+                        ? t.collab.pollDeadlineChanged.replace('{deadline}', new Date(change.deadline).toLocaleString(dateLocale))
+                        : t.collab.pollDeadlineRemoved;
+                      return (
+                        <Text key={index} style={[styles.pollDate, { color: colors.subtle }]}>
+                          {label.replace('{changedAt}', changedAt)}
+                        </Text>
+                      );
+                    })}
+                  </View>
+                )}
               </View>
             );
           })}
@@ -583,7 +761,7 @@ export const MobilePollView: React.FC<MobilePollViewProps> = ({ circleId, onRegi
           >
             <View style={styles.modalHeaderRow}>
               <Text style={[styles.modalTitle, { color: colors.text }]}>
-                {t.collab.pollCreateModalTitle}
+                {editingPoll ? t.collab.pollEditTitle : t.collab.pollCreateModalTitle}
               </Text>
               <TouchableOpacity
                 onPress={() => setIsCreateModalOpen(false)}
@@ -594,6 +772,61 @@ export const MobilePollView: React.FC<MobilePollViewProps> = ({ circleId, onRegi
               </TouchableOpacity>
             </View>
 
+            <ScrollView style={{ flexGrow: 0, flexShrink: 1 }} keyboardShouldPersistTaps="handled">
+            {/* Quick Template Chips */}
+            {!editingPoll && (
+            <View style={{ marginBottom: 12 }}>
+              <Text style={[styles.inputSectionTitle, { color: colors.subtle, marginBottom: 6 }]}>
+                {t.collab.pollQuickTemplates || 'Mẫu bình chọn nhanh'}
+              </Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+                {[
+                  {
+                    label: t.collab.pollTemplateFood || '🍜 Ăn gì?',
+                    question: 'Trưa nay ăn gì cả nhà?',
+                    options: ['Cơm tấm', 'Bún bò Huế', 'Phở bò', 'Trà sữa'],
+                  },
+                  {
+                    label: t.collab.pollTemplateOuting || '🏖️ Đi đâu?',
+                    question: 'Cuối tuần này đi đâu chơi?',
+                    options: ['Cà phê chill', 'Dã ngoại cắm trại', 'Đi xem phim', 'Ở nhà ngủ'],
+                  },
+                  {
+                    label: t.collab.pollTemplateTime || '⏰ Giờ hẹn?',
+                    question: 'Mấy giờ hẹn gặp nhau?',
+                    options: ['08:00 sáng', '10:30 sáng', '14:00 chiều', '18:30 tối'],
+                  },
+                ].map((tpl, i) => (
+                  <TouchableOpacity
+                    key={i}
+                    activeOpacity={0.7}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      if (formError) setFormError(null);
+                      setQuestion(tpl.question);
+                      setOptions([...tpl.options]);
+                    }}
+                    style={{
+                      paddingHorizontal: 10,
+                      paddingVertical: 5,
+                      borderRadius: 14,
+                      backgroundColor: colors.wash,
+                      borderWidth: 1,
+                      borderColor: colors.hairline,
+                    }}
+                  >
+                    <Text style={{ fontSize: 11, fontWeight: '600', color: colors.text }}>
+                      {tpl.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+            )}
+
+            {(editEnded || editingPoll?.contentLocked) && (
+              <Text style={{ color: colors.subtle }}>{editEnded ? t.collab.pollEditEnded : t.collab.pollContentLocked}</Text>
+            )}
             <Text style={[styles.inputSectionTitle, { color: colors.subtle }]}>
               {t.collab.pollQuestionLabel}
             </Text>
@@ -613,17 +846,14 @@ export const MobilePollView: React.FC<MobilePollViewProps> = ({ circleId, onRegi
               }}
               placeholder={t.collab.pollQuestionExample}
               placeholderTextColor={colors.subtle}
-              autoFocus
+              autoFocus={!editEnded && !editingPoll?.contentLocked}
+              editable={!editEnded && !editingPoll?.contentLocked}
             />
 
             <Text style={[styles.inputSectionTitle, { color: colors.subtle, marginTop: 12 }]}>
               {t.collab.pollOptionsLabel}
             </Text>
-            <ScrollView
-              style={{ maxHeight: 240 }}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-            >
+            <View>
               <View style={styles.optionsInputGroup}>
                 {options.map((opt, idx) => (
                   <View key={idx} style={styles.optionInputRow}>
@@ -638,6 +868,7 @@ export const MobilePollView: React.FC<MobilePollViewProps> = ({ circleId, onRegi
                         },
                       ]}
                       value={opt}
+                      editable={!editEnded && !editingPoll?.contentLocked}
                       onChangeText={(val) => handleOptionChange(idx, val)}
                       placeholder={t.collab.pollOptionPlaceholder.replace(
                         '{index}',
@@ -645,7 +876,7 @@ export const MobilePollView: React.FC<MobilePollViewProps> = ({ circleId, onRegi
                       )}
                       placeholderTextColor={colors.subtle}
                     />
-                    {options.length > 2 && (
+                    {!editEnded && !editingPoll?.contentLocked && options.length > 2 && (
                       <TouchableOpacity
                         onPress={() => handleRemoveOptionField(idx)}
                         style={styles.removeOptionBtn}
@@ -658,9 +889,9 @@ export const MobilePollView: React.FC<MobilePollViewProps> = ({ circleId, onRegi
                   </View>
                 ))}
               </View>
-            </ScrollView>
+            </View>
 
-            {options.length < 6 && (
+            {!editEnded && !editingPoll?.contentLocked && options.length < 10 && (
               <TouchableOpacity
                 onPress={handleAddOptionField}
                 style={styles.addOptionBtn}
@@ -672,12 +903,72 @@ export const MobilePollView: React.FC<MobilePollViewProps> = ({ circleId, onRegi
               </TouchableOpacity>
             )}
 
+            <Text style={[styles.inputSectionTitle, { color: colors.subtle, marginTop: 12 }]}>
+              {t.collab.pollDeadline}
+            </Text>
+            <TextInput
+              style={[styles.input, { backgroundColor: colors.canvas, borderColor: colors.hairline, color: colors.text }]}
+              value={deadline}
+              editable={!editEnded}
+              onChangeText={setDeadline}
+              placeholder={t.collab.pollDeadlinePlaceholder}
+              placeholderTextColor={colors.subtle}
+              accessibilityLabel={t.collab.pollDeadline}
+              autoCorrect={false}
+            />
+
+            {/* Advanced Poll Toggles */}
+            <View style={{ paddingTop: 10, marginTop: 8, borderTopWidth: 1, borderTopColor: colors.hairline, gap: 10 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Text style={{ fontSize: 12, fontWeight: '600', color: colors.text }}>
+                  {t.collab.pollIsMultipleChoice}
+                </Text>
+                <Switch
+                  value={isMultipleChoice}
+                  disabled={editEnded || editingPoll?.contentLocked}
+                  accessibilityLabel={t.collab.pollIsMultipleChoice}
+                  onValueChange={(val) => {
+                    Haptics.selectionAsync();
+                    setIsMultipleChoice(val);
+                  }}
+                  trackColor={{ false: colors.wash, true: colors.primary }}
+                  thumbColor="#FFFFFF"
+                />
+              </View>
+
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <View style={{ flex: 1, paddingRight: 8 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <Lock size={12} color="#10b981" />
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: colors.text }}>
+                      {t.collab.pollIsAnonymous}
+                    </Text>
+                  </View>
+                  <Text style={{ fontSize: 10, color: colors.subtle, marginTop: 2 }}>
+                    {editingPoll ? t.collab.pollPrivacyLocked : t.collab.pollAnonymousNotice}
+                  </Text>
+                </View>
+                <Switch
+                  value={isAnonymous}
+                  disabled={Boolean(editingPoll)}
+                  accessibilityLabel={t.collab.pollIsAnonymous}
+                  onValueChange={(val) => {
+                    Haptics.selectionAsync();
+                    setIsAnonymous(val);
+                  }}
+                  trackColor={{ false: colors.wash, true: colors.primary }}
+                  thumbColor="#FFFFFF"
+                />
+              </View>
+            </View>
+
             {formError ? (
               <Text style={[styles.inlineErrorText, { color: isDark ? '#F87171' : '#DC2626' }]}>
                 {formError}
               </Text>
             ) : null}
 
+            </ScrollView>
             <View style={styles.modalActions}>
               <TouchableOpacity
                 onPress={() => setIsCreateModalOpen(false)}
@@ -689,15 +980,15 @@ export const MobilePollView: React.FC<MobilePollViewProps> = ({ circleId, onRegi
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
-                onPress={handleCreatePoll}
-                disabled={isCreating}
+                onPress={handleSavePoll}
+                disabled={isCreating || editEnded}
                 style={[styles.modalSubmitBtn, { backgroundColor: colors.primary }]}
               >
                 {isCreating ? (
                   <ActivityIndicator size="small" color={colors.onPrimary} />
                 ) : (
                   <Text style={[styles.modalSubmitText, { color: colors.onPrimary }]}>
-                    {t.collab.pollCreateSubmit}
+                    {editingPoll ? t.common.save : t.collab.pollCreateSubmit}
                   </Text>
                 )}
               </TouchableOpacity>
@@ -970,6 +1261,7 @@ const createStyles = (colors: ColorTheme, isDark: boolean) =>
       padding: 20,
       width: '100%',
       maxWidth: 380,
+      maxHeight: '100%',
     },
     modalHeaderRow: {
       flexDirection: 'row',

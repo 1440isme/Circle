@@ -504,6 +504,7 @@ export function useChannelMessagesQuery(channelId: string | null) {
       emoji: string;
       reactionCounts: Record<string, number>;
       userReactions: string[];
+      reactions?: any[];
     }) => {
       queryClient.setQueryData<InfiniteData<CursorPaginatedMessages>>(
         ['messages', 'channel', channelId],
@@ -519,6 +520,7 @@ export function useChannelMessagesQuery(channelId: string | null) {
                       ...m,
                       reactionCounts: payload.reactionCounts,
                       userReactions: payload.userReactions,
+                      reactions: payload.reactions || m.reactions,
                     }
                   : m,
               ),
@@ -877,6 +879,7 @@ export function useReactMessageMutation(channelId: string | null) {
               ...m,
               reactionCounts: resData.reactionCounts,
               userReactions: resData.userReactions,
+              reactions: (resData as any).reactions || m.reactions,
             };
           });
           return { ...old, messages: updated };

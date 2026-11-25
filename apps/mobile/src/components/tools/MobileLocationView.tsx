@@ -7,6 +7,9 @@ import {
   ScrollView,
   ActivityIndicator,
   Platform,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { BlurView } from 'expo-blur';
@@ -22,18 +25,26 @@ import {
   CheckCircle2,
   X,
   Clock,
+  Flag,
+  Trash2,
 } from 'lucide-react-native';
 import {
   getLiveLocationsApi,
   startLiveLocationApi,
+  updateLiveLocationApi,
   stopLiveLocationApi,
+  getMeetingPointApi,
+  setMeetingPointApi,
+  deleteMeetingPointApi,
 } from '../../services/circle-tools.service';
-import { LiveLocationEntity, MessageType } from '@circle/types';
+import { getSocket } from '../../services/socket';
+import { LiveLocationEntity, CircleMeetingPointEntity, MessageType } from '@circle/types';
 import { useThemeStore } from '../../stores/theme.store';
 import { getGlassTheme } from '../../constants/glass-theme';
 import { useLanguageStore } from '../../stores/language.store';
 import { useAuthStore } from '../../stores/auth.store';
 import { useSendMessageMutation, useCircleDetailQuery } from '../../hooks/use-circle-queries';
+import { MobileLocationSearchInput } from './MobileLocationSearchInput';
 
 interface MobileLocationViewProps {
   circleId: string;
@@ -65,6 +76,7 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
   const topClearance = Platform.OS === 'ios' ? 52 : 36;
 
   const [locations, setLocations] = useState<LiveLocationEntity[]>([]);
+  const [meetingPoint, setMeetingPoint] = useState<CircleMeetingPointEntity | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedDuration, setSelectedDuration] = useState<number>(30); // 15, 30, 60 mins
 
@@ -72,12 +84,21 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
     Haptics.selectionAsync().catch(() => {});
     setSelectedDuration((prev) => (prev === 15 ? 30 : prev === 30 ? 60 : 15));
   };
+
   const [isSharing, setIsSharing] = useState(false);
   const [myCoords, setMyCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [isSendingToChat, setIsSendingToChat] = useState(false);
   const [chatSentSuccess, setChatSentSuccess] = useState(false);
   const [errorNotice, setErrorNotice] = useState<string | null>(null);
   const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Meeting Point Modal
+  const [isMeetingModalOpen, setIsMeetingModalOpen] = useState(false);
+  const [meetingTitle, setMeetingTitle] = useState('');
+  const [meetingAddress, setMeetingAddress] = useState('');
+  const [meetingLat, setMeetingLat] = useState<number | null>(null);
+  const [meetingLng, setMeetingLng] = useState<number | null>(null);
+  const [isSavingMeetingPoint, setIsSavingMeetingPoint] = useState(false);
 
   const webViewRef = useRef<WebView>(null);
 
@@ -98,7 +119,7 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
     };
   }, []);
 
-  // Acquire GPS coordinates on mount
+  // Acquire GPS coordinates on mount (No silent Saigon fallback)
   useEffect(() => {
     let isMounted = true;
     (async () => {
@@ -115,18 +136,21 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
             });
           }
         } else {
-          // Saigon default
-          if (isMounted) setMyCoords({ lat: 10.7828, lng: 106.6958 });
+          if (isMounted) {
+            showError(t.collab.gpsDeniedMessage);
+          }
         }
       } catch {
-        if (isMounted) setMyCoords({ lat: 10.7828, lng: 106.6958 });
+        if (isMounted) {
+          showError(t.collab.gpsDeniedMessage);
+        }
       }
     })();
 
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [t.collab.gpsDeniedMessage]);
 
   const loadLocations = async () => {
     try {
@@ -143,11 +167,74 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
     }
   };
 
+  const loadMeetingPoint = async () => {
+    try {
+      const data = await getMeetingPointApi(circleId);
+      setMeetingPoint(data);
+    } catch {}
+  };
+
   useEffect(() => {
     loadLocations();
-    const interval = setInterval(loadLocations, 10000);
-    return () => clearInterval(interval);
+    loadMeetingPoint();
   }, [circleId]);
+
+  // Real-time Socket Synchronization
+  useEffect(() => {
+    let isSubscribed = true;
+    getSocket().then((socket) => {
+      if (!socket || !isSubscribed) return;
+
+      const handleLocationUpdate = () => {
+        loadLocations();
+      };
+      const handleMeetingPointUpdate = () => {
+        loadMeetingPoint();
+      };
+
+      socket.on('circle:location-updated', handleLocationUpdate);
+      socket.on('circle:location-stopped', handleLocationUpdate);
+      socket.on('circle:meeting-point-updated', handleMeetingPointUpdate);
+    });
+
+    return () => {
+      isSubscribed = false;
+    };
+  }, [circleId]);
+
+  // Live Location continuous GPS tracking when active sharing
+  useEffect(() => {
+    if (!isSharing) return;
+    let locationSubscription: Location.LocationSubscription | null = null;
+    let isMounted = true;
+
+    (async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') return;
+
+        locationSubscription = await Location.watchPositionAsync(
+          {
+            accuracy: Location.Accuracy.High,
+            timeInterval: 8000,
+            distanceInterval: 10,
+          },
+          (loc) => {
+            if (!isMounted) return;
+            const lat = loc.coords.latitude;
+            const lng = loc.coords.longitude;
+            setMyCoords({ lat, lng });
+            updateLiveLocationApi(circleId, { latitude: lat, longitude: lng }).catch(() => {});
+          },
+        );
+      } catch {}
+    })();
+
+    return () => {
+      isMounted = false;
+      locationSubscription?.remove();
+    };
+  }, [isSharing, circleId]);
 
   const handleStartSharing = async () => {
     try {
@@ -155,8 +242,8 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
       setIsLoading(true);
       setErrorNotice(null);
 
-      let lat = myCoords?.lat || 10.7828;
-      let lng = myCoords?.lng || 106.6958;
+      let lat = myCoords?.lat;
+      let lng = myCoords?.lng;
 
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
@@ -167,8 +254,22 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
           lat = loc.coords.latitude;
           lng = loc.coords.longitude;
           setMyCoords({ lat, lng });
+        } else {
+          showError(t.collab.gpsDeniedMessage);
+          setIsLoading(false);
+          return;
         }
-      } catch {}
+      } catch {
+        showError(t.collab.gpsDeniedMessage);
+        setIsLoading(false);
+        return;
+      }
+
+      if (lat === undefined || lng === undefined) {
+        showError(t.collab.gpsDeniedMessage);
+        setIsLoading(false);
+        return;
+      }
 
       await startLiveLocationApi(circleId, {
         latitude: lat,
@@ -208,8 +309,8 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
 
   const handleRecenter = () => {
     Haptics.selectionAsync();
-    const lat = myCoords?.lat || 10.7828;
-    const lng = myCoords?.lng || 106.6958;
+    const lat = myCoords?.lat || meetingPoint?.latitude || 10.7828;
+    const lng = myCoords?.lng || meetingPoint?.longitude || 106.6958;
     webViewRef.current?.injectJavaScript(`
       if (window.panToCoords) {
         window.panToCoords(${lat}, ${lng});
@@ -244,6 +345,78 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
     }
   };
 
+  const handleWebViewMessage = (event: any) => {
+    try {
+      const parsed = JSON.parse(event.nativeEvent.data);
+      if (parsed.type === 'MAP_LONG_PRESS') {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+        const { lat, lng } = parsed;
+        setMeetingLat(lat);
+        setMeetingLng(lng);
+        setMeetingTitle(t.collab.dropMeetingPointHere || 'Điểm hẹn mới');
+        setMeetingAddress(`${lat.toFixed(4)}, ${lng.toFixed(4)}`);
+        webViewRef.current?.injectJavaScript(`
+          if (window.dropTempPin) {
+            window.dropTempPin(${lat}, ${lng}, '${t.collab.dropMeetingPointHere || 'Điểm hẹn'}');
+          }
+          true;
+        `);
+        setIsMeetingModalOpen(true);
+        // Reverse geocode in background
+        fetch(`https://photon.komoot.io/reverse?lat=${lat}&lon=${lng}`)
+          .then((r) => r.json())
+          .then((geoData) => {
+            const p = geoData.features?.[0]?.properties;
+            if (p) {
+              const name = p.name || p.street || '';
+              const parts = [p.name, p.street, p.district || p.locality, p.city].filter(Boolean);
+              const fullAddr = Array.from(new Set(parts)).join(', ');
+              if (name) setMeetingTitle(name);
+              if (fullAddr) setMeetingAddress(fullAddr);
+            }
+          })
+          .catch(() => {});
+      }
+    } catch {}
+  };
+
+  const handleSaveMeetingPoint = async () => {
+    if (!meetingTitle.trim()) return;
+    const lat = meetingLat ?? myCoords?.lat ?? 10.7828;
+    const lng = meetingLng ?? myCoords?.lng ?? 106.6958;
+
+    try {
+      setIsSavingMeetingPoint(true);
+      const saved = await setMeetingPointApi(circleId, {
+        title: meetingTitle.trim(),
+        address: meetingAddress.trim() || undefined,
+        latitude: lat,
+        longitude: lng,
+      });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setMeetingPoint(saved);
+      setIsMeetingModalOpen(false);
+      setMeetingTitle('');
+      setMeetingAddress('');
+      setMeetingLat(null);
+      setMeetingLng(null);
+    } catch (err: any) {
+      showError(err?.message || t.collab.setMeetingPoint);
+    } finally {
+      setIsSavingMeetingPoint(false);
+    }
+  };
+
+  const handleDeleteMeetingPoint = async () => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      await deleteMeetingPointApi(circleId);
+      setMeetingPoint(null);
+    } catch (err: any) {
+      showError(err?.message || t.collab.removeMeetingPoint);
+    }
+  };
+
   const getRemainingTime = (expiresAtStr: string) => {
     const diff = new Date(expiresAtStr).getTime() - Date.now();
     if (diff <= 0) return t.collab.sharingExpired;
@@ -252,10 +425,22 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
     return `${mins}m ${secs < 10 ? '0' : ''}${secs}s`;
   };
 
+  // Distance to meeting point
+  const distanceToMeetingText = useMemo(() => {
+    if (!meetingPoint || !myCoords) return null;
+    const km = calculateDistanceKm(
+      myCoords.lat,
+      myCoords.lng,
+      meetingPoint.latitude,
+      meetingPoint.longitude,
+    );
+    return km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`;
+  }, [meetingPoint, myCoords]);
+
   // Leaflet HTML template with CartoDB dark_all / light_all fallback
   const mapHtml = useMemo(() => {
-    const centerLat = myCoords?.lat || 10.7828;
-    const centerLng = myCoords?.lng || 106.6958;
+    const centerLat = myCoords?.lat || meetingPoint?.latitude || 10.7828;
+    const centerLng = myCoords?.lng || meetingPoint?.longitude || 106.6958;
 
     const pinsData = JSON.stringify(
       locations.map((loc) => ({
@@ -269,6 +454,15 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
         meSuffix: t.collab.meLabel,
       })),
     );
+
+    const meetingPointData = meetingPoint
+      ? JSON.stringify({
+          title: meetingPoint.title,
+          address: meetingPoint.address,
+          lat: meetingPoint.latitude,
+          lng: meetingPoint.longitude,
+        })
+      : 'null';
 
     const tileTheme = isDark ? 'dark_all' : 'light_all';
     const canvasBg = isDark ? '#131316' : '#FFFFFF';
@@ -348,6 +542,37 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
       font-weight: 700;
       white-space: nowrap;
     }
+    .mp-pin-marker {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      cursor: pointer;
+    }
+    .mp-icon-box {
+      width: 40px;
+      height: 40px;
+      border-radius: 20px;
+      border: 2.5px solid #FFFFFF;
+      background: ${colors.primary};
+      box-shadow: 0 0 16px rgba(56, 102, 65, 0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #FFFFFF;
+      font-weight: 800;
+      font-size: 16px;
+    }
+    .mp-tag {
+      margin-top: 3px;
+      padding: 2px 8px;
+      border-radius: 10px;
+      background: #D97706;
+      border: 1px solid #FCD34D;
+      color: #FFFFFF;
+      font-size: 10px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
   </style>
 </head>
 <body>
@@ -360,157 +585,157 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
       attributionControl: false
     });
 
-    var mapboxToken = '${process.env.EXPO_PUBLIC_MAPBOX_TOKEN || ''}';
-    var mapboxStyle = '${isDark ? 'dark-v11' : 'streets-v12'}';
-    var tileUrl = mapboxToken
-      ? 'https://api.mapbox.com/styles/v1/mapbox/' + mapboxStyle + '/tiles/512/{z}/{x}/{y}@2x?access_token=' + mapboxToken
-      : 'https://{s}.basemaps.cartocdn.com/${tileTheme}/{z}/{x}/{y}{r}.png';
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/${tileTheme}/{z}/{x}/{y}{r}.png', {
+      maxZoom: 19,
+      subdomains: 'abcd'
+    }).addTo(map);
 
-    var tileOptions = {
-      maxZoom: mapboxToken ? 22 : 20,
-      tileSize: mapboxToken ? 512 : 256,
-      zoomOffset: mapboxToken ? -1 : 0
-    };
-    if (!mapboxToken) {
-      tileOptions.subdomains = 'abcd';
-    }
-    L.tileLayer(tileUrl, tileOptions).addTo(map);
-
-    var pins = ${pinsData};
     var markersGroup = L.featureGroup().addTo(map);
 
-    pins.forEach(function(pin) {
-      var initials = (pin.name || 'US').substring(0, 2).toUpperCase();
-      var avatarContent = pin.avatarUrl
-        ? '<img src="' + pin.avatarUrl + '" style="width:100%;height:100%;object-fit:cover;" />'
+    var pins = ${pinsData};
+    var meetingPoint = ${meetingPointData};
+
+    if (meetingPoint) {
+      var mpIcon = L.divIcon({
+        className: 'custom-leaflet-pin',
+        iconSize: [40, 56],
+        iconAnchor: [20, 28],
+        html: '<div class="mp-pin-marker">' +
+                '<div class="mp-icon-box"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21s-8-4.5-8-11.8A8 8 0 0 1 12 2a8 8 0 0 1 8 7.2c0 7.3-8 11.8-8 11.8z"/><circle cx="12" cy="10" r="3"/></svg></div>' +
+                '<div class="mp-tag">' + meetingPoint.title + '</div>' +
+              '</div>'
+      });
+      L.marker([meetingPoint.lat, meetingPoint.lng], { icon: mpIcon }).addTo(markersGroup);
+    }
+
+    pins.forEach(function(p) {
+      var initials = p.name ? p.name.substring(0, 2).toUpperCase() : '??';
+      var avatarInner = p.avatarUrl
+        ? '<img src="' + p.avatarUrl + '" style="width:100%;height:100%;object-fit:cover;" />'
         : initials;
 
       var html = '<div class="member-pin-marker">' +
-        '<div class="member-avatar-box ' + (pin.isMe ? 'is-me' : '') + '">' + avatarContent + '</div>' +
-        '<div class="member-name-tag">' + pin.name + (pin.isMe ? ' ' + pin.meSuffix : '') + '</div>' +
-        '</div>';
+                   '<div class="member-avatar-box ' + (p.isMe ? 'is-me' : '') + '">' +
+                     avatarInner +
+                   '</div>' +
+                   '<div class="member-name-tag">' + (p.isMe ? p.meSuffix : p.name) + '</div>' +
+                 '</div>';
 
-      var customIcon = L.divIcon({
-        html: html,
+      var icon = L.divIcon({
         className: 'custom-leaflet-pin',
-        iconSize: [40, 52],
-        iconAnchor: [20, 26]
+        iconSize: [38, 54],
+        iconAnchor: [19, 27],
+        html: html
       });
 
-      L.marker([pin.lat, pin.lng], { icon: customIcon }).addTo(markersGroup);
+      L.marker([p.lat, p.lng], { icon: icon }).addTo(markersGroup);
     });
+
+    if (markersGroup.getLayers().length > 0) {
+      try {
+        var b = markersGroup.getBounds();
+        if (b.isValid()) map.fitBounds(b, { padding: [50, 50], maxZoom: 16 });
+      } catch(e) {}
+    }
 
     window.panToCoords = function(lat, lng) {
       map.setView([lat, lng], 15, { animate: true });
     };
 
-    if (pins.length > 0) {
-      try {
-        var bounds = markersGroup.getBounds();
-        if (bounds.isValid()) {
-          map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 });
+    var tempPinMarker = null;
+    window.dropTempPin = function(lat, lng, title) {
+      if (tempPinMarker) {
+        map.removeLayer(tempPinMarker);
+      }
+      var tempIcon = L.divIcon({
+        className: 'custom-leaflet-pin',
+        iconSize: [40, 56],
+        iconAnchor: [20, 28],
+        html: '<div class="mp-pin-marker" style="transform: scale(1.05);">' +
+                '<div class="mp-icon-box" style="background:#059669;box-shadow:0 0 16px rgba(16,185,129,0.9);"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21s-8-4.5-8-11.8A8 8 0 0 1 12 2a8 8 0 0 1 8 7.2c0 7.3-8 11.8-8 11.8z"/><circle cx="12" cy="10" r="3"/></svg></div>' +
+                '<div class="mp-tag" style="background:#059669;border-color:#34D399;">' + (title || 'Điểm đã chọn') + '</div>' +
+              '</div>'
+      });
+      tempPinMarker = L.marker([lat, lng], { icon: tempIcon }).addTo(map);
+      map.panTo([lat, lng], { animate: true });
+    };
+
+    var pressTimer = null;
+    var pressStart = null;
+
+    map.on('touchstart', function(e) {
+      if (e.originalEvent && e.originalEvent.touches && e.originalEvent.touches.length === 1) {
+        pressStart = { x: e.originalEvent.touches[0].clientX, y: e.originalEvent.touches[0].clientY };
+        var latlng = e.latlng;
+        pressTimer = setTimeout(function() {
+          if (window.ReactNativeWebView) {
+            window.ReactNativeWebView.postMessage(JSON.stringify({
+              type: 'MAP_LONG_PRESS',
+              lat: latlng.lat,
+              lng: latlng.lng
+            }));
+          }
+        }, 500);
+      }
+    });
+
+    map.on('touchmove', function(e) {
+      if (pressTimer && pressStart && e.originalEvent && e.originalEvent.touches && e.originalEvent.touches.length === 1) {
+        var dx = Math.abs(e.originalEvent.touches[0].clientX - pressStart.x);
+        var dy = Math.abs(e.originalEvent.touches[0].clientY - pressStart.y);
+        if (dx > 12 || dy > 12) {
+          clearTimeout(pressTimer);
+          pressTimer = null;
         }
-      } catch(e) {}
-    }
+      }
+    });
+
+    map.on('touchend touchcancel', function() {
+      if (pressTimer) {
+        clearTimeout(pressTimer);
+        pressTimer = null;
+      }
+    });
+
+    map.on('contextmenu', function(e) {
+      if (window.ReactNativeWebView) {
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'MAP_LONG_PRESS',
+          lat: e.latlng.lat,
+          lng: e.latlng.lng
+        }));
+      }
+    });
   </script>
 </body>
 </html>`;
-  }, [locations, myCoords, isDark, colors.primary, colors.onPrimary, t.collab.memberDefault, t.collab.meLabel, t.collab.sharingExpired]);
+  }, [locations, myCoords, meetingPoint, isDark, colors, t, user]);
 
-  const pillSurfaceColor = isGlass ? glassTheme.colors.glassBg : colors.surface;
+  const pillSurfaceColor = isGlass
+    ? glassTheme.colors.glassBg
+    : isDark
+    ? '#1D1D21'
+    : colors.surface;
   const pillBorderColor = isGlass ? glassTheme.colors.glassBorder : colors.hairline;
 
   const durationCycleInner = (
     <TouchableOpacity
       activeOpacity={0.7}
+      hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
       onPress={handleCycleDuration}
-      style={styles.durationCycleTouch}
-      accessibilityLabel={`Thời lượng: ${selectedDuration}m`}
+      style={styles.durationTouch}
+      accessibilityLabel={t.collab.startLiveShare}
     >
-      <Clock size={13} color={colors.subtle} style={{ marginRight: 4 }} />
+      <Clock size={12} color={colors.primary} />
       <Text style={[styles.durationCycleText, { color: colors.text }]}>
         {selectedDuration}m
       </Text>
     </TouchableOpacity>
   );
 
-  const bottomStripInner = (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={styles.bottomScroll}
-    >
-      {locations.length === 0 ? (
-        <View style={styles.emptyWrap}>
-          <Navigation size={14} color={colors.subtle} />
-          <Text style={[styles.emptyText, { color: colors.subtle }]}>
-            {t.collab.emptyLocationTitle}
-          </Text>
-        </View>
-      ) : (
-        locations.map((loc) => {
-          const isMe = loc.member?.userId === user?.id;
-          const name = loc.member?.user?.profile?.displayName || t.collab.memberDefault;
-          const initials = name.substring(0, 2).toUpperCase();
-
-          let distanceText: string | null = null;
-          if (myCoords && !isMe) {
-            const dist = calculateDistanceKm(
-              myCoords.lat,
-              myCoords.lng,
-              loc.latitude,
-              loc.longitude,
-            );
-            if (dist < 1) {
-              distanceText = `${Math.round(dist * 1000)}m`;
-            } else {
-              distanceText = `${dist.toFixed(1)}km`;
-            }
-          }
-
-          return (
-            <TouchableOpacity
-              key={loc.id}
-              activeOpacity={0.8}
-              onPress={() => {
-                Haptics.selectionAsync();
-                webViewRef.current?.injectJavaScript(`
-                  if (window.panToCoords) {
-                    window.panToCoords(${loc.latitude}, ${loc.longitude});
-                  }
-                  true;
-                `);
-              }}
-              style={[
-                styles.memberPill,
-                {
-                  backgroundColor: colors.wash,
-                  borderColor: colors.hairline,
-                },
-              ]}
-            >
-              <View style={[styles.memberAvatar, { backgroundColor: colors.primary }]}>
-                <Text style={[styles.memberAvatarText, { color: colors.onPrimary }]}>{initials}</Text>
-              </View>
-              <View>
-                <Text style={[styles.memberName, { color: colors.text }]}>
-                  {isMe ? `${name} ${t.collab.meLabel}` : name}
-                </Text>
-                <Text style={[styles.memberRemaining, { color: isDark ? '#FBBF24' : '#B45309' }]}>
-                  {distanceText ? `${distanceText} · ` : ''}
-                  {getRemainingTime(loc.expiresAt)}
-                </Text>
-              </View>
-            </TouchableOpacity>
-          );
-        })
-      )}
-    </ScrollView>
-  );
-
   return (
     <View style={[styles.container, { backgroundColor: colors.canvas }]}>
-      {/* Floating Top Toolbar (actions on right, universal back button on left) */}
+      {/* Floating Top Toolbar */}
       <View
         pointerEvents="box-none"
         style={{
@@ -525,7 +750,27 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
           gap: 8,
         }}
       >
-        {/* Cycle Duration Button when not sharing (15m -> 30m -> 60m) */}
+        {/* Meeting Point Button */}
+        <TouchableOpacity
+          activeOpacity={0.75}
+          onPress={() => {
+            setMeetingTitle(meetingPoint?.title || '');
+            setMeetingAddress(meetingPoint?.address || '');
+            setIsMeetingModalOpen(true);
+          }}
+          style={[
+            styles.iconActionBtn,
+            {
+              backgroundColor: pillSurfaceColor,
+              borderColor: pillBorderColor,
+            },
+          ]}
+          accessibilityLabel={t.collab.setMeetingPoint}
+        >
+          <Flag size={15} color={colors.primary} />
+        </TouchableOpacity>
+
+        {/* Cycle Duration Button when not sharing */}
         {!isSharing ? (
           isGlass ? (
             <BlurView
@@ -597,9 +842,43 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
         </View>
       </View>
 
+      {/* Meeting Point Banner if set */}
+      {meetingPoint && (
+        <View pointerEvents="box-none" style={[styles.meetingBannerWrapper, { top: topClearance + 46 }]}>
+          <View
+            style={[
+              styles.meetingBannerCard,
+              {
+                backgroundColor: isGlass ? glassTheme.colors.glassBg : colors.surface,
+                borderColor: colors.primary,
+              },
+            ]}
+          >
+            <Flag size={14} color={colors.primary} />
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={[styles.meetingTitleText, { color: colors.text }]} numberOfLines={1}>
+                {meetingPoint.title}
+              </Text>
+              {distanceToMeetingText && (
+                <Text style={[styles.meetingDistText, { color: colors.primary }]}>
+                  {t.collab.distanceToMeetingPoint.replace('{distance}', distanceToMeetingText)}
+                </Text>
+              )}
+            </View>
+            <TouchableOpacity
+              onPress={handleDeleteMeetingPoint}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={styles.meetingDeleteBtn}
+            >
+              <Trash2 size={13} color={colors.subtle} />
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
       {/* Inline Error Banner */}
       {errorNotice && (
-        <View pointerEvents="box-none" style={[styles.errorWrapper, { top: topClearance + 46 }]}>
+        <View pointerEvents="box-none" style={[styles.errorWrapper, { top: topClearance + (meetingPoint ? 92 : 46) }]}>
           <View style={[styles.errorBanner, { backgroundColor: colors.surface, borderColor: '#DC2626' }]}>
             <Text style={[styles.errorText, { color: colors.text }]} numberOfLines={2}>
               {errorNotice}
@@ -623,7 +902,43 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
           scrollEnabled={false}
           showsHorizontalScrollIndicator={false}
           showsVerticalScrollIndicator={false}
+          onMessage={handleWebViewMessage}
         />
+
+        {/* Floating Hint: Long-press map to set meeting point */}
+        <View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            top: topClearance + (meetingPoint ? 98 : 52),
+            alignSelf: 'center',
+            zIndex: 10,
+          }}
+        >
+          <View
+            style={{
+              paddingHorizontal: 12,
+              paddingVertical: 5,
+              borderRadius: 20,
+              backgroundColor: isDark ? 'rgba(19, 19, 22, 0.88)' : 'rgba(255, 255, 255, 0.92)',
+              borderWidth: 1,
+              borderColor: colors.hairline,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 6,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.1,
+              shadowRadius: 6,
+              elevation: 4,
+            }}
+          >
+            <Flag size={11} color={colors.primary} />
+            <Text style={{ fontSize: 10, color: colors.subtle, fontWeight: '700' }}>
+              {t.collab.rightClickOrLongPressDropHint || 'Nhấn giữ trên bản đồ để đặt điểm hẹn'}
+            </Text>
+          </View>
+        </View>
 
         {/* Floating Actions on Map */}
         <View style={[styles.floatingActionGroup, { bottom: Math.max(insets.bottom + 78, 84) }]}>
@@ -648,45 +963,106 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
             ) : chatSentSuccess ? (
               <CheckCircle2 size={15} color={colors.onPrimary} />
             ) : (
-              <Send size={15} color={colors.onPrimary} />
+              <>
+                <Send size={14} color={colors.onPrimary} />
+                <Text style={[styles.floatingCheckinText, { color: colors.onPrimary }]}>
+                  {t.collab.sendStaticLocationHint}
+                </Text>
+              </>
             )}
-            <Text style={[styles.floatingCheckinText, { color: colors.onPrimary }]}>
-              {chatSentSuccess ? t.collab.locationSentBadge : t.collab.sendStaticLocation}
-            </Text>
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* Active Members Floating Strip (strictly gated Glass vs Flat) */}
-      {isGlass ? (
-        <BlurView
-          intensity={glassTheme.blur.intensity}
-          tint={glassTheme.blur.tint}
-          style={[
-            styles.bottomStrip,
-            {
-              bottom: Math.max(insets.bottom + 8, 14),
-              backgroundColor: pillSurfaceColor,
-              borderColor: pillBorderColor,
-            },
-          ]}
+      {/* Modal: Set Meeting Point */}
+      <Modal
+        visible={isMeetingModalOpen}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setIsMeetingModalOpen(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalBackdrop}
         >
-          {bottomStripInner}
-        </BlurView>
-      ) : (
-        <View
-          style={[
-            styles.bottomStrip,
-            {
-              bottom: Math.max(insets.bottom + 8, 14),
-              backgroundColor: pillSurfaceColor,
-              borderColor: pillBorderColor,
-            },
-          ]}
-        >
-          {bottomStripInner}
-        </View>
-      )}
+          <View style={[styles.modalCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+            <View style={styles.modalHeaderRow}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Flag size={18} color={colors.primary} />
+                <Text style={[styles.modalTitle, { color: colors.text }]}>
+                  {meetingPoint ? t.collab.editMeetingPoint : t.collab.setMeetingPoint}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setIsMeetingModalOpen(false)}>
+                <X size={18} color={colors.subtle} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={[styles.inputLabel, { color: colors.subtle }]}>
+              {t.collab.meetingPointTitle}
+            </Text>
+            <TextInput
+              value={meetingTitle}
+              onChangeText={setMeetingTitle}
+              placeholder="Ví dụ: Cổng 1 Công viên Lê Văn Tám"
+              placeholderTextColor={colors.subtle}
+              autoFocus
+              style={[styles.input, { color: colors.text, borderColor: colors.hairline, backgroundColor: colors.canvas }]}
+            />
+
+            <Text style={[styles.inputLabel, { color: colors.subtle, marginTop: 12 }]}>
+              {t.collab.meetingPointAddressPlaceholder}
+            </Text>
+            <MobileLocationSearchInput
+              value={meetingAddress}
+              onChange={setMeetingAddress}
+              onSelectCoords={(coords) => {
+                setMeetingLat(coords.lat);
+                setMeetingLng(coords.lng);
+                if (!meetingTitle) setMeetingTitle(coords.title);
+                webViewRef.current?.injectJavaScript(`
+                  if (window.dropTempPin) {
+                    window.dropTempPin(${coords.lat}, ${coords.lng}, '${coords.title}');
+                  }
+                  true;
+                `);
+              }}
+              placeholder={t.collab.meetingPointAddressPlaceholder}
+            />
+
+            {meetingLat !== null && meetingLng !== null && (
+              <Text style={{ fontSize: 11, color: colors.subtle, marginTop: 8 }}>
+                Tọa độ ghim: {meetingLat.toFixed(4)}, {meetingLng.toFixed(4)}
+              </Text>
+            )}
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                onPress={() => setIsMeetingModalOpen(false)}
+                disabled={isSavingMeetingPoint}
+                style={styles.modalCancelBtn}
+              >
+                <Text style={[styles.modalCancelText, { color: colors.subtle }]}>
+                  {t.common.cancel}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleSaveMeetingPoint}
+                disabled={isSavingMeetingPoint}
+                style={[styles.modalSubmitBtn, { backgroundColor: colors.primary }]}
+              >
+                {isSavingMeetingPoint ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={[styles.modalSubmitText, { color: '#FFFFFF' }]}>
+                    {t.common.save}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 };
@@ -695,180 +1071,232 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  durationCycleShell: {
-    borderRadius: 999,
-    overflow: 'hidden',
-    borderWidth: StyleSheet.hairlineWidth,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+  mapContainer: {
+    flex: 1,
   },
-  durationCycleTouch: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    minHeight: 30,
-  },
-  durationCycleText: {
-    fontSize: 12,
-    fontWeight: '700',
+  webView: {
+    flex: 1,
   },
   topActionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
   },
-  startBtn: {
+  durationCycleShell: {
+    height: 38,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: 'hidden',
+    justifyContent: 'center',
+  },
+  durationTouch: {
+    height: '100%',
+    paddingHorizontal: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    gap: 5,
+  },
+  durationCycleText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  startBtn: {
+    height: 38,
+    paddingHorizontal: 14,
     borderRadius: 999,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 2,
   },
   startBtnText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
   },
   stopBtn: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    height: 38,
+    paddingHorizontal: 14,
     borderRadius: 999,
     backgroundColor: '#DC2626',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
   },
   stopBtnText: {
     color: '#FFFFFF',
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
   },
   iconActionBtn: {
-    padding: 6,
-    borderRadius: 999,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     borderWidth: StyleSheet.hairlineWidth,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  meetingBannerWrapper: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    zIndex: 25,
+  },
+  meetingBannerCard: {
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  meetingTitleText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  meetingDistText: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 1,
+  },
+  meetingDeleteBtn: {
+    padding: 4,
   },
   errorWrapper: {
     position: 'absolute',
-    left: 14,
-    right: 14,
-    zIndex: 35,
+    left: 16,
+    right: 16,
+    zIndex: 40,
     alignItems: 'center',
   },
   errorBanner: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
-    borderWidth: 1,
+    width: '100%',
   },
   errorText: {
-    flex: 1,
     fontSize: 12,
     fontWeight: '600',
-  },
-  mapContainer: {
-    flex: 1,
-    position: 'relative',
-  },
-  webView: {
     flex: 1,
   },
   floatingActionGroup: {
     position: 'absolute',
     right: 16,
-    flexDirection: 'column',
-    alignItems: 'flex-end',
-    gap: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    zIndex: 20,
   },
   floatingCircleBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 1,
-    alignItems: 'center',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: StyleSheet.hairlineWidth,
     justifyContent: 'center',
+    alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
-    shadowRadius: 5,
+    shadowRadius: 6,
     elevation: 3,
   },
   floatingCheckinBtn: {
+    height: 44,
+    paddingHorizontal: 16,
+    borderRadius: 22,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.2,
     shadowRadius: 6,
-    elevation: 4,
+    elevation: 3,
   },
   floatingCheckinText: {
     fontSize: 12,
     fontWeight: '700',
   },
-  bottomStrip: {
-    position: 'absolute',
-    left: 14,
-    right: 14,
-    zIndex: 30,
-    borderRadius: 20,
-    borderWidth: StyleSheet.hairlineWidth,
-    overflow: 'hidden',
-    paddingVertical: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 4,
-  },
-  bottomScroll: {
-    paddingHorizontal: 16,
-    gap: 8,
-  },
-  emptyWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 4,
-  },
-  emptyText: {
-    fontSize: 12,
-  },
-  memberPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  memberAvatar: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+  // Modal
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
     alignItems: 'center',
     justifyContent: 'center',
+    padding: 20,
   },
-  memberAvatarText: {
-    fontSize: 10,
+  modalCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 20,
+    width: '100%',
+    maxWidth: 360,
+  },
+  modalHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  modalTitle: {
+    fontSize: 15,
     fontWeight: '700',
   },
-  memberName: {
+  inputLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 6,
+  },
+  input: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 13,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 16,
+  },
+  modalCancelBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 8,
+  },
+  modalCancelText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  modalSubmitBtn: {
+    paddingHorizontal: 18,
+    paddingVertical: 9,
+    borderRadius: 999,
+    minWidth: 80,
+    alignItems: 'center',
+  },
+  modalSubmitText: {
     fontSize: 12,
     fontWeight: '700',
-  },
-  memberRemaining: {
-    fontSize: 10,
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-    fontWeight: '600',
   },
 });

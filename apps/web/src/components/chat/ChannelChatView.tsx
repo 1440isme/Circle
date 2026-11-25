@@ -1,13 +1,14 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useQueryClient, InfiniteData } from '@tanstack/react-query';
+import { useQuery, useQueryClient, InfiniteData } from '@tanstack/react-query';
 import { MessageSquare, Pin, Users, Hash, WifiOff, Phone, Video, Radio, PhoneCall, PhoneOff, Calendar, Search, X, Loader2, MoreVertical, Trash2, Volume2, VolumeX } from 'lucide-react';
 import { MessageEntity, CursorPaginatedMessages, CallType, CallSessionDetailEntity, ClearChatMode, MessageType } from '@circle/types';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguageStore } from '../../stores/language.store';
 import { useCircleStore } from '../../stores/circle.store';
 import { useSoundStore } from '../../stores/sound.store';
+import { isSpecialSystemMessage } from '@circle/shared';
 import {
   playMessageSentSound,
   playReactionPopSound,
@@ -32,6 +33,7 @@ import { useCircleMembersQuery, useCircleDetailQuery } from '../../hooks/use-cir
 import { useInitiateCallMutation, useJoinCallMutation } from '../../hooks/use-call-queries';
 import { subscribeSocketConnection, sendMessageRead, getSocket } from '../../lib/socket';
 import { MessageList } from './MessageList';
+import { apiRequest } from '../../lib/api';
 import { ChatComposer } from './ChatComposer';
 import { PinnedMessagesModal } from './PinnedMessagesModal';
 import { ClearChatModal } from './ClearChatModal';
@@ -71,6 +73,15 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSocketConnected, setIsSocketConnected] = useState(true);
+  const [jumpTarget, setJumpTarget] = useState<{ channelId: string; messageId: string } | null>(null);
+  const notificationMessageId = useCircleStore((state) => state.notificationMessageId);
+  const targetMessageId = jumpTarget?.channelId === channelId ? jumpTarget.messageId : null;
+
+  useEffect(() => {
+    if (!notificationMessageId) return;
+    setJumpTarget({ channelId, messageId: notificationMessageId });
+    useCircleStore.getState().setNotificationMessageId(null);
+  }, [channelId, notificationMessageId]);
 
   useEffect(() => {
     if (!isHeaderMenuOpen && !isSearchOpen && !pendingRecallId) return;
@@ -222,6 +233,17 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
     isFetchingNextPage,
     fetchNextPage,
   } = useChannelMessagesQuery(channelId);
+  const needsHistory = Boolean(targetMessageId && !messages.some((message) => message.id === targetMessageId));
+  const history = useQuery({
+    queryKey: ['chat', 'message-context', channelId, targetMessageId],
+    enabled: needsHistory,
+    retry: false,
+    queryFn: async ({ signal }) => (await apiRequest<CursorPaginatedMessages>(
+      `/channels/${channelId}/messages?limit=15&around=${encodeURIComponent(targetMessageId!)}`,
+      { signal },
+    )).data,
+  });
+  const displayedMessages = needsHistory && history.data ? history.data.messages : messages;
 
   // Mark latest unread message as read when channel is viewed or updated
   useEffect(() => {
@@ -289,6 +311,7 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
   );
 
   const handleReply = (message: MessageEntity) => {
+    if (isSpecialSystemMessage(message)) return;
     setReplyingMessage(message);
     setEditingMessage(null);
   };
@@ -394,7 +417,7 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
   };
 
   const visibleMessages = React.useMemo(() => {
-    const unhidden = messages.filter((m) => !hiddenMessageIds.has(m.id));
+    const unhidden = displayedMessages.filter((m) => !hiddenMessageIds.has(m.id));
     const seenPollIds = new Set<string>();
     const result: typeof messages = [];
 
@@ -416,7 +439,7 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
     }
 
     return result;
-  }, [messages, hiddenMessageIds]);
+  }, [displayedMessages, hiddenMessageIds]);
 
   return (
     <div
@@ -514,31 +537,6 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
                       type="button"
                       onClick={() => {
                         setIsHeaderMenuOpen(false);
-                        setIsSearchOpen(true);
-                      }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium rounded-xl text-circle-charcoal dark:text-white hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors text-left"
-                    >
-                      <Search className="h-3.5 w-3.5 text-circle-slate dark:text-circle-dark-muted" />
-                      <span>{t.chat.searchPlaceholder}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsHeaderMenuOpen(false);
-                        setIsPinnedModalOpen(true);
-                      }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium rounded-xl text-circle-charcoal dark:text-white hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors text-left"
-                    >
-                      <Pin className="h-3.5 w-3.5 text-circle-slate dark:text-circle-dark-muted" />
-                      <span>{t.chat.pinnedBadge}</span>
-                    </button>
-
-                    <div className="my-1 border-t border-circle-slate/10 dark:border-white/10" />
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsHeaderMenuOpen(false);
                         setIsClearChatModalOpen(true);
                       }}
                       className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-xl text-rose-500 hover:bg-rose-500/10 transition-colors text-left"
@@ -585,17 +583,18 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
                     <Loader2 className="h-4 w-4 animate-spin text-circle-primary" />
                     <span>{t.chat.searchingMessage}</span>
                   </div>
-                ) : searchResults && searchResults.messages.length > 0 ? (
+                ) : searchResults && searchResults.messages.filter((m) => !isSpecialSystemMessage(m)).length > 0 ? (
                   <div className="flex flex-col gap-1">
-                    {searchResults.messages.map((msg) => (
+                    {searchResults.messages
+                      .filter((m) => !isSpecialSystemMessage(m))
+                      .map((msg) => (
                       <button
                         key={msg.id}
                         type="button"
                         onClick={() => {
                           setIsSearchOpen(false);
                           setSearchQuery('');
-                          const el = document.getElementById(`message-${msg.id}`);
-                          el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                          setJumpTarget({ channelId, messageId: msg.id });
                         }}
                         className="w-full flex flex-col items-start gap-1 p-2 rounded-lg hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors text-left"
                       >
@@ -634,12 +633,23 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
           </div>
         )}
 
+        {targetMessageId && (needsHistory || hiddenMessageIds.has(targetMessageId)) && (
+          <div className="flex items-center justify-between gap-2 border-b border-circle-hairline px-3 text-xs dark:border-circle-dark-hairline">
+            <span role="status">{history.isError || hiddenMessageIds.has(targetMessageId) ? t.chat.messageNotFound : null}</span>
+            <button type="button" onClick={() => setJumpTarget(null)} className="min-h-11 font-semibold text-circle-sage dark:text-circle-primary">
+              {t.chat.backToLatestMessages}
+            </button>
+          </div>
+        )}
         {/* Messages Scroll Area */}
         <MessageList
           messages={visibleMessages}
           currentUserId={user?.id}
-          isLoading={isLoadingMessages}
-          hasMore={hasNextPage}
+          isLoading={isLoadingMessages || (needsHistory && history.isLoading)}
+          targetMessageId={targetMessageId}
+          isHistoryContext={needsHistory && Boolean(history.data)}
+          onJumpToMessage={(messageId) => setJumpTarget({ channelId, messageId })}
+          hasMore={hasNextPage && !needsHistory}
           isFetchingNextPage={isFetchingNextPage}
           onLoadEarlier={() => fetchNextPage()}
           onReply={handleReply}

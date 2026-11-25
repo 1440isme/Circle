@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 import {
   MessageSquare,
   Image as ImageIcon,
@@ -58,6 +59,8 @@ const NavItem: React.FC<NavItemProps> = ({ icon, label, count, active, onClick }
 );
 
 export const Sidebar: React.FC = () => {
+  const router = useRouter();
+  const pathname = usePathname();
   const t = useLanguageStore((s) => s.t);
   const activeCircle = useCircleStore((s) => s.activeCircle);
   const setActiveCircle = useCircleStore((s) => s.setActiveCircle);
@@ -72,6 +75,11 @@ export const Sidebar: React.FC = () => {
   const { data: circles = [], isLoading } = useMyCirclesQuery();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+
+  const navigateTo = (view: string) => {
+    setActiveCircleView(view);
+    router.push(`/${view}`);
+  };
 
   useEffect(() => {
     if (!isMobileDrawerOpen) return;
@@ -173,6 +181,9 @@ export const Sidebar: React.FC = () => {
                       onClick={() => {
                         setActiveCircle(c);
                         setIsDropdownOpen(false);
+                        if (pathname === '/') {
+                          router.push('/chat');
+                        }
                       }}
                       className={`flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left transition-colors ${
                         activeCircle?.id === c.id
@@ -243,20 +254,20 @@ export const Sidebar: React.FC = () => {
         <NavItem
           icon={<MessageSquare className="h-4 w-4" />}
           label={t.chat.title}
-          active={!activeCircleView || activeCircleView === 'chat' || activeCircleView === 'general'}
+          active={pathname === '/chat' || (pathname === '/' && activeCircleView === 'chat')}
           onClick={() => {
-            setActiveCircleView('chat');
             const defaultChannel = (activeCircle as any)?.channels?.[0];
             if (defaultChannel) {
               setActiveChannelId(defaultChannel.id);
             }
+            navigateTo('chat');
           }}
         />
         <NavItem
           icon={<Camera className="h-4 w-4" />}
           label={t.moments.momentWidgetTitle}
-          active={activeCircleView === 'moments'}
-          onClick={() => setActiveCircleView('moments')}
+          active={pathname === '/moments'}
+          onClick={() => navigateTo('moments')}
         />
       </div>
 
@@ -271,38 +282,44 @@ export const Sidebar: React.FC = () => {
         <NavItem
           icon={<ImageIcon className="h-4 w-4" />}
           label={t.nav.photoAlbum}
-          active={activeCircleView === 'albums'}
-          onClick={() => setActiveCircleView('albums')}
+          active={pathname === '/albums'}
+          onClick={() => navigateTo('albums')}
         />
         <NavItem
           icon={<Calendar className="h-4 w-4" />}
           label={t.nav.calendarEvents}
-          active={activeCircleView === 'calendar'}
-          onClick={() => setActiveCircleView('calendar')}
+          active={pathname === '/calendar'}
+          onClick={() => navigateTo('calendar')}
         />
         <NavItem
           icon={<FileSpreadsheet className="h-4 w-4" />}
           label={t.nav.planningSheet}
-          active={activeCircleView === 'planning'}
-          onClick={() => setActiveCircleView('planning')}
+          active={pathname === '/planning'}
+          onClick={() => navigateTo('planning')}
         />
         <NavItem
           icon={<MapPin className="h-4 w-4" />}
           label={t.nav.liveLocation}
-          active={activeCircleView === 'location'}
-          onClick={() => setActiveCircleView('location')}
+          active={pathname === '/location'}
+          onClick={() => navigateTo('location')}
         />
         <NavItem
           icon={<Vote className="h-4 w-4" />}
           label={t.nav.groupPoll}
-          active={activeCircleView === 'polls'}
-          onClick={() => setActiveCircleView('polls')}
+          active={pathname === '/polls'}
+          onClick={() => navigateTo('polls')}
+        />
+        <NavItem
+          icon={<Compass className="h-4 w-4" />}
+          label={t.nav.luckyWheel}
+          active={pathname === '/wheel'}
+          onClick={() => navigateTo('wheel')}
         />
         <NavItem
           icon={<HelpCircle className="h-4 w-4" />}
           label={t.nav.reflectionMailbox}
-          active={activeCircleView === 'anonymous'}
-          onClick={() => setActiveCircleView('anonymous')}
+          active={pathname === '/anonymous'}
+          onClick={() => navigateTo('anonymous')}
         />
       </div>
 
@@ -313,7 +330,7 @@ export const Sidebar: React.FC = () => {
           label={t.nav.circleSettings}
           onClick={() => {
             if (activeCircle) {
-              setManageModalOpen(true, 'settings');
+              setManageModalOpen(true, 'chatInfo');
             }
           }}
         />

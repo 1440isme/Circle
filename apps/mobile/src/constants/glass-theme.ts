@@ -66,17 +66,17 @@ export const lightGlass: GlassTheme = {
     inkMuted: 'rgba(23, 23, 26, 0.62)',
     accent: '#10B981', // Clean Circle primary green
     warning: '#F59E0B',
-    // Functional layer (Liquid Glass - Balanced Legible Standard)
-    glassBg: 'rgba(255, 255, 255, 0.92)',
+    // Functional layer (Subtle Frosted Glass - Clean flat structure with delicate blur)
+    glassBg: 'rgba(255, 255, 255, 0.88)',
     glassBgSheet: 'rgba(255, 255, 255, 0.96)',
     glassBgClear: 'rgba(255, 255, 255, 0.82)',
-    glassBorder: 'rgba(227, 227, 232, 0.85)',
-    glassHighlight: 'rgba(255, 255, 255, 0.85)',
-    glassShadow: 'rgba(0, 0, 0, 0.10)',
+    glassBorder: 'rgba(227, 227, 232, 0.80)',
+    glassHighlight: 'transparent',
+    glassShadow: 'rgba(0, 0, 0, 0.04)',
     glassFg: '#17171A',
   },
   blur: {
-    intensity: 75,
+    intensity: 35,
     tint: 'light',
   },
   radius: {
@@ -99,73 +99,39 @@ export const lightGlass: GlassTheme = {
 export const darkGlass: GlassTheme = {
   dark: true,
   colors: {
-    // Content layer (neutral deep obsidian background, zero green cast)
-    surface: '#1D1D21',
-    bg: '#131316',
-    border: '#2E2E35',
-    ink: '#F2F2F4',
-    inkMuted: 'rgba(242, 242, 244, 0.62)',
+    // Content layer (Clean Instagram-style obsidian dark canvas)
+    surface: '#16181B',
+    bg: '#0B0C0E',
+    border: '#26292E',
+    ink: '#F9FAFB',
+    inkMuted: 'rgba(249, 250, 251, 0.62)',
     accent: '#34D399', // Clean Circle dark mint green
     warning: '#FBBF24',
-    // Functional layer (Liquid Glass - Balanced Legible Standard)
-    glassBg: 'rgba(22, 22, 26, 0.90)',
-    glassBgSheet: 'rgba(18, 18, 22, 0.95)',
-    glassBgClear: 'rgba(255, 255, 255, 0.18)',
-    glassBorder: 'rgba(255, 255, 255, 0.18)',
-    glassHighlight: 'rgba(255, 255, 255, 0.22)',
-    glassShadow: 'rgba(0, 0, 0, 0.40)',
-    glassFg: '#F2F2F4',
+    // Functional layer (Subtle Frosted Glass - Clean flat structure with delicate blur)
+    glassBg: 'rgba(22, 24, 28, 0.85)',
+    glassBgSheet: 'rgba(22, 24, 28, 0.94)',
+    glassBgClear: 'rgba(255, 255, 255, 0.10)',
+    glassBorder: 'rgba(255, 255, 255, 0.08)',
+    glassHighlight: 'transparent',
+    glassShadow: 'rgba(0, 0, 0, 0.15)',
+    glassFg: '#F9FAFB',
   },
   blur: {
-    intensity: 85,
+    intensity: 35,
     tint: 'dark',
   },
   radius: lightGlass.radius,
   spacing: lightGlass.spacing,
 };
 
-// Flat Design (Mặc định: Phẳng, bề mặt đặc neutral, không blur)
-export const lightFlat: GlassTheme = {
-  ...lightGlass,
-  colors: {
-    ...lightGlass.colors,
-    glassBg: '#F5F5F6',
-    glassBgSheet: '#FFFFFF',
-    glassBgClear: '#EBEBEE',
-    glassBorder: '#E3E3E8',
-    glassHighlight: 'transparent',
-    glassShadow: 'rgba(0, 0, 0, 0.05)',
-  },
-  blur: {
-    intensity: 0,
-    tint: 'light',
-  },
-};
+// Unified Design Theme (Phẳng + Kính mờ nhẹ, không bóng đổ nặng, không viền bóng loáng)
+export const lightFlat: GlassTheme = lightGlass;
+export const darkFlat: GlassTheme = darkGlass;
 
-export const darkFlat: GlassTheme = {
-  ...darkGlass,
-  colors: {
-    ...darkGlass.colors,
-    glassBg: '#1D1D21',
-    glassBgSheet: '#131316',
-    glassBgClear: '#2A2A30',
-    glassBorder: '#2E2E35',
-    glassHighlight: 'transparent',
-    glassShadow: 'rgba(0, 0, 0, 0.25)',
-  },
-  blur: {
-    intensity: 0,
-    tint: 'dark',
-  },
-};
-
-export function getGlassTheme(isDark: boolean, uiStyle: UIStyle = 'flat'): GlassTheme {
-  if (uiStyle === 'glass') {
-    return isDark ? darkGlass : lightGlass;
-  }
-  return isDark ? darkFlat : lightFlat;
+export function getGlassTheme(isDark: boolean, _uiStyle?: any): GlassTheme {
+  return isDark ? darkGlass : lightGlass;
 }
 
-export function getAppDesignTheme(isDark: boolean, uiStyle: UIStyle = 'flat'): GlassTheme {
-  return getGlassTheme(isDark, uiStyle);
+export function getAppDesignTheme(isDark: boolean, _uiStyle?: any): GlassTheme {
+  return getGlassTheme(isDark);
 }

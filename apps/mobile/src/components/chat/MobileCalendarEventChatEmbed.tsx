@@ -22,10 +22,13 @@ import {
   CalendarDays,
   FileText,
   ArrowRight,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react-native';
 import { useThemeStore } from '../../stores/theme.store';
 import { getSocket } from '../../services/socket';
 import { useAuthStore } from '../../stores/auth.store';
+import { useLanguageStore } from '../../stores/language.store';
 import {
   respondCalendarEventRsvpApi,
   updateCalendarEventApi,
@@ -132,6 +135,7 @@ export const MobileCalendarEventChatEmbed: React.FC<MobileCalendarEventChatEmbed
   const effectiveColors = { ...themeColors, ...colors };
   const authUserId = useAuthStore((s) => s.user?.id);
   const effectiveUserId = currentUserId || authUserId;
+  const { t } = useLanguageStore();
 
   const [data, setData] = useState<CalendarEmbedData | null>(() => {
     if (propData) return propData;
@@ -650,6 +654,58 @@ export const MobileCalendarEventChatEmbed: React.FC<MobileCalendarEventChatEmbed
     data?.eventTitle,
   ]);
 
+  const [isExpandedLogs, setIsExpandedLogs] = useState(false);
+
+  // Compute RSVP interaction logs for events
+  const rsvpLogs = useMemo(() => {
+    const list: Array<{ id: string; text: string }> = [];
+    const name = eventTitle || data?.eventTitle || (data as any)?.title || t.collab.calendarEventFallback || 'lịch hẹn';
+
+    // Creator log
+    const isMeCreator =
+      (lastAction.actorUserId && lastAction.actorUserId === effectiveUserId) ||
+      (isSenderMe && lastAction.type === 'CREATED');
+    const creator = isMeCreator
+      ? (t.collab.meLabel || 'Bạn')
+      : (data?.creatorName || senderDisplayName || t.collab.memberDefault || 'Thành viên');
+    list.push({
+      id: 'created',
+      text: isMeCreator
+        ? (t.collab.eventCreatedLogMe || 'Bạn đã tạo lịch hẹn "{title}"').replace('{title}', name)
+        : (t.collab.eventCreatedLog || '{actor} đã tạo lịch hẹn "{title}"')
+            .replace('{actor}', creator)
+            .replace('{title}', name),
+    });
+
+    const userRsvps = (rsvps as any)?.userRsvps || [];
+    userRsvps.forEach((u: any, idx: number) => {
+      const isMe = u.userId === effectiveUserId || (isSenderMe && idx === 0);
+      const actor = isMe
+        ? (t.collab.meLabel || 'Bạn')
+        : (u.displayName || u.user?.profile?.displayName || t.collab.memberDefault || 'Thành viên');
+      let statusText = t.collab.eventRsvpYes || 'tham gia';
+      if (u.status === EventRsvpStatus.MAYBE) {
+        statusText = t.collab.eventRsvpMaybe || 'có thể tham gia';
+      } else if (u.status === EventRsvpStatus.NO) {
+        statusText = t.collab.eventRsvpNo || 'từ chối';
+      }
+      const text = isMe
+        ? (t.collab.eventRsvpLogMe || 'Bạn đã xác nhận {status} lịch hẹn "{title}"')
+            .replace('{status}', statusText)
+            .replace('{title}', name)
+        : (t.collab.eventRsvpLog || '{actor} đã xác nhận {status} lịch hẹn "{title}"')
+            .replace('{actor}', actor)
+            .replace('{status}', statusText)
+            .replace('{title}', name);
+      list.push({
+        id: `${u.userId || idx}-${u.status}`,
+        text,
+      });
+    });
+
+    return list;
+  }, [rsvps, eventTitle, data?.eventTitle, data?.creatorName, lastAction, effectiveUserId, isSenderMe, senderDisplayName, t]);
+
   // Chỉ có thẻ gốc (CREATED / REMINDER) mới hiển thị thẻ sự kiện.
   // Các thông báo hệ thống phụ (UPDATED, CANCELLED, DELETED) sẽ chỉ hiển thị dòng text thông báo duy nhất.
   const showCard =
@@ -938,6 +994,48 @@ export const MobileCalendarEventChatEmbed: React.FC<MobileCalendarEventChatEmbed
           </TouchableOpacity>
         )}
       </View>
+
+      {/* Inline Activity Logs for RSVP changes */}
+      {rsvpLogs.length > 0 && (
+        <View style={styles.activityLogsContainer}>
+          {(isExpandedLogs ? rsvpLogs : [rsvpLogs[rsvpLogs.length - 1]]).map((log) => (
+            <View key={log.id} style={styles.singleLogItem}>
+              <View style={[styles.logDot, { backgroundColor: colors.primary || '#10B981' }]} />
+              <Text style={[styles.logText, { color: colors.subtle || '#64748B' }]}>
+                {log.text}
+              </Text>
+            </View>
+          ))}
+
+          {rsvpLogs.length > 1 && (
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => {
+                Haptics.selectionAsync().catch(() => {});
+                setIsExpandedLogs(!isExpandedLogs);
+              }}
+              style={[
+                styles.viewMoreBtn,
+                {
+                  backgroundColor: 'rgba(16, 185, 129, 0.08)',
+                  borderColor: 'rgba(16, 185, 129, 0.2)',
+                },
+              ]}
+            >
+              <Text style={[styles.viewMoreText, { color: colors.primary || '#10B981' }]}>
+                {isExpandedLogs
+                  ? (t.common.collapse || 'Thu gọn')
+                  : (t.common.viewMoreCount?.replace('{count}', String(rsvpLogs.length)) || `Xem thêm (${rsvpLogs.length})`)}
+              </Text>
+              {isExpandedLogs ? (
+                <ChevronUp size={11} color={colors.primary || '#10B981'} />
+              ) : (
+                <ChevronDown size={11} color={colors.primary || '#10B981'} />
+              )}
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
 
       {/* 5. Scope Confirmation Modal for Recurring Events ("KHI BÌNH CHỌN THÌ CÓ XÁC NHẬN CHỌN CHO LẦN NÀO") */}
       <Modal
@@ -1322,5 +1420,44 @@ const styles = StyleSheet.create({
   modalCancelText: {
     fontSize: 12.5,
     fontWeight: '600',
+  },
+  activityLogsContainer: {
+    marginTop: 6,
+    alignItems: 'center',
+    width: '100%',
+    paddingHorizontal: 8,
+  },
+  singleLogItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    paddingVertical: 1,
+    maxWidth: '100%',
+  },
+  logDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    opacity: 0.8,
+  },
+  logText: {
+    fontSize: 10.5,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  viewMoreBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginTop: 3,
+  },
+  viewMoreText: {
+    fontSize: 10,
+    fontWeight: '700',
   },
 });

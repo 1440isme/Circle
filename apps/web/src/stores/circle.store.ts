@@ -29,14 +29,20 @@ interface CircleState {
   setTargetCalendarEvent: (dateStr: string | null, eventId?: string | null) => void;
   targetLocationCoords: { lat: number; lng: number } | null;
   setTargetLocationCoords: (coords: { lat: number; lng: number } | null) => void;
+  notificationPollId: string | null;
+  setNotificationPollId: (pollId: string | null) => void;
+  notificationMessageId: string | null;
+  setNotificationMessageId: (messageId: string | null) => void;
   targetPollId: string | null;
   setTargetPollId: (pollId: string | null) => void;
+  activePlanningSheetId: string | null;
+  setActivePlanningSheetId: (sheetId: string | null) => void;
 }
 
 export const useCircleStore = create<CircleState>((set) => ({
   activeCircleId: null,
   activeCircle: null,
-  activeCircleView: 'general',
+  activeCircleView: 'chat',
   activeChannelId: null,
   activeCallStageSession: null,
   setActiveCallStageSession: (session) => set({ activeCallStageSession: session }),
@@ -48,8 +54,14 @@ export const useCircleStore = create<CircleState>((set) => ({
   setActiveCircleId: (id) => set({ activeCircleId: id }),
   targetLocationCoords: null,
   setTargetLocationCoords: (coords) => set({ targetLocationCoords: coords }),
+  notificationPollId: null,
+  setNotificationPollId: (pollId) => set({ notificationPollId: pollId }),
+  notificationMessageId: null,
+  setNotificationMessageId: (messageId) => set({ notificationMessageId: messageId }),
   targetPollId: null,
   setTargetPollId: (pollId) => set({ targetPollId: pollId }),
+  activePlanningSheetId: null,
+  setActivePlanningSheetId: (sheetId) => set({ activePlanningSheetId: sheetId }),
   setActiveCircle: (circle) => {
     set((state) => {
       if (!circle) {
@@ -74,7 +86,7 @@ export const useCircleStore = create<CircleState>((set) => ({
       return {
         activeCircle: mergedCircle,
         activeCircleId: mergedCircle.id,
-        activeCircleView: state.activeCircleId === mergedCircle.id ? state.activeCircleView : 'general',
+        activeCircleView: state.activeCircleId === mergedCircle.id ? state.activeCircleView : 'chat',
         activeChannelId: defaultChannelId,
         isMobileDrawerOpen: false,
       };
@@ -85,7 +97,7 @@ export const useCircleStore = create<CircleState>((set) => ({
   setCreateModalOpen: (open) => set({ isCreateModalOpen: open }),
   setJoinModalOpen: (open) => set({ isJoinModalOpen: open }),
   setMobileDrawerOpen: (open) => set({ isMobileDrawerOpen: open }),
-  setManageModalOpen: (open, tab = 'settings') =>
+  setManageModalOpen: (open, tab = 'chatInfo') =>
     set({ isManageModalOpen: open, manageActiveTab: tab, isMobileDrawerOpen: false }),
   targetCalendarDate: null,
   targetCalendarEventId: null,

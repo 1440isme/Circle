@@ -80,6 +80,7 @@ export const CallStageModal: React.FC<CallStageModalProps> = ({
     isAudioMuted,
     isVideoDisabled,
     isConnected,
+    reconnectingSince,
     error,
     toggleAudio,
     toggleVideo,
@@ -186,6 +187,7 @@ export const CallStageModal: React.FC<CallStageModalProps> = ({
             </div>
           </div>
 
+          {reconnectingSince && <span role="status" className="text-xs font-semibold text-circle-primary">{t.calls.reconnectingMedia}</span>}
           {/* Header Action: Fullscreen Toggle */}
           <div className="flex items-center gap-2">
             <button

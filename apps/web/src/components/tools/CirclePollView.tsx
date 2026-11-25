@@ -5,6 +5,7 @@ import {
   Vote,
   Plus,
   Trash2,
+  Pencil,
   Lock,
   Clock,
   Users,
@@ -18,12 +19,16 @@ import { useLanguageStore } from '../../stores/language.store';
 import {
   usePollsQuery,
   useCreatePollMutation,
+  useUpdatePollMutation,
   useVotePollMutation,
   useClosePollMutation,
   useDeletePollMutation,
   TOOLS_KEYS,
 } from '../../hooks/use-circle-tools';
+import { useCircleStore } from '../../stores/circle.store';
 import { getSocket } from '../../lib/socket';
+import { GroupPollEntity, UpdatePollInput } from '@circle/types';
+import { formatPollDeadlineInput, hasPollEnded, nextPollDeadlineDelay, parsePollDeadlineInput } from '@circle/shared';
 
 interface CirclePollViewProps {
   circleId: string;
@@ -32,11 +37,19 @@ interface CirclePollViewProps {
 export const CirclePollView: React.FC<CirclePollViewProps> = ({ circleId }) => {
   const t = useLanguageStore((s) => s.t);
   const locale = useLanguageStore((s) => s.locale);
+  const dateLocale = locale === 'vi' ? 'vi-VN' : 'en-US';
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [editingPoll, setEditingPoll] = useState<{
+    poll: GroupPollEntity;
+    contentLocked: boolean;
+    initialDeadline: string;
+  } | null>(null);
   const [question, setQuestion] = useState('');
   const [options, setOptions] = useState<string[]>(['', '']);
   const [deadline, setDeadline] = useState('');
+  const [isMultipleChoice, setIsMultipleChoice] = useState(false);
+  const [isAnonymous, setIsAnonymous] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [pollError, setPollError] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<{
@@ -45,6 +58,28 @@ export const CirclePollView: React.FC<CirclePollViewProps> = ({ circleId }) => {
   } | null>(null);
 
   const { data: polls = [], isLoading: isLoadingPolls } = usePollsQuery(circleId);
+  const [pollClock, setPollClock] = useState(Date.now);
+  const notificationPollId = useCircleStore((state) => state.notificationPollId);
+  useEffect(() => {
+    if (!notificationPollId || isLoadingPolls) return;
+    document.getElementById(`notification-poll-${notificationPollId}`)
+      ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    useCircleStore.getState().setNotificationPollId(null);
+  }, [notificationPollId, isLoadingPolls, polls]);
+
+
+  useEffect(() => {
+    const delay = nextPollDeadlineDelay(polls, pollClock);
+    if (delay === null) return;
+    const timer = setTimeout(() => setPollClock(Date.now()), delay);
+    return () => clearTimeout(timer);
+  }, [polls, pollClock]);
+
+  const liveEditingPoll = editingPoll
+    ? polls.find((poll) => poll.id === editingPoll.poll.id) ?? editingPoll.poll
+    : null;
+  const editEnded = liveEditingPoll !== null && hasPollEnded(liveEditingPoll, Math.max(Date.now(), pollClock));
+
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -56,12 +91,14 @@ export const CirclePollView: React.FC<CirclePollViewProps> = ({ circleId }) => {
     };
 
     socket.on('circle:poll-created', onPollUpdated);
+    socket.on('circle:poll-updated', onPollUpdated);
     socket.on('circle:poll-voted', onPollUpdated);
     socket.on('circle:poll-closed', onPollUpdated);
     socket.on('circle:poll-deleted', onPollUpdated);
 
     return () => {
       socket.off('circle:poll-created', onPollUpdated);
+      socket.off('circle:poll-updated', onPollUpdated);
       socket.off('circle:poll-voted', onPollUpdated);
       socket.off('circle:poll-closed', onPollUpdated);
       socket.off('circle:poll-deleted', onPollUpdated);
@@ -78,20 +115,48 @@ export const CirclePollView: React.FC<CirclePollViewProps> = ({ circleId }) => {
   }, [isCreateModalOpen]);
 
   const createPollMutation = useCreatePollMutation(circleId);
+  const updatePollMutation = useUpdatePollMutation(circleId);
+  const isSaving = createPollMutation.isPending || updatePollMutation.isPending;
   const votePollMutation = useVotePollMutation(circleId);
+  const [ballots, setBallots] = useState<Record<string, string[]>>({});
   const closePollMutation = useClosePollMutation(circleId);
   const deletePollMutation = useDeletePollMutation(circleId);
 
   const handleOpenCreateModal = () => {
+    setEditingPoll(null);
     setCreateError(null);
     setQuestion('');
     setOptions(['', '']);
     setDeadline('');
+    setIsMultipleChoice(false);
+    setIsAnonymous(false);
+    setIsCreateModalOpen(true);
+  };
+
+  const handleApplyQuickTemplate = (tpl: { question: string; options: string[] }) => {
+    setQuestion(tpl.question);
+    setOptions([...tpl.options]);
+  };
+
+  const handleOpenEditModal = (poll: GroupPollEntity) => {
+    if (hasPollEnded(poll)) {
+      setPollClock(Date.now());
+      return;
+    }
+    const initialDeadline = formatPollDeadlineInput(poll.deadline);
+    const contentLocked = poll.totalVotes > 0;
+    setEditingPoll({ poll, contentLocked, initialDeadline });
+    setCreateError(null);
+    setQuestion(poll.question);
+    setIsMultipleChoice(Boolean(poll.isMultipleChoice));
+    setIsAnonymous(Boolean(poll.isAnonymous));
+    setOptions(poll.options.map((option) => option.optionText));
+    setDeadline(initialDeadline);
     setIsCreateModalOpen(true);
   };
 
   const handleAddOptionField = () => {
-    if (options.length < 8) {
+    if (options.length < 10) {
       setOptions([...options, '']);
     }
   };
@@ -108,40 +173,75 @@ export const CirclePollView: React.FC<CirclePollViewProps> = ({ circleId }) => {
     setOptions(updated);
   };
 
-  const handleCreatePoll = async (e: React.FormEvent) => {
+  const handleSavePoll = async (e: React.FormEvent) => {
     e.preventDefault();
-    setCreateError(null);
-    const validOptions = options.map((o) => o.trim()).filter((o) => o.length > 0);
-    if (!question.trim()) {
-      setCreateError(t.collab.pollValidationQuestion);
+    if (isSaving) return;
+    if (liveEditingPoll && hasPollEnded(liveEditingPoll)) {
+      setCreateError(t.collab.pollEditEnded);
+      setPollClock(Date.now());
       return;
     }
-    if (validOptions.length < 2) {
-      setCreateError(t.collab.pollValidationOptions);
-      return;
+    setCreateError(null);
+    const validOptions = options.map((option) => option.trim()).filter(Boolean);
+    if (!editingPoll?.contentLocked) {
+      if (!question.trim()) {
+        setCreateError(t.collab.pollValidationQuestion);
+        return;
+      }
+      if (validOptions.length < 2 || validOptions.length > 10 ||
+          new Set(validOptions.map((option) => option.toLowerCase())).size !== validOptions.length) {
+        setCreateError(t.collab.pollDistinctOptions);
+        return;
+      }
     }
 
+    const deadlineChanged = !editingPoll || deadline !== editingPoll.initialDeadline;
+    const parsedDeadline = deadlineChanged ? parsePollDeadlineInput(deadline) : null;
+    if (deadlineChanged && deadline.trim() && (!parsedDeadline || parsedDeadline <= new Date())) {
+      setCreateError(t.collab.pollInvalidDeadline);
+      return;
+    }
     try {
-      await createPollMutation.mutateAsync({
-        question: question.trim(),
-        options: validOptions,
-        deadline: deadline ? new Date(deadline).toISOString() : undefined,
-      });
-      setQuestion('');
-      setOptions(['', '']);
-      setDeadline('');
+      if (editingPoll) {
+        const input: UpdatePollInput = {};
+        if (!editingPoll.contentLocked) {
+          if (question.trim() !== editingPoll.poll.question) input.question = question.trim();
+          if (isMultipleChoice !== Boolean(editingPoll.poll.isMultipleChoice)) {
+            input.isMultipleChoice = isMultipleChoice;
+          }
+          const previousOptions = editingPoll.poll.options.map((option) => option.optionText);
+          if (validOptions.length !== previousOptions.length ||
+              validOptions.some((option, index) => option !== previousOptions[index])) {
+            input.options = validOptions;
+          }
+        }
+        if (deadlineChanged) input.deadline = parsedDeadline?.toISOString() ?? null;
+        if (Object.keys(input).length === 0) {
+          setIsCreateModalOpen(false);
+          return;
+        }
+        await updatePollMutation.mutateAsync({ pollId: editingPoll.poll.id, input });
+      } else {
+        await createPollMutation.mutateAsync({
+          question: question.trim(),
+          options: validOptions,
+          deadline: parsedDeadline?.toISOString(),
+          isMultipleChoice,
+          isAnonymous,
+        });
+      }
       setIsCreateModalOpen(false);
     } catch (err: any) {
-      setCreateError(err?.message || t.collab.createPollError);
+      setCreateError(err?.message || (editingPoll ? t.collab.pollUpdateError : t.collab.createPollError));
     }
   };
 
-  const handleVote = async (pollId: string, optionId: string) => {
+  const handleVote = async (pollId: string, optionIds: string[]) => {
     setPollError(null);
     try {
       await votePollMutation.mutateAsync({
         pollId,
-        input: { optionId },
+        input: { optionIds },
       });
     } catch (err: any) {
       setPollError(err?.message || t.collab.votePollError);
@@ -224,13 +324,22 @@ export const CirclePollView: React.FC<CirclePollViewProps> = ({ circleId }) => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl mx-auto">
             {polls.map((poll) => {
-              const isExpired = poll.deadline ? new Date() > new Date(poll.deadline) : false;
-              const isClosed = poll.isClosed || isExpired;
+              const isClosed = hasPollEnded(poll, Math.max(Date.now(), pollClock));
+              const recordedVotes = poll.userVotedOptionIds ?? (poll.userVotedOptionId ? [poll.userVotedOptionId] : []);
+              const ballot = (ballots[poll.id] ?? []).filter((id) => poll.options.some((option) => option.id === id));
+              const canVote = !isClosed && recordedVotes.length === 0;
+              const toggleOption = (id: string) => setBallots((current) => ({
+                ...current,
+                [poll.id]: poll.isMultipleChoice
+                  ? ballot.includes(id) ? ballot.filter((selected) => selected !== id) : [...ballot, id]
+                  : [id],
+              }));
               const isPendingAction = pendingAction?.pollId === poll.id;
 
               return (
                 <div
                   key={poll.id}
+                  id={`notification-poll-${poll.id}`}
                   className="rounded-3xl border border-circle-hairline dark:border-circle-dark-border bg-white dark:bg-circle-dark-surface p-6 shadow-sm hover:shadow-md transition-all flex flex-col justify-between"
                 >
                   <div>
@@ -253,7 +362,19 @@ export const CirclePollView: React.FC<CirclePollViewProps> = ({ circleId }) => {
                       </div>
 
                       {/* Actions */}
+                      {poll.canManage && (
                       <div className="flex items-center gap-1 shrink-0">
+                        {!isClosed && (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditModal(poll)}
+                            className="p-1.5 text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash rounded-lg"
+                            aria-label={t.collab.pollEditTitle}
+                            title={t.collab.pollEditTitle}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                        )}
                         {!isClosed && (
                           <button
                             type="button"
@@ -285,6 +406,7 @@ export const CirclePollView: React.FC<CirclePollViewProps> = ({ circleId }) => {
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
+                      )}
                     </div>
 
                     {/* Inline Confirmation Bar */}
@@ -324,17 +446,19 @@ export const CirclePollView: React.FC<CirclePollViewProps> = ({ circleId }) => {
                       {poll.question}
                     </h3>
 
+                    {canVote && <p className="mb-2 text-xs text-circle-slate dark:text-circle-dark-muted">{t.collab.pollBallotFinal}</p>}
                     {/* Options List */}
                     <div className="space-y-3 mb-5">
                       {poll.options.map((opt) => {
-                        const isSelected = poll.userVotedOptionId === opt.id;
+                        const isSelected = (recordedVotes.length ? recordedVotes : ballot).includes(opt.id);
 
                         return (
                           <button
                             key={opt.id}
                             type="button"
-                            disabled={isClosed || votePollMutation.isPending}
-                            onClick={() => !isClosed && handleVote(poll.id, opt.id)}
+                            disabled={!canVote || votePollMutation.isPending}
+                            aria-pressed={isSelected}
+                            onClick={() => toggleOption(opt.id)}
                             className={`w-full text-left relative overflow-hidden rounded-2xl border p-3.5 transition-all ${
                               isSelected
                                 ? 'border-circle-sage dark:border-circle-dark-primary bg-circle-primary/10 dark:bg-circle-dark-primary/10 shadow-sm'
@@ -383,6 +507,16 @@ export const CirclePollView: React.FC<CirclePollViewProps> = ({ circleId }) => {
                           </button>
                         );
                       })}
+                      {canVote && (
+                        <button
+                          type="button"
+                          disabled={ballot.length === 0 || votePollMutation.isPending}
+                          onClick={() => handleVote(poll.id, ballot)}
+                          className="min-h-11 rounded-xl bg-circle-primary px-4 text-sm font-semibold text-circle-charcoal disabled:opacity-50"
+                        >
+                          {t.collab.pollSubmitVote}
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -398,20 +532,45 @@ export const CirclePollView: React.FC<CirclePollViewProps> = ({ circleId }) => {
                       </span>
                     </div>
 
-                    {poll.deadline && (
-                      <div className="flex items-center gap-1 text-amber-600 dark:text-amber-400 font-medium shrink-0">
-                        <Clock className="w-3 h-3" />
-                        <span>
-                          {t.collab.pollDeadlinePrefix.replace(
-                            '{date}',
-                            new Date(poll.deadline).toLocaleDateString(
-                              locale === 'vi' ? 'vi-VN' : 'en-US',
-                            ),
-                          )}
+                    <div className="flex items-center gap-2 shrink-0">
+                      {poll.isMultipleChoice && (
+                        <span className="px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-semibold text-[10px]">
+                          {t.collab.pollIsMultipleChoice || 'Nhiều lựa chọn'}
                         </span>
-                      </div>
-                    )}
+                      )}
+                      {poll.isAnonymous && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold text-[10px]">
+                          <Lock className="w-2.5 h-2.5" />
+                          {t.collab.pollIsAnonymous || 'Ẩn danh'}
+                        </span>
+                      )}
+                      {poll.deadline && (
+                        <div className="flex items-center gap-1 text-circle-slate dark:text-circle-dark-muted font-medium shrink-0">
+                          <Clock className="w-3 h-3" />
+                          <span>
+                            {t.collab.pollDeadlinePrefix.replace(
+                              '{date}',
+                              new Date(poll.deadline).toLocaleString(dateLocale, { dateStyle: 'short', timeStyle: 'short' }),
+                            )}
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   </div>
+                  {!!poll.deadlineChanges?.length && (
+                    <details className="mt-2 text-xs text-circle-slate dark:text-circle-dark-muted">
+                      <summary className="cursor-pointer">{t.collab.pollDeadlineHistory}</summary>
+                      <ul className="mt-1 space-y-1">
+                        {poll.deadlineChanges.map((change, index) => {
+                          const changedAt = new Date(change.changedAt).toLocaleString(dateLocale);
+                          const label = change.deadline
+                            ? t.collab.pollDeadlineChanged.replace('{deadline}', new Date(change.deadline).toLocaleString(dateLocale))
+                            : t.collab.pollDeadlineRemoved;
+                          return <li key={index}>{label.replace('{changedAt}', changedAt)}</li>;
+                        })}
+                      </ul>
+                    </details>
+                  )}
                 </div>
               );
             })}
@@ -428,7 +587,7 @@ export const CirclePollView: React.FC<CirclePollViewProps> = ({ circleId }) => {
           <div className="glass-sheet rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto p-6 shadow-xl">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-circle-charcoal dark:text-circle-dark-text">
-                {t.collab.pollCreateModalTitle}
+                {editingPoll ? t.collab.pollEditTitle : t.collab.pollCreateModalTitle}
               </h3>
               <button
                 type="button"
@@ -440,7 +599,47 @@ export const CirclePollView: React.FC<CirclePollViewProps> = ({ circleId }) => {
               </button>
             </div>
 
-            <form onSubmit={handleCreatePoll} className="space-y-4">
+            <form onSubmit={handleSavePoll} className="space-y-4">
+              {/* Quick Template Chips */}
+              {!editingPoll && (
+              <div>
+                <label className="block text-[11px] font-semibold text-circle-slate dark:text-circle-dark-muted mb-1.5">
+                  {t.collab.pollQuickTemplates || 'Mẫu bình chọn nhanh'}
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    {
+                      label: t.collab.pollTemplateFood || '🍜 Trưa nay ăn gì?',
+                      question: 'Trưa nay ăn gì cả nhà?',
+                      options: ['Cơm tấm', 'Bún bò Huế', 'Phở bò', 'Trà sữa'],
+                    },
+                    {
+                      label: t.collab.pollTemplateOuting || '🏖️ Cuối tuần đi đâu?',
+                      question: 'Cuối tuần này đi đâu chơi?',
+                      options: ['Cà phê chill', 'Dã ngoại cắm trại', 'Đi xem phim', 'Ở nhà ngủ'],
+                    },
+                    {
+                      label: t.collab.pollTemplateTime || '⏰ Giờ hẹn?',
+                      question: 'Mấy giờ hẹn gặp nhau?',
+                      options: ['08:00 sáng', '10:30 sáng', '14:00 chiều', '18:30 tối'],
+                    },
+                  ].map((tpl, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => handleApplyQuickTemplate(tpl)}
+                      className="px-2.5 py-1 rounded-full text-xs font-medium border border-circle-hairline dark:border-circle-dark-hairline bg-black/5 dark:bg-white/5 hover:bg-circle-primary/10 hover:border-circle-primary/30 hover:text-circle-primary transition-all active:scale-95"
+                    >
+                      {tpl.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              )}
+
+              {(editEnded || editingPoll?.contentLocked) && (
+                <p className="text-xs text-circle-slate dark:text-circle-dark-muted">{editEnded ? t.collab.pollEditEnded : t.collab.pollContentLocked}</p>
+              )}
               <div>
                 <label className="block text-xs font-semibold text-circle-slate dark:text-circle-dark-muted mb-1.5">
                   {t.collab.pollQuestionLabel}
@@ -450,7 +649,8 @@ export const CirclePollView: React.FC<CirclePollViewProps> = ({ circleId }) => {
                   value={question}
                   onChange={(e) => setQuestion(e.target.value)}
                   placeholder={t.collab.pollQuestionExample}
-                  autoFocus
+                  autoFocus={!editEnded && !editingPoll?.contentLocked}
+                  disabled={editEnded || editingPoll?.contentLocked}
                   required
                   className="w-full px-3.5 py-2.5 rounded-xl border border-circle-hairline dark:border-circle-dark-border bg-white dark:bg-circle-dark-bg text-circle-charcoal dark:text-circle-dark-text text-sm outline-none focus:border-circle-primary"
                 />
@@ -466,12 +666,13 @@ export const CirclePollView: React.FC<CirclePollViewProps> = ({ circleId }) => {
                       <input
                         type="text"
                         value={opt}
+                        disabled={editEnded || editingPoll?.contentLocked}
                         onChange={(e) => handleOptionChange(idx, e.target.value)}
                         placeholder={t.collab.pollOptionPlaceholder.replace('{index}', String(idx + 1))}
                         required
                         className="flex-1 px-3 py-2 rounded-xl border border-circle-hairline dark:border-circle-dark-border bg-white dark:bg-circle-dark-bg text-circle-charcoal dark:text-circle-dark-text text-xs outline-none focus:border-circle-primary"
                       />
-                      {options.length > 2 && (
+                      {!editEnded && !editingPoll?.contentLocked && options.length > 2 && (
                         <button
                           type="button"
                           onClick={() => handleRemoveOptionField(idx)}
@@ -485,7 +686,7 @@ export const CirclePollView: React.FC<CirclePollViewProps> = ({ circleId }) => {
                   ))}
                 </div>
 
-                {options.length < 8 && (
+                {!editEnded && !editingPoll?.contentLocked && options.length < 10 && (
                   <button
                     type="button"
                     onClick={handleAddOptionField}
@@ -503,9 +704,45 @@ export const CirclePollView: React.FC<CirclePollViewProps> = ({ circleId }) => {
                 <input
                   type="datetime-local"
                   value={deadline}
+                  disabled={editEnded}
                   onChange={(e) => setDeadline(e.target.value)}
                   className="w-full px-3.5 py-2 rounded-xl border border-circle-hairline dark:border-circle-dark-border bg-white dark:bg-circle-dark-bg text-circle-charcoal dark:text-circle-dark-text text-xs outline-none focus:border-circle-primary [color-scheme:light] dark:[color-scheme:dark]"
                 />
+              </div>
+
+              {/* Advanced Poll Options */}
+              <div className="space-y-2.5 pt-2 border-t border-circle-hairline dark:border-circle-dark-border">
+                <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={isMultipleChoice}
+                    disabled={editEnded || editingPoll?.contentLocked}
+                    onChange={(e) => setIsMultipleChoice(e.target.checked)}
+                    className="w-4 h-4 rounded text-circle-primary focus:ring-circle-primary accent-circle-primary cursor-pointer"
+                  />
+                  <span className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text">
+                    {t.collab.pollIsMultipleChoice}
+                  </span>
+                </label>
+
+                <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={isAnonymous}
+                    disabled={Boolean(editingPoll)}
+                    onChange={(e) => setIsAnonymous(e.target.checked)}
+                    className="w-4 h-4 rounded text-circle-primary focus:ring-circle-primary accent-circle-primary mt-0.5 cursor-pointer"
+                  />
+                  <div>
+                    <span className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text flex items-center gap-1.5">
+                      <Lock className="w-3 h-3 text-emerald-500" />
+                      {t.collab.pollIsAnonymous}
+                    </span>
+                    <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted mt-0.5">
+                      {editingPoll ? t.collab.pollPrivacyLocked : t.collab.pollAnonymousNotice}
+                    </p>
+                  </div>
+                </label>
               </div>
 
               {createError && (
@@ -525,10 +762,10 @@ export const CirclePollView: React.FC<CirclePollViewProps> = ({ circleId }) => {
                 </button>
                 <button
                   type="submit"
-                  disabled={createPollMutation.isPending}
+                  disabled={isSaving || editEnded}
                   className="px-5 h-9 text-xs sm:text-sm font-bold bg-circle-primary hover:bg-circle-sage text-white rounded-full shadow-sm transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
                 >
-                  {createPollMutation.isPending ? t.collab.pollCreating : t.collab.createPoll}
+                  {editingPoll ? t.common.save : isSaving ? t.collab.pollCreating : t.collab.createPoll}
                 </button>
               </div>
             </form>

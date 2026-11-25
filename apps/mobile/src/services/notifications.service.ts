@@ -119,54 +119,73 @@ export async function initPushNotifications(
   onNotificationTap?: (data: Record<string, any>) => void,
 ): Promise<(() => void) | null> {
   try {
-    // 1. Android notification channels
-    if (Platform.OS === 'android') {
-      await Notifications.setNotificationChannelAsync('default', {
-        name: 'CIRCLE Notifications',
-        importance: Notifications.AndroidImportance.HIGH,
-        vibrationPattern: [0, 250, 250, 250],
-        lightColor: '#5B7B6D',
-      });
-    }
+    // Check if running inside Expo Go (SDK 53+ removed remote push notifications from Expo Go)
+    const isExpoGo =
+      Constants.appOwnership === 'expo' ||
+      Constants.executionEnvironment === 'storeClient';
 
-    // 2. Request permissions
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
-    let finalStatus = existingStatus;
-
-    if (existingStatus !== 'granted') {
-      const { status } = await Notifications.requestPermissionsAsync();
-      finalStatus = status;
-    }
-
-    if (finalStatus !== 'granted') {
+    if (isExpoGo || !Device.isDevice) {
+      // In Expo Go or simulator, skip remote push registration cleanly without warnings or thread blocking
       return null;
     }
 
-    // 3. Obtain Expo Push Token
-    const projectId =
-      Constants.expoConfig?.extra?.eas?.projectId ||
-      Constants.easConfig?.projectId;
-
-    const tokenData = await Notifications.getExpoPushTokenAsync({
-      projectId,
-    });
-    const pushToken = tokenData.data;
-
-    // 4. Register with backend
-    const deviceId = await getDeviceId();
-    await registerPushTokenApi(pushToken, deviceId);
-
     // 5. Setup response tap listener for deep linking
-    const responseSub = Notifications.addNotificationResponseReceivedListener(
-      (response) => {
-        const data = response.notification.request.content.data;
-        if (data && onNotificationTap) {
-          onNotificationTap(data);
-        }
-      },
-    );
+    let lastResponseId: string | undefined;
+    const handleResponse = (response: Notifications.NotificationResponse) => {
+      const request = response.notification.request;
+      if (request.identifier === lastResponseId) return;
+      lastResponseId = request.identifier;
+      if (request.content.data) onNotificationTap?.(request.content.data);
+      void Notifications.clearLastNotificationResponseAsync().catch(() => {});
+    };
+    const responseSub = Notifications.addNotificationResponseReceivedListener(handleResponse);
+    void Notifications.getLastNotificationResponseAsync()
+      .then((response) => { if (response) handleResponse(response); })
+      .catch(() => {});
+
+    let disposed = false;
+    const registerDevice = async () => {
+      // 1. Android notification channels
+      if (Platform.OS === 'android') {
+        await Notifications.setNotificationChannelAsync('default', {
+          name: 'CIRCLE Notifications',
+          importance: Notifications.AndroidImportance.HIGH,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: '#5B7B6D',
+        });
+      }
+
+      // 2. Request permissions
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
+
+      if (existingStatus !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
+
+      if (finalStatus !== 'granted') {
+        return;
+      }
+
+      // 3. Obtain Expo Push Token
+      const projectId =
+        Constants.expoConfig?.extra?.eas?.projectId ||
+        Constants.easConfig?.projectId;
+
+      const tokenData = await Notifications.getExpoPushTokenAsync({
+        projectId,
+      });
+      const pushToken = tokenData.data;
+
+      // 4. Register with backend
+      const deviceId = await getDeviceId();
+      if (!disposed) await registerPushTokenApi(pushToken, deviceId);
+    };
+    void registerDevice().catch(() => {});
 
     return () => {
+      disposed = true;
       responseSub.remove();
     };
   } catch (err) {

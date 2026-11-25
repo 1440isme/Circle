@@ -90,6 +90,7 @@ import { uploadMobileMedia } from '../../services/storage-upload.service';
 import { resolveMobileMediaUrl } from '../../services/api';
 import { Emoji } from '../ui/Emoji';
 import { FullEmojiPickerModal } from '../ui/FullEmojiPickerModal';
+import { MobileReactionListModal } from '../ui/MobileReactionListModal';
 import { MomentHistoryView, resolveMomentLocation } from './MomentHistoryView';
 import { PROMINENT_QUICK_EMOJIS } from '@circle/shared';
 
@@ -3386,185 +3387,16 @@ export function MomentsView({
         <View style={{ flex: 1, backgroundColor: '#FFFFFF' }} />
       </Modal>
 
-      {/* =========================================================================
-          MOMENT REACTORS MODAL (Danh sách người thả cảm xúc - Author only)
-         ========================================================================= */}
-      <Modal
+      {/* MOMENT REACTORS MODAL (Reusing unified MobileReactionListModal) */}
+      <MobileReactionListModal
         visible={Boolean(selectedMomentForReactors)}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setSelectedMomentForReactors(null)}
-      >
-        <TouchableOpacity
-          activeOpacity={1}
-          onPress={() => setSelectedMomentForReactors(null)}
-          style={styles.reactorsBackdrop}
-        >
-          <TouchableOpacity
-            activeOpacity={1}
-            onPress={(e) => e.stopPropagation()}
-            style={[
-              styles.reactorsSheet,
-              {
-                backgroundColor: colors.surface,
-                paddingBottom: Math.max(insets.bottom + 16, 24),
-              },
-            ]}
-          >
-            {/* Header */}
-            <View style={[styles.reactorsHeader, { borderBottomColor: colors.hairline }]}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Text style={[styles.reactorsTitle, { color: colors.text }]}>
-                  {t.moments.reactionsTitle}
-                </Text>
-                <View style={[styles.reactorsCountBadge, { backgroundColor: `${colors.sage}20` }]}>
-                  <Text style={[styles.reactorsCountBadgeText, { color: colors.sage }]}>
-                    {selectedMomentForReactors?.reactions?.length || 0}
-                  </Text>
-                </View>
-              </View>
-
-              <TouchableOpacity
-                activeOpacity={0.7}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                onPress={() => setSelectedMomentForReactors(null)}
-                style={[styles.reactorsCloseBtn, { backgroundColor: colors.wash }]}
-                accessibilityLabel={t.common.close}
-              >
-                <X size={16} color={colors.text} />
-              </TouchableOpacity>
-            </View>
-
-            {/* Emoji Filter Chips */}
-            {(() => {
-              const reactions = selectedMomentForReactors?.reactions || [];
-              const emojiCounts: Record<string, number> = {};
-              reactions.forEach((r: any) => {
-                emojiCounts[r.emoji] = (emojiCounts[r.emoji] || 0) + 1;
-              });
-              const uniqueEmojis = Object.keys(emojiCounts);
-
-              if (reactions.length === 0) return null;
-
-              return (
-                <View style={[styles.reactorsFilterRow, { borderBottomColor: colors.hairline }]}>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingHorizontal: 16 }}>
-                    <TouchableOpacity
-                      onPress={() => setReactorEmojiFilter('ALL')}
-                      style={[
-                        styles.reactorsFilterChip,
-                        {
-                          backgroundColor: reactorEmojiFilter === 'ALL' ? colors.primary : colors.wash,
-                        },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.reactorsFilterChipText,
-                          { color: reactorEmojiFilter === 'ALL' ? colors.onPrimary : colors.text },
-                        ]}
-                      >
-                        {t.common.all} ({reactions.length})
-                      </Text>
-                    </TouchableOpacity>
-
-                    {uniqueEmojis.map((emoji) => (
-                      <TouchableOpacity
-                        key={emoji}
-                        onPress={() => setReactorEmojiFilter(emoji)}
-                        style={[
-                          styles.reactorsFilterChip,
-                          {
-                            backgroundColor: reactorEmojiFilter === emoji ? `${colors.sage}18` : colors.wash,
-                            borderColor: reactorEmojiFilter === emoji ? colors.sage : 'transparent',
-                            borderWidth: 1,
-                          },
-                        ]}
-                      >
-                        <Text style={{ fontSize: 13 }}>{emoji}</Text>
-                        <Text
-                          style={[
-                            styles.reactorsFilterChipText,
-                            { color: reactorEmojiFilter === emoji ? colors.sage : colors.text },
-                          ]}
-                        >
-                          {emojiCounts[emoji]}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                </View>
-              );
-            })()}
-
-            {/* Reactors List */}
-            <ScrollView style={styles.reactorsList} contentContainerStyle={{ padding: 16, gap: 12 }}>
-              {(() => {
-                const reactions = selectedMomentForReactors?.reactions || [];
-                const filtered =
-                  reactorEmojiFilter === 'ALL'
-                    ? reactions
-                    : reactions.filter((r: any) => r.emoji === reactorEmojiFilter);
-
-                if (filtered.length === 0) {
-                  return (
-                    <View style={{ paddingVertical: 40, alignItems: 'center', gap: 8 }}>
-                      <Heart size={28} color={colors.subtle} />
-                      <Text style={{ fontSize: 13, color: colors.subtle }}>
-                        {t.moments.noReactorsForEmoji}
-                      </Text>
-                    </View>
-                  );
-                }
-
-                return filtered.map((r: any) => {
-                  const displayName = r.user?.displayName || t.moments.defaultAuthorName;
-                  const avatarUrl = r.user?.avatarUrl;
-                  const relativeTime = formatMomentRelativeTime(r.createdAt, locale);
-
-                  return (
-                    <View key={r.id} style={styles.reactorItemRow}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
-                        <View style={{ position: 'relative' }}>
-                          <View style={[styles.reactorItemAvatar, { backgroundColor: colors.primary }]}>
-                            {avatarUrl ? (
-                              <RNImage
-                                source={{ uri: resolveMobileMediaUrl(avatarUrl) }}
-                                style={styles.reactorItemAvatarImg}
-                              />
-                            ) : (
-                              <Text style={[styles.reactorItemAvatarText, { color: colors.onPrimary }]}>
-                                {getInitials(displayName)}
-                              </Text>
-                            )}
-                          </View>
-                          {/* Mini emoji on bottom right of avatar */}
-                          <View style={[styles.reactorItemAvatarEmoji, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
-                            <Emoji emoji={r.emoji} size={11} />
-                          </View>
-                        </View>
-
-                        <View style={{ flex: 1 }}>
-                          <Text style={[styles.reactorItemName, { color: colors.text }]} numberOfLines={1}>
-                            {displayName}
-                          </Text>
-                          <Text style={[styles.reactorItemTime, { color: colors.subtle }]}>
-                            {relativeTime}
-                          </Text>
-                        </View>
-                      </View>
-
-                      <View style={[styles.reactorEmojiPill, { backgroundColor: colors.wash }]}>
-                        <Emoji emoji={r.emoji} size={16} />
-                      </View>
-                    </View>
-                  );
-                });
-              })()}
-            </ScrollView>
-          </TouchableOpacity>
-        </TouchableOpacity>
-      </Modal>
+        onClose={() => setSelectedMomentForReactors(null)}
+        title={t.moments.reactionsTitle}
+        reactions={selectedMomentForReactors?.reactions || []}
+        colors={colors}
+        t={t}
+        isDark={isDark}
+      />
 
       {/* Full Emoji Picker for Moments */}
       <FullEmojiPickerModal

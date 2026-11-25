@@ -74,9 +74,6 @@ function LoginForm() {
         <h1 className="text-2xl font-bold tracking-tight text-circle-charcoal dark:text-circle-dark-text sm:text-3xl">
           {t.auth.welcomeBack}
         </h1>
-        <p className="mt-1.5 text-sm text-circle-slate dark:text-circle-dark-muted">
-          {t.auth.loginSubtitle}
-        </p>
       </div>
 
       {/* API Error Banner */}

@@ -9,6 +9,8 @@ import { MessageBubble } from './MessageBubble';
 
 interface MessageListProps {
   messages: MessageEntity[];
+  targetMessageId?: string | null;
+  isHistoryContext?: boolean;
   currentUserId?: string;
   isLoading: boolean;
   hasMore?: boolean;
@@ -39,6 +41,8 @@ interface MessageCluster {
 
 export const MessageList: React.FC<MessageListProps> = ({
   messages,
+  targetMessageId,
+  isHistoryContext,
   currentUserId,
   isLoading,
   hasMore,
@@ -116,6 +120,13 @@ export const MessageList: React.FC<MessageListProps> = ({
     }
   };
 
+  const hasTarget = messages.some((message) => message.id === targetMessageId);
+  useEffect(() => {
+    if (!targetMessageId || !hasTarget) return;
+    const frame = requestAnimationFrame(() => handleJumpToMessage(targetMessageId));
+    return () => cancelAnimationFrame(frame);
+  }, [targetMessageId, hasTarget]);
+
   const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
   const lastMessageId = lastMessage ? lastMessage.id : null;
   const lastMessageByMeId = [...messages]
@@ -145,7 +156,7 @@ export const MessageList: React.FC<MessageListProps> = ({
 
   // Auto-scroll to bottom on first render or when a new message is appended at the bottom
   useEffect(() => {
-    if (messages.length === 0) return;
+    if (messages.length === 0 || isHistoryContext || hasTarget) return;
 
     const lastMsg = messages[messages.length - 1];
     const isSenderMe = Boolean(
@@ -178,7 +189,7 @@ export const MessageList: React.FC<MessageListProps> = ({
         }
       }
     }
-  }, [messages.length, lastMessageId, currentUserId]);
+  }, [messages.length, lastMessageId, currentUserId, isHistoryContext, hasTarget]);
 
   // Format date separator label
   const getDateLabel = (dateStr: string) => {

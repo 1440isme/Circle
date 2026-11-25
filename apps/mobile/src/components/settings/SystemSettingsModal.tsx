@@ -382,7 +382,7 @@ export function SystemSettingsSubViewContent({
 }: {
   subView: 'appearance' | 'security' | 'sessions' | 'language' | 'help';
 }) {
-  const { colors, theme, setTheme, uiStyle, setUiStyle } = useThemeStore();
+  const { colors, theme, setTheme } = useThemeStore();
   const { locale, setLocale, t } = useLanguageStore();
   const insets = useSafeAreaInsets();
 
@@ -537,42 +537,6 @@ export function SystemSettingsSubViewContent({
             { paddingBottom: Math.max(insets.bottom, 24) },
           ]}
         >
-          <View style={styles.sectionBlock}>
-            <Text style={[styles.sectionTitle, { color: colors.subtle }]}>
-              {t.nav.designStyle}
-            </Text>
-            <View style={[styles.cardGroup, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
-              <TouchableOpacity
-                activeOpacity={0.7}
-                onPress={() => setUiStyle('flat')}
-                style={[
-                  styles.optionRow,
-                  { borderBottomColor: colors.hairline, borderBottomWidth: StyleSheet.hairlineWidth },
-                ]}
-              >
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.optionTitle, { color: colors.text }]}>
-                    {t.nav.flatDesignDefault}
-                  </Text>
-                </View>
-                {uiStyle === 'flat' && <Check size={18} color={colors.sage} />}
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                activeOpacity={0.7}
-                onPress={() => setUiStyle('glass')}
-                style={styles.optionRow}
-              >
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.optionTitle, { color: colors.text }]}>
-                    {t.nav.liquidGlass}
-                  </Text>
-                </View>
-                {uiStyle === 'glass' && <Check size={18} color={colors.sage} />}
-              </TouchableOpacity>
-            </View>
-          </View>
-
           <View style={styles.sectionBlock}>
             <Text style={[styles.sectionTitle, { color: colors.subtle }]}>
               {t.nav.displayMode}

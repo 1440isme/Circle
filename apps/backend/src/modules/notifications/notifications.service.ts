@@ -1,10 +1,11 @@
-import { Injectable, NotFoundException, ForbiddenException, Inject, forwardRef, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, ForbiddenException, Inject, forwardRef, Logger } from '@nestjs/common';
+import { Notification, Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { ChatGateway } from '../chat/chat.gateway';
 import { PushNotificationService } from './push-notification.service';
 import { QueryNotificationsDto } from './dto/query-notifications.dto';
 import { RegisterDeviceTokenDto } from './dto/register-device-token.dto';
-import { NotificationType } from '@circle/types';
+import { NotificationType, UpdateCircleNotificationSettingsInput } from '@circle/types';
 
 export interface CreateNotificationInput {
   userId: string;
@@ -15,6 +16,7 @@ export interface CreateNotificationInput {
   targetId?: string;
   deepLink?: string;
   metadata?: Record<string, any>;
+  sendPush?: boolean;
 }
 
 @Injectable()
@@ -32,57 +34,85 @@ export class NotificationsService {
    * Create an in-app notification, sync realtime socket and dispatch mobile push
    */
   async createNotification(input: CreateNotificationInput) {
+    const notification = await this.prisma.notification.create({
+      data: this.buildNotificationData(input),
+    });
+    await this.publishNotification(notification, input.sendPush);
+    return notification;
+  }
+
+  buildNotificationData(input: CreateNotificationInput): Prisma.NotificationUncheckedCreateInput {
+    return {
+      userId: input.userId,
+      title: input.title,
+      content: input.content,
+      type: input.type,
+      targetType: input.targetType ?? null,
+      targetId: input.targetId ?? null,
+      deepLink: input.deepLink ?? null,
+      metadata: input.metadata as Prisma.InputJsonObject | undefined,
+      isRead: false,
+    };
+  }
+
+  async publishNotification(notification: Notification, sendPush = true): Promise<void> {
     try {
-      const notification = await this.prisma.notification.create({
-        data: {
-          userId: input.userId,
-          title: input.title,
-          content: input.content,
-          type: input.type,
-          targetType: input.targetType || null,
-          targetId: input.targetId || null,
-          deepLink: input.deepLink || null,
-          metadata: input.metadata ? (input.metadata as any) : undefined,
-          isRead: false,
-        },
-      });
-
-      const unreadCount = await this.prisma.notification.count({
-        where: { userId: input.userId, isRead: false },
-      });
-
-      // 1. Realtime In-App Socket sync
-      if (this.chatGateway) {
-        this.chatGateway.sendNotificationToUser(input.userId, {
-          notification,
-          unreadCount,
+      const { id, userId, title, content, type, targetType, targetId, deepLink } = notification;
+      const unreadCount = await this.prisma.notification.count({ where: { userId, isRead: false } });
+      this.chatGateway?.sendNotificationToUser(userId, { notification, unreadCount });
+      if (sendPush) {
+        void this.pushService.sendToUser(userId, {
+          title, body: content, type, targetType, targetId, deepLink,
+          metadata: notification.metadata as Record<string, unknown> | null,
+          notificationId: id,
+          badge: unreadCount,
         });
       }
-
-      // 2. Mobile Push Notification dispatch
-      await this.pushService.sendToUser(input.userId, {
-        title: input.title,
-        body: input.content,
-        type: input.type,
-        targetType: input.targetType,
-        targetId: input.targetId,
-        deepLink: input.deepLink,
-        metadata: input.metadata,
-        badge: unreadCount,
-      });
-
-      return notification;
-    } catch (err: any) {
-      this.logger.error(`Failed to create notification for user ${input.userId}: ${err.message}`, err.stack);
-      throw err;
+    } catch (error) {
+      this.logger.warn(`Could not publish notification ${notification.id}; the inbox entry was saved`);
     }
+  }
+
+  async getCircleSettings(userId: string, circleId: string) {
+    const member = await this.prisma.circleMember.findFirst({
+      where: { circleId, userId, circle: { deletedAt: null } },
+      select: { notificationLevel: true, mutedUntil: true },
+    });
+    if (!member) throw new NotFoundException('Circle membership not found');
+    return member;
+  }
+
+  async updateCircleSettings(userId: string, circleId: string, input: UpdateCircleNotificationSettingsInput) {
+    await this.getCircleSettings(userId, circleId);
+    const durations = { '15m': 15, '1h': 60, '8h': 480, '24h': 1440 };
+    const level = input?.notificationLevel;
+    const mute = input?.mute;
+    if (level === undefined && mute === undefined) throw new BadRequestException('Missing notification settings');
+    if (level !== undefined && !['ALL', 'MENTIONS', 'NONE'].includes(level)) {
+      throw new BadRequestException('Invalid notification level');
+    }
+    if (mute !== undefined && mute !== null && mute !== 'forever' && !Object.hasOwn(durations, mute)) {
+      throw new BadRequestException('Invalid mute duration');
+    }
+
+    return this.prisma.circleMember.update({
+      where: { circleId_userId: { circleId, userId } },
+      data: {
+        notificationLevel: level,
+        mutedUntil: mute === undefined ? undefined : mute === null ? null :
+          mute === 'forever' ? new Date('9999-12-31T00:00:00.000Z') :
+          new Date(Date.now() + durations[mute] * 60_000),
+      },
+      select: { notificationLevel: true, mutedUntil: true },
+    });
   }
 
   /**
    * Cursor-based paginated notification list with filters
    */
   async getNotifications(userId: string, query: QueryNotificationsDto) {
-    const limit = Number(query.limit) > 0 ? Number(query.limit) : 20;
+    const requestedLimit = Number(query.limit);
+    const limit = Number.isInteger(requestedLimit) && requestedLimit > 0 ? Math.min(requestedLimit, 100) : 20;
     const where: any = { userId };
 
     if (query.type) {
@@ -95,7 +125,7 @@ export class NotificationsService {
 
     const findArgs: any = {
       where,
-      orderBy: { createdAt: 'desc' },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: limit + 1,
     };
 

@@ -16,8 +16,11 @@ import {
   CheckCircle2,
   Clock,
 } from 'lucide-react';
+import { getNotificationText, getCircleNotificationDestination } from '@circle/shared';
 import { NotificationEntity, NotificationType } from '@circle/types';
 import { apiRequest } from '@/lib/api';
+import type { CircleListItem } from '@/hooks/use-circle-queries';
+import { useCircleStore } from '@/stores/circle.store';
 import { getSocket } from '@/lib/socket';
 import { useLanguageStore } from '@/stores/language.store';
 import { useThemeStore } from '@/stores/theme.store';
@@ -36,22 +39,23 @@ export function NotificationCenterPopover({
   onUnreadCountChange,
 }: NotificationCenterPopoverProps) {
   const router = useRouter();
-  const t = useLanguageStore((s) => s.t).notificationsCenter;
-  const uiStyle = useThemeStore((s) => s.uiStyle);
-  const isGlass = uiStyle === 'glass';
+  const { locale, t: { notificationsCenter: t } } = useLanguageStore();
 
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
   const [notifications, setNotifications] = useState<NotificationEntity[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [isMarkingAll, setIsMarkingAll] = useState(false);
+  const [navigationError, setNavigationError] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
 
   // Fetch notifications from server
   const fetchNotifications = useCallback(
     async (cursor?: string | null, isInitial = false) => {
+      setLoadFailed(false);
       if (isInitial) setIsLoading(true);
       else setIsLoadingMore(true);
 
@@ -68,15 +72,15 @@ export function NotificationCenterPopover({
         const res = await apiRequest<NotificationEntity[]>(`/notifications?${params.toString()}`);
         if (res.success && res.data) {
           if (cursor) {
-            setNotifications((prev) => [...prev, ...res.data]);
+            setNotifications((prev) => [...prev, ...res.data.filter((item) => !prev.some((old) => old.id === item.id))]);
           } else {
             setNotifications(res.data);
           }
           setNextCursor((res as any).nextCursor || null);
           setHasMore(Boolean((res as any).hasMore));
         }
-      } catch (err) {
-        console.error('Error fetching notifications:', err);
+      } catch {
+        setLoadFailed(true);
       } finally {
         if (isInitial) setIsLoading(false);
         else setIsLoadingMore(false);
@@ -178,16 +182,35 @@ export function NotificationCenterPopover({
 
   // Click handler: mark read and deep link
   const handleNotificationClick = async (item: NotificationEntity) => {
-    if (!item.isRead) {
-      void handleMarkAsRead(item);
-    }
-    onClose();
-
-    if (item.deepLink) {
+    setNavigationError(false);
+    const target = getCircleNotificationDestination(item);
+    if (target) {
+      try {
+        const { data } = await apiRequest<CircleListItem[]>('/circles');
+        const circle = data.find((entry) => entry.id === target.circleId);
+        if (!circle) {
+          setNavigationError(true);
+          return;
+        }
+        const store = useCircleStore.getState();
+        store.setActiveCircle(circle);
+        if (target.channelId) store.setActiveChannelId(target.channelId);
+        store.setNotificationMessageId(item.targetType === 'message' ? target.targetId ?? null : null);
+        if (target.joinRequests) store.setManageModalOpen(true, 'members');
+        if (target.screen === 'calendar' && target.eventStart) {
+          store.setTargetCalendarEvent(target.eventStart, target.targetId);
+        }
+        if (target.screen === 'polls') store.setNotificationPollId(target.targetId ?? null);
+        router.push(`/${target.screen}`);
+      } catch {
+        setNavigationError(true);
+        return;
+      }
+    } else if (item.deepLink && /^\/[a-z]/i.test(item.deepLink)) {
       router.push(item.deepLink);
-    } else if (item.targetType === 'circle' && item.targetId) {
-      router.push(`/circle/${item.targetId}`);
     }
+    if (!item.isRead) void handleMarkAsRead(item);
+    onClose();
   };
 
   // Format relative time helper
@@ -205,12 +228,17 @@ export function NotificationCenterPopover({
   // Helper to get type icon
   const renderTypeIcon = (type: string) => {
     switch (type) {
+      case NotificationType.CIRCLE_JOIN_REQUEST:
       case NotificationType.CIRCLE_INVITE:
         return <Users className="h-4 w-4 text-circle-primary" />;
       case NotificationType.CHAT_MESSAGE:
         return <MessageSquare className="h-4 w-4 text-circle-sage" />;
+      case NotificationType.CALENDAR_EVENT:
+      case NotificationType.CALENDAR_CHANGED:
+      case NotificationType.CALENDAR_CANCELLED:
       case NotificationType.CALENDAR_REMINDER:
         return <Calendar className="h-4 w-4 text-circle-coral" />;
+      case NotificationType.POLL_CLOSED:
       case NotificationType.POLL_NEW:
         return <BarChart2 className="h-4 w-4 text-circle-primary" />;
       case NotificationType.CALL_MISSED:
@@ -225,12 +253,13 @@ export function NotificationCenterPopover({
   return (
     <div
       ref={popoverRef}
-      className={`absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl p-2 animate-fadeIn z-50 flex flex-col max-h-[82vh] overflow-hidden ${
-        isGlass
-          ? 'glass backdrop-blur-xl bg-white/94 dark:bg-circle-dark-surface/92 border border-circle-hairline/80 dark:border-white/16 shadow-2xl'
-          : 'bg-white dark:bg-circle-dark-surface border border-circle-hairline dark:border-circle-dark-hairline shadow-xl'
-      }`}
+      className="absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl p-2 animate-fadeIn z-50 flex flex-col max-h-[82vh] overflow-hidden backdrop-blur-md bg-white/95 dark:bg-circle-dark-surface/95 border border-circle-hairline dark:border-circle-dark-hairline shadow-lg"
     >
+      {navigationError && (
+        <p role="status" className="px-4 py-2 text-xs text-circle-slate dark:text-circle-dark-muted">
+          {t.targetNotFound}
+        </p>
+      )}
       {/* Popover Header */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-circle-hairline/60 dark:border-circle-dark-hairline/60">
         <div className="flex items-center gap-2">
@@ -296,6 +325,13 @@ export function NotificationCenterPopover({
               {t.loading}
             </span>
           </div>
+        ) : loadFailed && notifications.length === 0 ? (
+          <div role="status" className="px-4 py-8 text-center text-xs">
+            <p>{t.errorLoading}</p>
+            <button type="button" className="mt-2 text-circle-primary" onClick={() => fetchNotifications(null, true)}>
+              {t.retry}
+            </button>
+          </div>
         ) : notifications.length === 0 ? (
           <div className="px-4 py-8 text-center space-y-2">
             <CheckCircle2 className="h-7 w-7 mx-auto text-circle-sage dark:text-circle-primary opacity-80" />
@@ -310,7 +346,15 @@ export function NotificationCenterPopover({
           notifications.map((item) => (
             <div
               key={item.id}
+              role="button"
+              tabIndex={0}
               onClick={() => handleNotificationClick(item)}
+              onKeyDown={(event) => {
+                if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) {
+                  event.preventDefault();
+                  void handleNotificationClick(item);
+                }
+              }}
               className={`group flex items-start gap-2.5 p-2.5 transition-colors cursor-pointer rounded-xl ${
                 item.isRead
                   ? 'hover:bg-circle-wash/60 dark:hover:bg-circle-dark-elevated/60'
@@ -330,7 +374,7 @@ export function NotificationCenterPopover({
                         : 'text-circle-charcoal dark:text-circle-dark-text'
                     }`}
                   >
-                    {item.title}
+                    {(item.metadata?.circleId ? getNotificationText(item.type, item.metadata, locale)?.title : null) ?? item.title}
                   </p>
                   <div className="flex items-center gap-1.5 shrink-0">
                     <span className="text-[10px] text-circle-slate dark:text-circle-dark-muted">
@@ -343,7 +387,7 @@ export function NotificationCenterPopover({
                 </div>
 
                 <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted mt-0.5 line-clamp-2 leading-relaxed">
-                  {item.content}
+                  {(item.metadata?.circleId ? getNotificationText(item.type, item.metadata, locale)?.content : null) ?? item.content}
                 </p>
               </div>
 

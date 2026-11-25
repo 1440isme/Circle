@@ -3,11 +3,13 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
+  ConflictException,
   Inject,
   Optional,
   forwardRef,
   Logger,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import {
   CreateSharedAlbumDto,
@@ -22,12 +24,16 @@ import {
   UpdateCalendarEventDto,
   RespondEventRsvpDto,
   CreatePlanningSheetDto,
+  UpdatePlanningSheetDto,
   AddSheetColumnDto,
+  UpdateSheetColumnDto,
   AddSheetRowDto,
   UpdateSheetCellDto,
   StartLiveLocationDto,
   UpdateLiveLocationDto,
+  SetMeetingPointDto,
   CreatePollDto,
+  UpdatePollDto,
   VotePollDto,
   LiveSpinWheelDto,
   UpdateLiveWheelSettingsDto,
@@ -39,8 +45,11 @@ import {
   LiveWheelParticipant,
   LiveWheelMessagePayload,
   CalendarEventMessagePayload,
+  PlanningSheetMessagePayload,
   MessageEntity,
+  NotificationType,
 } from '@circle/types';
+import { computePlanningSheetSummary, PLANNING_TEMPLATES } from '@circle/shared';
 import { ChatGateway } from '../chat/chat.gateway';
 
 export const PASTEL_WHEEL_COLORS = [
@@ -77,6 +86,8 @@ export const DEFAULT_FOUR_WHEELS_DATA = [
   },
 ];
 
+import { NotificationEventsService } from '../notifications/notification-events.service';
+
 @Injectable()
 export class CircleToolsService {
   private readonly logger = new Logger(CircleToolsService.name);
@@ -87,6 +98,7 @@ export class CircleToolsService {
     @Optional()
     @Inject(forwardRef(() => ChatGateway))
     private readonly chatGateway?: ChatGateway,
+    @Optional() private readonly notificationEvents?: NotificationEventsService,
   ) {}
 
   /**
@@ -2516,6 +2528,10 @@ export class CircleToolsService {
 
     const broadcastAction = (dto as any)?.isRecurrenceSplit ? 'UPDATED' : 'CREATED';
     await this.broadcastCalendarEventMessage(circleId, member, createdEvent, broadcastAction);
+    await this.notificationEvents?.notifyCircle({
+      circleId, actorId: userId, targetId: createdEvent.id, eventStart: createdEvent.startTime?.toISOString(),
+      type: broadcastAction === 'CREATED' ? NotificationType.CALENDAR_EVENT : NotificationType.CALENDAR_CHANGED,
+    });
 
     return createdEvent;
   }
@@ -2603,6 +2619,10 @@ export class CircleToolsService {
     });
 
     await this.broadcastCalendarEventMessage(circleId, member, updatedEvent, 'UPDATED');
+    await this.notificationEvents?.notifyCircle({
+      circleId, actorId: userId, targetId: updatedEvent.id, eventStart: updatedEvent.startTime?.toISOString(),
+      type: updatedEvent.isCancelled ? NotificationType.CALENDAR_CANCELLED : NotificationType.CALENDAR_CHANGED,
+    });
 
     return updatedEvent;
   }
@@ -2673,6 +2693,9 @@ export class CircleToolsService {
 
     // Broadcast cancellation announcement to circle chat
     await this.broadcastCalendarEventMessage(circleId, member, updatedEvent, 'CANCELLED');
+    await this.notificationEvents?.notifyCircle({
+      circleId, actorId: userId, targetId: updatedEvent.id, eventStart: updatedEvent.startTime?.toISOString(), type: NotificationType.CALENDAR_CANCELLED,
+    });
 
     return updatedEvent;
   }
@@ -3455,11 +3478,47 @@ export class CircleToolsService {
   async createPlanningSheet(circleId: string, userId: string, dto: CreatePlanningSheetDto) {
     const member = await this.getMemberOrThrow(circleId, userId);
 
-    const columnTitles =
-      dto.columns && dto.columns.length > 0
-        ? dto.columns
-        : ['Nhiệm vụ', 'Người phụ trách', 'Trạng thái', 'Hạn chót', 'Ghi chú'];
-    const rowCount = dto.initialRowCount && dto.initialRowCount > 0 ? dto.initialRowCount : 3;
+    type ColDef = { title: string; type: string; config?: Record<string, unknown> };
+    let parsedColumns: ColDef[] = [];
+    const templateType = dto.templateType || 'custom';
+    let defaultInitialRows: Array<Record<number, string> | string[]> = [];
+    const tpl = PLANNING_TEMPLATES[templateType] || PLANNING_TEMPLATES['custom'];
+
+    if (dto.columns && dto.columns.length > 0) {
+      parsedColumns = dto.columns.map((col, idx) => {
+        if (typeof col === 'string') {
+          return { title: col, type: 'text' };
+        }
+        return {
+          title: col.columnTitle || `Cột ${idx + 1}`,
+          type: col.columnType || 'text',
+          config: col.columnConfig,
+        };
+      });
+    } else if (tpl) {
+      parsedColumns = tpl.columns.map((col: any) => ({
+        title: col.columnTitle,
+        type: col.columnType,
+        config: col.columnConfig,
+      }));
+      defaultInitialRows = tpl.initialRows;
+    } else {
+      parsedColumns = [
+        { title: 'Cột 1', type: 'text' },
+        { title: 'Cột 2', type: 'text' },
+        { title: 'Cột 3', type: 'text' },
+      ];
+      defaultInitialRows = [
+        ['', '', ''],
+        ['', '', ''],
+        ['', '', ''],
+      ];
+    }
+
+    const initialRowsData = (dto.initialRows && dto.initialRows.length > 0)
+      ? dto.initialRows
+      : defaultInitialRows;
+    const rowCount = Math.max(initialRowsData.length, dto.initialRowCount && dto.initialRowCount > 0 ? dto.initialRowCount : 3);
 
     const sheet = await this.prisma.$transaction(async (tx) => {
       const createdSheet = await tx.planningSheet.create({
@@ -3467,17 +3526,21 @@ export class CircleToolsService {
           circleId,
           createdById: member.id,
           title: dto.title.trim(),
+          templateType: dto.templateType || 'custom',
+          metadata: (dto.metadata as any) || undefined,
         },
       });
 
       const createdColumns = [];
-      for (let i = 0; i < columnTitles.length; i++) {
-        const title = columnTitles[i] || `Cột ${i + 1}`;
+      for (let i = 0; i < parsedColumns.length; i++) {
+        const colDef = parsedColumns[i]!;
         const col = await tx.sheetColumn.create({
           data: {
             sheetId: createdSheet.id,
             columnIndex: i,
-            columnTitle: title,
+            columnTitle: colDef.title,
+            columnType: colDef.type,
+            columnConfig: (colDef.config as any) || undefined,
           },
         });
         createdColumns.push(col);
@@ -3491,12 +3554,23 @@ export class CircleToolsService {
           },
         });
 
-        for (const col of createdColumns) {
+        const rowValues = initialRowsData[r] || {};
+
+        for (let c = 0; c < createdColumns.length; c++) {
+          const col = createdColumns[c]!;
+          let cellVal = '';
+          if (Array.isArray(rowValues)) {
+            cellVal = rowValues[c] !== undefined ? String(rowValues[c]) : '';
+          } else if (rowValues && typeof rowValues === 'object') {
+            const anyRow = rowValues as Record<string, unknown>;
+            const val = anyRow[col.id] !== undefined ? anyRow[col.id] : anyRow[c];
+            cellVal = val !== undefined ? String(val) : '';
+          }
           await tx.sheetCell.create({
             data: {
               rowId: row.id,
               columnId: col.id,
-              cellValue: '',
+              cellValue: cellVal,
             },
           });
         }
@@ -3506,6 +3580,29 @@ export class CircleToolsService {
     });
 
     const fullSheet = await this.getPlanningSheetById(circleId, sheet.id, userId);
+    this.chatGateway?.broadcastSheetStructureUpdated(circleId, fullSheet);
+    return fullSheet;
+  }
+
+  async updatePlanningSheet(circleId: string, sheetId: string, userId: string, dto: UpdatePlanningSheetDto) {
+    await this.getMemberOrThrow(circleId, userId);
+
+    const sheet = await this.prisma.planningSheet.findFirst({
+      where: { id: sheetId, circleId },
+    });
+    if (!sheet) {
+      throw new NotFoundException('Không tìm thấy bảng kế hoạch');
+    }
+
+    await this.prisma.planningSheet.update({
+      where: { id: sheetId },
+      data: {
+        title: dto.title !== undefined ? dto.title.trim() : undefined,
+        metadata: dto.metadata !== undefined ? (dto.metadata as any) : undefined,
+      },
+    });
+
+    const fullSheet = await this.getPlanningSheetById(circleId, sheetId, userId);
     this.chatGateway?.broadcastSheetStructureUpdated(circleId, fullSheet);
     return fullSheet;
   }
@@ -3532,6 +3629,8 @@ export class CircleToolsService {
           sheetId,
           columnIndex: nextColIndex,
           columnTitle: dto.columnTitle.trim(),
+          columnType: dto.columnType || 'text',
+          columnConfig: (dto.columnConfig as any) || undefined,
         },
       });
 
@@ -3543,6 +3642,78 @@ export class CircleToolsService {
             cellValue: '',
           },
         });
+      }
+    });
+
+    const updatedSheet = await this.getPlanningSheetById(circleId, sheetId, userId);
+    this.chatGateway?.broadcastSheetStructureUpdated(circleId, updatedSheet);
+    return updatedSheet;
+  }
+
+  async updateSheetColumn(
+    circleId: string,
+    sheetId: string,
+    columnId: string,
+    userId: string,
+    dto: UpdateSheetColumnDto,
+  ) {
+    await this.getMemberOrThrow(circleId, userId);
+
+    const column = await this.prisma.sheetColumn.findFirst({
+      where: { id: columnId, sheetId },
+    });
+
+    if (!column) {
+      throw new NotFoundException('Không tìm thấy cột bảng tính');
+    }
+
+    await this.prisma.sheetColumn.update({
+      where: { id: columnId },
+      data: {
+        columnTitle: dto.columnTitle !== undefined ? dto.columnTitle.trim() : undefined,
+        columnType: dto.columnType !== undefined ? dto.columnType : undefined,
+        columnConfig: dto.columnConfig !== undefined ? (dto.columnConfig as any) : undefined,
+      },
+    });
+
+    const updatedSheet = await this.getPlanningSheetById(circleId, sheetId, userId);
+    this.chatGateway?.broadcastSheetStructureUpdated(circleId, updatedSheet);
+    return updatedSheet;
+  }
+
+  async deleteSheetColumn(circleId: string, sheetId: string, columnId: string, userId: string) {
+    await this.getMemberOrThrow(circleId, userId);
+
+    const column = await this.prisma.sheetColumn.findFirst({
+      where: { id: columnId, sheetId },
+    });
+
+    if (!column) {
+      throw new NotFoundException('Không tìm thấy cột');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.sheetCell.deleteMany({
+        where: { columnId },
+      });
+
+      await tx.sheetColumn.delete({
+        where: { id: columnId },
+      });
+
+      const remainingCols = await tx.sheetColumn.findMany({
+        where: { sheetId },
+        orderBy: { columnIndex: 'asc' },
+      });
+
+      for (let i = 0; i < remainingCols.length; i++) {
+        const col = remainingCols[i]!;
+        if (col.columnIndex !== i) {
+          await tx.sheetColumn.update({
+            where: { id: col.id },
+            data: { columnIndex: i },
+          });
+        }
       }
     });
 
@@ -3583,6 +3754,47 @@ export class CircleToolsService {
             cellValue: dto.cellValues?.[col.id] || '',
           },
         });
+      }
+    });
+
+    const updatedSheet = await this.getPlanningSheetById(circleId, sheetId, userId);
+    this.chatGateway?.broadcastSheetStructureUpdated(circleId, updatedSheet);
+    return updatedSheet;
+  }
+
+  async deleteSheetRow(circleId: string, sheetId: string, rowId: string, userId: string) {
+    await this.getMemberOrThrow(circleId, userId);
+
+    const row = await this.prisma.sheetRow.findFirst({
+      where: { id: rowId, sheetId },
+    });
+
+    if (!row) {
+      throw new NotFoundException('Không tìm thấy dòng');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.sheetCell.deleteMany({
+        where: { rowId },
+      });
+
+      await tx.sheetRow.delete({
+        where: { id: rowId },
+      });
+
+      const remainingRows = await tx.sheetRow.findMany({
+        where: { sheetId },
+        orderBy: { rowIndex: 'asc' },
+      });
+
+      for (let i = 0; i < remainingRows.length; i++) {
+        const row = remainingRows[i]!;
+        if (row.rowIndex !== i) {
+          await tx.sheetRow.update({
+            where: { id: row.id },
+            data: { rowIndex: i },
+          });
+        }
       }
     });
 
@@ -3641,6 +3853,76 @@ export class CircleToolsService {
     return updatedCell;
   }
 
+  async sharePlanningSheet(circleId: string, sheetId: string, userId: string, channelId?: string) {
+    const member = await this.getMemberOrThrow(circleId, userId);
+    const sheet = await this.getPlanningSheetById(circleId, sheetId, userId);
+
+    const memberCount = await this.prisma.circleMember.count({
+      where: { circleId },
+    });
+
+    const summary = computePlanningSheetSummary(sheet as any, memberCount);
+
+    let targetChannel = null;
+    if (channelId) {
+      targetChannel = await this.prisma.channel.findFirst({
+        where: { id: channelId, circleId },
+      });
+    }
+    if (!targetChannel) {
+      targetChannel = await this.prisma.channel.findFirst({
+        where: { circleId, name: 'general' },
+      });
+    }
+    if (!targetChannel) {
+      targetChannel = await this.prisma.channel.findFirst({
+        where: { circleId },
+      });
+    }
+
+    if (!targetChannel) {
+      throw new NotFoundException('Không tìm thấy kênh trò chuyện để chia sẻ');
+    }
+
+    const payload: PlanningSheetMessagePayload = {
+      type: 'PLANNING_SHEET',
+      sheetId: sheet.id,
+      title: sheet.title,
+      templateType: sheet.templateType || 'custom',
+      summaryText: summary.summaryText,
+      completionPercent: summary.completionPercent,
+      totalVnd: summary.totalVnd,
+      splitPerPerson: summary.splitPerPerson,
+      completedItems: summary.completedCheckboxes,
+      totalItems: summary.totalCheckboxes,
+    };
+
+    const messageContent = `[PLANNING_SHEET]:${JSON.stringify(payload)}`;
+
+    const message = await this.prisma.message.create({
+      data: {
+        channelId: targetChannel.id,
+        memberId: member.id,
+        content: messageContent,
+        type: 'TEXT',
+      },
+      include: {
+        sender: {
+          include: {
+            user: {
+              include: {
+                profile: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    this.chatGateway?.broadcastNewMessage(targetChannel.id, message);
+    return { success: true, messageId: message.id, channelId: targetChannel.id, payload };
+  }
+
   async deletePlanningSheet(circleId: string, sheetId: string, userId: string) {
     const member = await this.getMemberOrThrow(circleId, userId);
 
@@ -3660,6 +3942,7 @@ export class CircleToolsService {
       where: { id: sheetId },
     });
 
+    this.chatGateway?.broadcastSheetDeleted(circleId, { circleId, sheetId });
     return { success: true };
   }
 
@@ -3876,15 +4159,23 @@ export class CircleToolsService {
 
     return polls.map((poll) => {
       const totalVotes = poll.votes.length;
-      const userVote = poll.votes.find((v) => v.memberId === member.id);
+      const userVotes = poll.votes.filter((v) => v.memberId === member.id);
+      const userVotedOptionIds = userVotes.map((v) => v.optionId);
+      const userVotedOptionId = userVotedOptionIds[0] || null;
 
+      const { votes, ...details } = poll;
       return {
-        ...poll,
+        ...details,
+        canManage: this.canManagePoll(member, poll),
         totalVotes,
-        userVotedOptionId: userVote?.optionId || null,
+        userVotedOptionId,
+        userVotedOptionIds,
         options: poll.options.map((opt) => {
           const voteCount = opt.votes.length;
           const percentage = totalVotes > 0 ? Math.round((voteCount / totalVotes) * 100) : 0;
+          const sanitizedVotes = poll.isAnonymous
+            ? opt.votes.map((v) => ({ id: v.id, votedAt: v.votedAt, isAnonymous: true }))
+            : opt.votes;
           return {
             id: opt.id,
             pollId: opt.pollId,
@@ -3892,7 +4183,7 @@ export class CircleToolsService {
             orderIndex: opt.orderIndex,
             voteCount,
             percentage,
-            votes: opt.votes,
+            votes: sanitizedVotes,
           };
         }),
       };
@@ -3941,15 +4232,23 @@ export class CircleToolsService {
     }
 
     const totalVotes = poll.votes.length;
-    const userVote = poll.votes.find((v) => v.memberId === member.id);
+    const userVotes = poll.votes.filter((v) => v.memberId === member.id);
+    const userVotedOptionIds = userVotes.map((v) => v.optionId);
+    const userVotedOptionId = userVotedOptionIds[0] || null;
 
+    const { votes, ...details } = poll;
     return {
-      ...poll,
+      ...details,
+      canManage: this.canManagePoll(member, poll),
       totalVotes,
-      userVotedOptionId: userVote?.optionId || null,
+      userVotedOptionId,
+      userVotedOptionIds,
       options: poll.options.map((opt) => {
         const voteCount = opt.votes.length;
         const percentage = totalVotes > 0 ? Math.round((voteCount / totalVotes) * 100) : 0;
+        const sanitizedVotes = poll.isAnonymous
+          ? opt.votes.map((v) => ({ id: v.id, votedAt: v.votedAt, isAnonymous: true }))
+          : opt.votes;
         return {
           id: opt.id,
           pollId: opt.pollId,
@@ -3957,7 +4256,7 @@ export class CircleToolsService {
           orderIndex: opt.orderIndex,
           voteCount,
           percentage,
-          votes: opt.votes,
+          votes: sanitizedVotes,
         };
       }),
     };
@@ -3966,18 +4265,19 @@ export class CircleToolsService {
   async createPoll(circleId: string, userId: string, dto: CreatePollDto) {
     const member = await this.getMemberOrThrow(circleId, userId);
 
-    const validOptions = dto.options.map((o) => o.trim()).filter((o) => o.length > 0);
-    if (validOptions.length < 2) {
-      throw new BadRequestException('Cuộc bình chọn cần có tối thiểu 2 phương án');
-    }
+    const validOptions = this.validatePollOptions(dto.options);
+    const question = this.validatePollQuestion(dto.question);
+    const deadline = this.parsePollDeadline(dto.deadline ?? null);
 
     const poll = await this.prisma.$transaction(async (tx) => {
       const createdPoll = await tx.groupPoll.create({
         data: {
           circleId,
           createdById: member.id,
-          question: dto.question.trim(),
-          deadline: dto.deadline ? new Date(dto.deadline) : null,
+          question,
+          deadline,
+          isMultipleChoice: dto.isMultipleChoice ?? false,
+          isAnonymous: dto.isAnonymous ?? false,
           isClosed: false,
         },
       });
@@ -3997,51 +4297,172 @@ export class CircleToolsService {
     });
 
     const fullPoll = await this.getPollById(circleId, poll.id, userId);
-    this.chatGateway?.broadcastPollCreated(circleId, fullPoll);
+    this.chatGateway?.broadcastPollCreated(circleId, this.publicPollEvent(fullPoll));
+    await this.notificationEvents?.notifyCircle({
+      circleId, actorId: userId, targetId: fullPoll.id, type: NotificationType.POLL_NEW,
+    });
     return fullPoll;
+  }
+
+  async updatePoll(circleId: string, pollId: string, userId: string, dto: UpdatePollDto) {
+    const member = await this.getMemberOrThrow(circleId, userId);
+    if (!dto || (
+      dto.question === undefined &&
+      dto.options === undefined &&
+      dto.isMultipleChoice === undefined &&
+      dto.deadline === undefined
+    )) {
+      throw new BadRequestException('Không có thay đổi để lưu');
+    }
+    if (dto.isMultipleChoice !== undefined && typeof dto.isMultipleChoice !== 'boolean') {
+      throw new BadRequestException('Chế độ chọn nhiều không hợp lệ');
+    }
+    const question = dto.question === undefined ? undefined : this.validatePollQuestion(dto.question);
+    const options = dto.options === undefined ? undefined : this.validatePollOptions(dto.options);
+
+    await this.runPollTransaction(async (tx) => {
+      const poll = await tx.groupPoll.findFirst({
+        where: { id: pollId, circleId },
+        include: { _count: { select: { votes: true } } },
+      });
+      if (!poll) throw new NotFoundException('Không tìm thấy cuộc bình chọn');
+      if (!this.canManagePoll(member, poll)) {
+        throw new ForbiddenException('Bạn không có quyền sửa cuộc bình chọn');
+      }
+      const now = new Date();
+      if (poll.isClosed || (poll.deadline && poll.deadline <= now)) {
+        throw new ConflictException('Cuộc bình chọn đã đóng hoặc hết hạn');
+      }
+      const changesBallot = question !== undefined || options !== undefined || dto.isMultipleChoice !== undefined;
+      if (changesBallot && poll._count.votes > 0) {
+        throw new ConflictException('Đã có lượt bình chọn. Chỉ có thể đổi hạn.');
+      }
+
+      const deadline = dto.deadline === undefined ? undefined : this.parsePollDeadline(dto.deadline, now);
+      const deadlineChanged = deadline !== undefined &&
+        (deadline?.getTime() ?? null) !== (poll.deadline?.getTime() ?? null);
+      const previousChanges = Array.isArray(poll.deadlineChanges) ? poll.deadlineChanges : [];
+      await tx.groupPoll.update({
+        where: { id: pollId },
+        data: {
+          question,
+          ...(dto.isMultipleChoice !== undefined && { isMultipleChoice: dto.isMultipleChoice }),
+          ...(deadlineChanged && {
+            deadline,
+            deadlineChanges: [
+              ...previousChanges,
+              { changedAt: now.toISOString(), deadline: deadline?.toISOString() ?? null },
+            ] as Prisma.InputJsonArray,
+          }),
+          ...(options && {
+            options: {
+              deleteMany: {},
+              create: options.map((optionText, orderIndex) => ({ optionText, orderIndex })),
+            },
+          }),
+        },
+      });
+    });
+
+    const updatedPoll = await this.getPollById(circleId, pollId, userId);
+    this.chatGateway?.broadcastPollUpdated(circleId, pollId);
+    return updatedPoll;
+  }
+
+  private publicPollEvent(poll: Awaited<ReturnType<CircleToolsService['getPollById']>>) {
+    const { canManage, userVotedOptionId, userVotedOptionIds, ...publicPoll } = poll;
+    return publicPoll;
+  }
+
+  private canManagePoll(member: { id: string; role: string }, poll: { createdById: string | null }) {
+    return poll.createdById === member.id || member.role === 'OWNER' || member.role === 'ADMIN';
+  }
+
+  private validatePollQuestion(question: unknown): string {
+    if (typeof question !== 'string' || !question.trim()) {
+      throw new BadRequestException('Vui lòng nhập câu hỏi bình chọn');
+    }
+    return question.trim();
+  }
+
+  private validatePollOptions(options: unknown): string[] {
+    if (!Array.isArray(options) || options.some((option) => typeof option !== 'string')) {
+      throw new BadRequestException('Phương án bình chọn không hợp lệ');
+    }
+    const normalized = options.map((option: string) => option.trim()).filter(Boolean);
+    if (normalized.length < 2 || normalized.length > 10 ||
+        new Set(normalized.map((option) => option.toLowerCase())).size !== normalized.length) {
+      throw new BadRequestException('Cuộc bình chọn cần từ 2 đến 10 phương án khác nhau');
+    }
+    return normalized;
+  }
+
+  private parsePollDeadline(value: string | null, now = new Date()): Date | null {
+    if (value === null) return null;
+    const deadline = typeof value === 'string' ? new Date(value) : new Date(NaN);
+    if (!Number.isFinite(deadline.getTime()) || deadline <= now) {
+      throw new BadRequestException('Hạn bình chọn phải là thời điểm hợp lệ trong tương lai');
+    }
+    return deadline;
+  }
+
+  private async runPollTransaction<T>(work: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+    try {
+      return await this.prisma.$transaction(work, {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2034') {
+        throw new ConflictException('Cuộc bình chọn vừa thay đổi. Vui lòng thử lại.');
+      }
+      throw error;
+    }
   }
 
   async votePoll(circleId: string, pollId: string, userId: string, dto: VotePollDto) {
     const member = await this.getMemberOrThrow(circleId, userId);
 
-    const poll = await this.prisma.groupPoll.findFirst({
-      where: { id: pollId, circleId },
-      include: { options: true },
-    });
+    const recorded = await this.runPollTransaction(async (tx) => {
+      const poll = await tx.groupPoll.findFirst({
+        where: { id: pollId, circleId },
+        include: { options: true },
+      });
+      if (!poll) throw new NotFoundException('Không tìm thấy cuộc bình chọn');
+      if (poll.isClosed || (poll.deadline && poll.deadline <= new Date())) {
+        throw new BadRequestException('Cuộc bình chọn này đã kết thúc hoặc quá hạn');
+      }
 
-    if (!poll) {
-      throw new NotFoundException('Không tìm thấy cuộc bình chọn');
-    }
+      const optionIds = [...new Set(dto.optionIds?.length ? dto.optionIds : dto.optionId ? [dto.optionId] : [])];
+      if (optionIds.length === 0) {
+        throw new BadRequestException('Vui lòng chọn ít nhất một phương án');
+      }
+      const validOptionIds = new Set(poll.options.map((option) => option.id));
+      if (optionIds.some((id) => !validOptionIds.has(id))) {
+        throw new BadRequestException('Phương án bình chọn không hợp lệ');
+      }
+      if (!poll.isMultipleChoice && optionIds.length > 1) {
+        throw new BadRequestException('Cuộc bình chọn chỉ cho phép chọn một phương án');
+      }
 
-    if (poll.isClosed || (poll.deadline && new Date() > poll.deadline)) {
-      throw new BadRequestException('Cuộc bình chọn này đã kết thúc hoặc quá hạn');
-    }
+      const existing = await tx.pollVote.findMany({
+        where: { pollId, memberId: member.id },
+        select: { optionId: true },
+      });
+      if (existing.length) {
+        if (existing.length === optionIds.length && existing.every((vote) => optionIds.includes(vote.optionId))) {
+          return false;
+        }
+        throw new ConflictException('Bạn đã gửi bình chọn và không thể thay đổi lựa chọn');
+      }
 
-    const optionExists = poll.options.some((o) => o.id === dto.optionId);
-    if (!optionExists) {
-      throw new BadRequestException('Phương án bình chọn không hợp lệ');
-    }
-
-    await this.prisma.pollVote.upsert({
-      where: {
-        pollId_memberId: {
-          pollId,
-          memberId: member.id,
-        },
-      },
-      update: {
-        optionId: dto.optionId,
-        votedAt: new Date(),
-      },
-      create: {
-        pollId,
-        optionId: dto.optionId,
-        memberId: member.id,
-      },
+      await tx.pollVote.createMany({
+        data: optionIds.map((optionId) => ({ pollId, optionId, memberId: member.id })),
+      });
+      return true;
     });
 
     const updatedPoll = await this.getPollById(circleId, pollId, userId);
-    this.chatGateway?.broadcastPollVoted(circleId, updatedPoll);
+    if (recorded) this.chatGateway?.broadcastPollVoted(circleId, { id: updatedPoll.id });
     return updatedPoll;
   }
 
@@ -4056,8 +4477,8 @@ export class CircleToolsService {
       throw new NotFoundException('Không tìm thấy cuộc bình chọn');
     }
 
-    if (poll.createdById !== member.id && member.role !== 'OWNER') {
-      throw new ForbiddenException('Chỉ người tạo hoặc chủ vòng tròn mới có quyền đóng cuộc bình chọn');
+    if (!this.canManagePoll(member, poll)) {
+      throw new ForbiddenException('Chỉ người tạo hoặc quản trị viên vòng tròn mới có quyền đóng cuộc bình chọn');
     }
 
     await this.prisma.groupPoll.update({
@@ -4066,7 +4487,10 @@ export class CircleToolsService {
     });
 
     const updatedPoll = await this.getPollById(circleId, pollId, userId);
-    this.chatGateway?.broadcastPollClosed(circleId, updatedPoll);
+    this.chatGateway?.broadcastPollClosed(circleId, this.publicPollEvent(updatedPoll));
+    await this.notificationEvents?.notifyCircle({
+      circleId, actorId: userId, targetId: updatedPoll.id, type: NotificationType.POLL_CLOSED,
+    });
     return updatedPoll;
   }
 
@@ -4081,14 +4505,63 @@ export class CircleToolsService {
       throw new NotFoundException('Không tìm thấy cuộc bình chọn');
     }
 
-    if (poll.createdById !== member.id && member.role !== 'OWNER') {
-      throw new ForbiddenException('Chỉ người tạo hoặc chủ vòng tròn mới có quyền xóa cuộc bình chọn');
+    if (!this.canManagePoll(member, poll)) {
+      throw new ForbiddenException('Chỉ người tạo hoặc quản trị viên vòng tròn mới có quyền xóa cuộc bình chọn');
     }
 
     await this.prisma.groupPoll.delete({
       where: { id: pollId },
     });
 
+    this.chatGateway?.broadcastPollDeleted(circleId, { circleId, pollId });
+    return { success: true };
+  }
+
+  // ===========================================================================
+  // 8. MEETING POINT (UC19 COLLABORATION)
+  // ===========================================================================
+
+  async getMeetingPoint(circleId: string, userId: string) {
+    await this.getMemberOrThrow(circleId, userId);
+    return this.prisma.circleMeetingPoint.findUnique({
+      where: { circleId },
+    });
+  }
+
+  async setMeetingPoint(circleId: string, userId: string, dto: SetMeetingPointDto) {
+    const member = await this.getMemberOrThrow(circleId, userId);
+
+    const meetingPoint = await this.prisma.circleMeetingPoint.upsert({
+      where: { circleId },
+      update: {
+        title: dto.title.trim(),
+        latitude: dto.latitude,
+        longitude: dto.longitude,
+        address: dto.address?.trim() || null,
+        updatedById: member.id,
+      },
+      create: {
+        circleId,
+        title: dto.title.trim(),
+        latitude: dto.latitude,
+        longitude: dto.longitude,
+        address: dto.address?.trim() || null,
+        updatedById: member.id,
+      },
+    });
+
+    this.chatGateway?.broadcastMeetingPointUpdated(circleId, meetingPoint);
+    return meetingPoint;
+  }
+
+  async deleteMeetingPoint(circleId: string, userId: string) {
+    await this.getMemberOrThrow(circleId, userId);
+
+    await this.prisma.circleMeetingPoint.deleteMany({
+      where: { circleId },
+    });
+
+    this.chatGateway?.broadcastMeetingPointUpdated(circleId, null);
     return { success: true };
   }
 }

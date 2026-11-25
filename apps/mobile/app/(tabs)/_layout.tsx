@@ -6,6 +6,7 @@ import {
   Text,
   TouchableOpacity,
   Modal,
+  ScrollView,
 } from 'react-native';
 import { Tabs, useRouter } from 'expo-router';
 import { BlurView } from 'expo-blur';
@@ -20,6 +21,8 @@ import {
   X,
   Sparkles,
   AlertCircle,
+  ChevronDown,
+  Check,
 } from 'lucide-react-native';
 import { useThemeStore } from '../../src/stores/theme.store';
 import { useLanguageStore } from '../../src/stores/language.store';
@@ -200,6 +203,7 @@ export default function TabsLayout() {
   const { colors, resolvedTheme, uiStyle } = useThemeStore();
   const t = useLanguageStore((s) => s.t);
   const [createModalVisible, setCreateModalVisible] = useState(false);
+  const [isPickingCircle, setIsPickingCircle] = useState(false);
   const [sheetNotice, setSheetNotice] = useState<string | null>(null);
   const activeCircle = useCircleStore((s) => s.activeCircle);
   const setActiveCircle = useCircleStore((s) => s.setActiveCircle);
@@ -215,6 +219,7 @@ export default function TabsLayout() {
     tab: 'moments' | 'tools',
     tool?: 'anonymous' | 'calendar',
     fallbackNotice?: string,
+    action?: 'capture',
   ) => {
     if (!targetCircle) {
       setSheetNotice(fallbackNotice || t.circle.noCircleJoinedYet);
@@ -222,10 +227,16 @@ export default function TabsLayout() {
     }
     setSheetNotice(null);
     setCreateModalVisible(false);
+    setIsPickingCircle(false);
     setActiveCircle(targetCircle);
     router.push({
       pathname: '/circle/[id]' as any,
-      params: tool ? { id: targetCircle.id, tab, tool } : { id: targetCircle.id, tab },
+      params: {
+        id: targetCircle.id,
+        tab,
+        ...(tool ? { tool } : {}),
+        ...(action ? { action } : {}),
+      },
     });
   };
 
@@ -280,6 +291,7 @@ export default function TabsLayout() {
         animationType="fade"
         onRequestClose={() => {
           setSheetNotice(null);
+          setIsPickingCircle(false);
           setCreateModalVisible(false);
         }}
       >
@@ -291,6 +303,7 @@ export default function TabsLayout() {
           activeOpacity={1}
           onPress={() => {
             setSheetNotice(null);
+            setIsPickingCircle(false);
             setCreateModalVisible(false);
           }}
         >
@@ -331,6 +344,7 @@ export default function TabsLayout() {
               <TouchableOpacity
                 onPress={() => {
                   setSheetNotice(null);
+                  setIsPickingCircle(false);
                   setCreateModalVisible(false);
                 }}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -340,6 +354,85 @@ export default function TabsLayout() {
                 <X size={18} color={colors.subtle} />
               </TouchableOpacity>
             </View>
+
+            {/* Target Circle Selector Chip (Mục 8 Brief: Đăng vào: [Tên nhóm] có thể đổi được) */}
+            {targetCircle ? (
+              <View style={{ marginBottom: 14 }}>
+                <TouchableOpacity
+                  activeOpacity={0.75}
+                  onPress={() => setIsPickingCircle((prev) => !prev)}
+                  style={[
+                    styles.targetCircleChip,
+                    {
+                      backgroundColor: `${colors.primary}12`,
+                      borderColor: `${colors.primary}30`,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.targetCirclePrefix, { color: colors.subtle }]}>
+                    {t.composer.postToTarget || 'Đăng vào:'}
+                  </Text>
+                  <Text style={[styles.targetCircleName, { color: colors.sage }]} numberOfLines={1}>
+                    {targetCircle.name}
+                  </Text>
+                  <ChevronDown
+                    size={15}
+                    color={colors.sage}
+                    style={{
+                      transform: [{ rotate: isPickingCircle ? '180deg' : '0deg' }],
+                      marginLeft: 2,
+                    }}
+                  />
+                </TouchableOpacity>
+
+                {/* Dropdown list of circles when isPickingCircle is true */}
+                {isPickingCircle && (
+                  <View
+                    style={[
+                      styles.circlePickerList,
+                      {
+                        backgroundColor: colors.wash,
+                        borderColor: colors.hairline,
+                      },
+                    ]}
+                  >
+                    <ScrollView style={{ maxHeight: 180 }} showsVerticalScrollIndicator={false}>
+                      {myCircles.map((circle) => {
+                        const isSelected = circle.id === targetCircle.id;
+                        return (
+                          <TouchableOpacity
+                            key={circle.id}
+                            activeOpacity={0.7}
+                            onPress={() => {
+                              setActiveCircle(circle);
+                              setIsPickingCircle(false);
+                            }}
+                            style={[
+                              styles.circlePickerItem,
+                              isSelected && { backgroundColor: `${colors.primary}15` },
+                            ]}
+                          >
+                            <Text
+                              numberOfLines={1}
+                              style={[
+                                styles.circlePickerItemText,
+                                {
+                                  color: isSelected ? colors.sage : colors.text,
+                                  fontWeight: isSelected ? '700' : '500',
+                                },
+                              ]}
+                            >
+                              {circle.name}
+                            </Text>
+                            {isSelected && <Check size={16} color={colors.sage} />}
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
+                  </View>
+                )}
+              </View>
+            ) : null}
 
             {/* Inline Info Notice when no Circle is joined */}
             {sheetNotice ? (
@@ -358,12 +451,12 @@ export default function TabsLayout() {
 
             {/* Action Grid */}
             <View style={styles.optionsList}>
-              {/* Option 1: Khoảnh khắc */}
+              {/* Option 1: Khoảnh khắc (mở thẳng camera/capture với nhóm đích) */}
               <TouchableOpacity
                 style={[styles.optionItem, { backgroundColor: colors.wash, borderColor: colors.hairline }]}
                 activeOpacity={0.8}
                 onPress={() =>
-                  handleOpenCircleAction('moments', undefined, t.composer.momentAlertDesc)
+                  handleOpenCircleAction('moments', undefined, t.composer.momentAlertDesc, 'capture')
                 }
               >
                 <Camera size={24} color={colors.sage} />
@@ -402,6 +495,7 @@ export default function TabsLayout() {
                 activeOpacity={0.8}
                 onPress={() => {
                   setSheetNotice(null);
+                  setIsPickingCircle(false);
                   setCreateModalVisible(false);
                   setCircleCreateModalVisible(true);
                 }}
@@ -589,5 +683,44 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
     marginTop: 2,
+  },
+  targetCircleChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 6,
+  },
+  targetCirclePrefix: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  targetCircleName: {
+    fontSize: 12,
+    fontWeight: '700',
+    maxWidth: 160,
+  },
+  circlePickerList: {
+    marginTop: 8,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 6,
+    overflow: 'hidden',
+  },
+  circlePickerItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+  },
+  circlePickerItemText: {
+    fontSize: 13,
+    flex: 1,
+    marginRight: 8,
   },
 });

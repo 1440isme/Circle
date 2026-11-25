@@ -26,11 +26,15 @@ import {
   Navigation,
   Maximize2,
   Share2,
+  BarChart2,
+  FileSpreadsheet,
+  Camera,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { MessageEntity, MessageType, CalendarEventMessagePayload } from '@circle/types';
 import { CalendarEventChatEmbed } from './CalendarEventChatEmbed';
 import { LiveWheelChatEmbed } from './LiveWheelChatEmbed';
-import { PROMINENT_QUICK_EMOJIS } from '@circle/shared';
+import { PROMINENT_QUICK_EMOJIS, isSpecialSystemMessage, getRichReplyPreviewData } from '@circle/shared';
 import { useLanguageStore } from '../../stores/language.store';
 import { useCircleStore } from '../../stores/circle.store';
 import {
@@ -41,6 +45,9 @@ import { Emoji } from '../ui/Emoji';
 import { FullEmojiPickerModal } from '../ui/FullEmojiPickerModal';
 import { ChatPollCard } from './ChatPollCard';
 import { ChatLocationCard } from './ChatLocationCard';
+import { ChatPlanningCard, PlanningSheetMessagePayload } from './ChatPlanningCard';
+import { DeleteMessageModal } from './DeleteMessageModal';
+import { ReactionListModal } from './ReactionListModal';
 
 interface MessageBubbleProps {
   message: MessageEntity;
@@ -93,8 +100,14 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const [isFullEmojiOpen, setIsFullEmojiOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isReactionListOpen, setIsReactionListOpen] = useState(false);
+  const [menuPlacement, setMenuPlacement] = useState<'top' | 'bottom'>('top');
+  const menuButtonRef = React.useRef<HTMLButtonElement | null>(null);
   const [isCopied, setIsCopied] = useState(false);
   const [showOriginal, setShowOriginal] = useState(false);
+
+  const isSpecialSystem = isSpecialSystemMessage(message) || Boolean(message.content?.startsWith('[CALL_SUMMARY]:'));
 
   useEffect(() => {
     if (!isImageModalOpen && !isMenuOpen) return;
@@ -215,6 +228,14 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     } catch {}
   }
 
+  const isPlanningSheet = Boolean(message.content?.startsWith('[PLANNING_SHEET]:'));
+  let planningSheetData: PlanningSheetMessagePayload | null = null;
+  if (isPlanningSheet) {
+    try {
+      planningSheetData = JSON.parse(message.content!.replace('[PLANNING_SHEET]:', ''));
+    } catch {}
+  }
+
   const isLocationPin = Boolean(message.content?.startsWith('[LOCATION_PIN]:'));
   let locationPinData: { lat: number; lng: number; title?: string; address?: string } | null = null;
   if (isLocationPin) {
@@ -254,6 +275,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     !isCallSummary &&
     !isCalendarEvent &&
     !isGroupPoll &&
+    !isPlanningSheet &&
     !isLocationPin &&
     !isLiveWheel &&
     (hasPreviousContent ||
@@ -350,6 +372,17 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     );
   }
 
+  if (isPlanningSheet && planningSheetData) {
+    return (
+      <div id={`message-${message.id}`} className="w-full flex justify-center my-3 px-2">
+        <ChatPlanningCard
+          sheetData={planningSheetData}
+          isSenderMe={isSenderMe}
+        />
+      </div>
+    );
+  }
+
   return (
     <div
       id={`message-${message.id}`}
@@ -438,7 +471,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         )}
 
         {/* Message Bubble Container - w-fit ensures it hugs only the content width and NEVER stretches */}
-        <div className="relative inline-block w-fit max-w-full">
+        <div className={`relative inline-block w-fit max-w-full ${hasReactions ? 'mb-2.5' : ''}`}>
         <div
           onClick={() => setShowTimestamp((prev) => !prev)}
           className={`relative cursor-pointer select-text transition-all w-fit max-w-full ${getBubbleRadius()} ${
@@ -452,48 +485,59 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           }`}
         >
           {/* Reply Quote Banner - Click to jump smoothly to replied message */}
-          {hasValidReply && replyTarget && (
-            <div
-              onClick={(e) => {
-                e.stopPropagation();
-                if (replyTargetId && onJumpToMessage) {
-                  onJumpToMessage(replyTargetId);
-                }
-              }}
-              title={t.chat.replyAction}
-              className={`flex items-center gap-2 mb-1.5 rounded-xl px-2.5 py-1 text-xs max-w-full cursor-pointer hover:opacity-80 active:scale-[0.98] transition-all select-none ${
-                isSenderMe
-                  ? 'msg-bubble-reply-quote-me'
-                  : 'msg-bubble-reply-quote-other'
-              }`}
-            >
-              <Reply className="h-3 w-3 shrink-0 scale-x-[-1] opacity-75" />
-              <span className={`font-semibold shrink-0 ${isSenderMe ? '' : 'msg-bubble-reply-author-other'}`}>
-                {replyTarget.sender?.nickname ||
-                  replyTarget.sender?.user?.profile?.displayName ||
-                  (replyTarget.sender as any)?.profile?.displayName ||
-                  (replyTarget.sender as any)?.user?.email?.split('@')[0] ||
-                  t.auth.guest}
-                :
-              </span>
-              <span className="truncate opacity-90">
-                {replyTarget.content ||
-                  (() => {
-                    const meta = parseMomentReplyMetadata(
-                      (replyTarget as any).fileName,
-                    );
-                    if (meta) {
-                      return meta.caption
-                        ? `📸 "${meta.caption}"`
-                        : t.chat.momentOf.replace('{author}', meta.authorName || t.chat.defaultMemberName);
-                    }
-                    return null;
-                  })() ||
-                  (replyTarget.type === MessageType.FILE ? `[${t.chat.fileDownload}]` : '') ||
-                  t.calls.messageFallback}
-              </span>
-            </div>
-          )}
+          {hasValidReply && replyTarget && (() => {
+            const preview = getRichReplyPreviewData(replyTarget, t);
+            return (
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (replyTargetId && onJumpToMessage) {
+                    onJumpToMessage(replyTargetId);
+                  }
+                }}
+                title={t.chat.replyAction}
+                className={`flex items-center gap-2 mb-1.5 rounded-xl px-2.5 py-1 text-xs max-w-full cursor-pointer hover:opacity-80 active:scale-[0.98] transition-all select-none ${
+                  isSenderMe
+                    ? 'msg-bubble-reply-quote-me'
+                    : 'msg-bubble-reply-quote-other'
+                }`}
+              >
+                <Reply className="h-3 w-3 shrink-0 scale-x-[-1] opacity-75" />
+                {preview.thumbnailUrl ? (
+                  <img
+                    src={preview.thumbnailUrl}
+                    alt="preview"
+                    className="w-4 h-4 rounded object-cover shrink-0"
+                  />
+                ) : preview.kind === 'location' ? (
+                  <MapPin className="h-3 w-3 text-rose-500 shrink-0" />
+                ) : preview.kind === 'poll' ? (
+                  <BarChart2 className="h-3 w-3 text-circle-sage dark:text-circle-primary shrink-0" />
+                ) : preview.kind === 'calendar' ? (
+                  <Calendar className="h-3 w-3 text-circle-sage dark:text-circle-primary shrink-0" />
+                ) : preview.kind === 'planning' ? (
+                  <FileSpreadsheet className="h-3 w-3 text-emerald-500 shrink-0" />
+                ) : preview.kind === 'moment' ? (
+                  <Camera className="h-3 w-3 text-circle-sage dark:text-circle-primary shrink-0" />
+                ) : preview.kind === 'image' ? (
+                  <ImageIcon className="h-3 w-3 text-circle-sage dark:text-circle-primary shrink-0" />
+                ) : preview.kind === 'file' ? (
+                  <FileText className="h-3 w-3 text-circle-sage dark:text-circle-primary shrink-0" />
+                ) : null}
+                <span className={`font-semibold shrink-0 ${isSenderMe ? '' : 'msg-bubble-reply-author-other'}`}>
+                  {replyTarget.sender?.nickname ||
+                    replyTarget.sender?.user?.profile?.displayName ||
+                    (replyTarget.sender as any)?.profile?.displayName ||
+                    (replyTarget.sender as any)?.user?.email?.split('@')[0] ||
+                    t.auth.guest}
+                  :
+                </span>
+                <span className="truncate opacity-90">
+                  {preview.title}
+                </span>
+              </div>
+            );
+          })()}
 
           {/* Moment Card Chat Embed (Đồng bộ chuẩn vuông 1:1, PiP, góc trên phải với app) */}
           {isMomentReply && message.fileUrl && (
@@ -717,17 +761,25 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
           {/* Overlapping Reaction Badge (Bottom-Right Corner, High-Quality Vector Emojis, No Counts, Flat) */}
           {hasReactions && (
-            <div className="absolute -bottom-2 right-1.5 flex items-center gap-1 rounded-full border border-circle-hairline dark:border-circle-dark-hairline bg-white/95 dark:bg-circle-dark-surface px-1.5 py-0.5 shadow-2xs select-none">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsReactionListOpen(true);
+              }}
+              title={t.chat.reactorsListTitle}
+              className="absolute -bottom-2 right-1.5 flex items-center gap-1 rounded-full border border-circle-hairline dark:border-circle-dark-hairline bg-white/95 dark:bg-circle-dark-surface px-1.5 py-0.5 shadow-2xs select-none hover:scale-105 active:scale-95 transition-transform cursor-pointer z-10"
+            >
               {Object.keys(message.reactionCounts!).map((emoji) => (
                 <Emoji key={emoji} emoji={emoji} size={14} />
               ))}
-            </div>
+            </button>
           )}
         </div>
         </div>
 
-        {/* Hover / Touch Action Bar (Clean Quick Emojis + 3-Dots More Menu) */}
-        {!isRecalled && (
+        {/* Hover / Touch Action Bar (Clean Quick Emojis + 3-Dots More Menu) - hidden on non-interactive system notices */}
+        {!isRecalled && !isSpecialSystem && (
           <div
             className={`absolute bottom-[calc(100%+4px)] ${
               isMenuOpen || isFullEmojiOpen || showTimestamp ? 'flex' : 'hidden group-hover:flex'
@@ -761,8 +813,19 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             {/* 3-Dots Vertical Action Menu (Linear / Telegram standard) */}
             <div className="relative">
               <button
+                ref={menuButtonRef}
                 type="button"
-                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                onClick={() => {
+                  if (!isMenuOpen && menuButtonRef.current) {
+                    const rect = menuButtonRef.current.getBoundingClientRect();
+                    if (rect.top < 220) {
+                      setMenuPlacement('bottom');
+                    } else {
+                      setMenuPlacement('top');
+                    }
+                  }
+                  setIsMenuOpen(!isMenuOpen);
+                }}
                 className={`flex h-6 w-6 items-center justify-center rounded-full transition-colors ${
                   isMenuOpen
                     ? 'bg-circle-primary/15 text-circle-sage dark:text-circle-dark-primary'
@@ -780,7 +843,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                     onClick={() => setIsMenuOpen(false)}
                   />
                   <div
-                    className={`absolute bottom-full mb-1.5 w-48 rounded-2xl glass p-1.5 shadow-2xl z-40 animate-scale-up text-xs ${
+                    className={`absolute ${
+                      menuPlacement === 'bottom' ? 'top-full mt-1.5' : 'bottom-full mb-1.5'
+                    } w-48 rounded-2xl glass p-1.5 shadow-2xl z-40 animate-scale-up text-xs ${
                       isSenderMe ? 'right-0' : 'left-0'
                     }`}
                   >
@@ -915,33 +980,18 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
                     <div className="my-1 border-t border-circle-hairline dark:border-circle-dark-hairline" />
 
-                    {/* Delete For Me Action (CHT-11: Hide own message locally) */}
-                    {onDeleteForMe && (
+                    {/* Unified Delete / Unsend Action (Opens selection modal - CHT-10 & CHT-11) */}
+                    {(onDeleteForMe || (isSenderMe && onRecall)) && (
                       <button
                         type="button"
                         onClick={() => {
                           setIsMenuOpen(false);
-                          onDeleteForMe(message.id);
-                        }}
-                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 transition-colors text-left font-medium"
-                      >
-                        <EyeOff className="h-3.5 w-3.5 shrink-0" />
-                        <span>{t.chat.deleteForMeAction}</span>
-                      </button>
-                    )}
-
-                    {/* Recall Action (CHT-10: Author recalls message for everyone) */}
-                    {isSenderMe && onRecall && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsMenuOpen(false);
-                          onRecall(message.id);
+                          setIsDeleteModalOpen(true);
                         }}
                         className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 transition-colors text-left font-semibold"
                       >
                         <Trash2 className="h-3.5 w-3.5 shrink-0" />
-                        <span>{t.chat.recallAction}</span>
+                        <span>{t.chat.deleteMessageAction}</span>
                       </button>
                     )}
                   </div>
@@ -1065,6 +1115,23 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         isOpen={isFullEmojiOpen}
         onClose={() => setIsFullEmojiOpen(false)}
         onSelectEmoji={(emoji) => onReact(message.id, emoji)}
+      />
+
+      {/* Delete / Unsend Modal */}
+      <DeleteMessageModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        canRecallForEveryone={Boolean(isSenderMe && onRecall && !isRecalled)}
+        onDeleteForMe={() => onDeleteForMe && onDeleteForMe(message.id)}
+        onRecallEveryone={() => onRecall && onRecall(message.id)}
+      />
+
+      {/* Reaction List Modal */}
+      <ReactionListModal
+        isOpen={isReactionListOpen}
+        onClose={() => setIsReactionListOpen(false)}
+        reactions={message.reactions}
+        reactionCounts={message.reactionCounts}
       />
     </div>
   );

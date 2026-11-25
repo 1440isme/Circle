@@ -86,9 +86,6 @@ export default function RegisterPage() {
           <h1 className="text-2xl font-bold tracking-tight text-circle-charcoal dark:text-circle-dark-text sm:text-3xl">
             {t.auth.createAccount}
           </h1>
-          <p className="mt-1.5 text-sm text-circle-slate dark:text-circle-dark-muted">
-            {t.auth.registerSubtitle}
-          </p>
         </div>
 
         {/* API Error Banner */}
@@ -160,7 +157,7 @@ export default function RegisterPage() {
           {/* Password Field */}
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-circle-slate dark:text-circle-dark-muted mb-1.5">
-              {t.auth.password} ({t.auth.min8Chars})
+              {t.auth.password}
             </label>
             <div className="relative">
               <Lock className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-circle-slate dark:text-circle-dark-muted" />

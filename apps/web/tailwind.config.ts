@@ -17,13 +17,13 @@ const circleColors = {
     coral: '#DC2626',
   },
   dark: {
-    canvas: '#131316', // Deep neutral obsidian
-    surface: '#1D1D21', // Neutral dark surface
-    elevated: '#2A2A30', // Neutral dark elevated
-    warm: '#1D1D21',
-    hairline: '#2E2E35', // Neutral dark border
-    text: '#F2F2F4', // Crisp clean white
-    muted: '#A1A1AA', // Neutral gray
+    canvas: '#0B0C0E', // Clean Instagram-style deep obsidian canvas
+    surface: '#16181B', // Clean modern dark surface
+    elevated: '#22252A', // Neutral dark elevated
+    warm: '#16181B',
+    hairline: '#26292E', // 1px clean dark hairline border
+    text: '#F9FAFB', // Crisp clean white
+    muted: '#9CA3AF', // Neutral slate/gray
     wash: 'rgba(52, 211, 153, 0.12)',
     primary: '#34D399', // Mint green
   },
@@ -65,10 +65,10 @@ const config: Config = {
             muted: circleColors.dark.muted,
             wash: circleColors.dark.wash,
             primary: circleColors.dark.primary,
-            bg: '#131316',
-            border: '#2E2E35',
-            hover: '#2A2A30',
-            card: '#1D1D21',
+            bg: '#0B0C0E',
+            border: '#26292E',
+            hover: '#22252A',
+            card: '#16181B',
           },
         },
       },

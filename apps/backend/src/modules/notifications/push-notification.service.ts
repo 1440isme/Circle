@@ -1,5 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
+import { RedisService } from '../../database/redis.service';
 
 export interface PushMessagePayload {
   to: string;
@@ -16,7 +17,10 @@ export class PushNotificationService {
   private readonly logger = new Logger(PushNotificationService.name);
   private readonly expoPushUrl = 'https://exp.host/--/api/v2/push/send';
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly redis?: RedisService,
+  ) {}
 
   /**
    * Send push notification to all active devices of a user
@@ -32,6 +36,7 @@ export class PushNotificationService {
       deepLink?: string | null;
       metadata?: Record<string, any> | null;
       badge?: number;
+      notificationId?: string;
     },
   ): Promise<void> {
     try {
@@ -44,6 +49,11 @@ export class PushNotificationService {
       });
 
       if (!devices.length) {
+        return;
+      }
+
+      if (!await this.reserveDelivery(userId)) {
+        this.logger.debug(`Push skipped for ${userId}, notification ${payload.notificationId ?? 'unknown'}: rate limit or Redis unavailable`);
         return;
       }
 
@@ -68,11 +78,12 @@ export class PushNotificationService {
         sound: 'default',
         badge: payload.badge,
         data: {
+          metadata: payload.metadata,
+          notificationId: payload.notificationId,
           type: payload.type,
           targetType: payload.targetType,
           targetId: payload.targetId,
           deepLink: payload.deepLink,
-          ...payload.metadata,
         },
       }));
 
@@ -80,6 +91,23 @@ export class PushNotificationService {
       await this.sendExpoBatch(messages, devices);
     } catch (err: any) {
       this.logger.error(`Error dispatching push to user ${userId}: ${err.message}`, err.stack);
+    }
+  }
+
+  private async reserveDelivery(userId: string): Promise<boolean> {
+    if (!this.redis) return true;
+    const client = this.redis.getClient();
+    if (client?.status !== 'ready') return false;
+    const window = Math.floor(Date.now() / 3_600_000);
+    try {
+      const count = await client.eval(
+        'local n = redis.call("INCR", KEYS[1]); if n == 1 then redis.call("EXPIRE", KEYS[1], 3600) end; return n',
+        1,
+        `notifications:push:${userId}:${window}`,
+      );
+      return Number(count) <= 20;
+    } catch {
+      return false;
     }
   }
 
@@ -99,6 +127,7 @@ export class PushNotificationService {
       try {
         const response = await fetch(this.expoPushUrl, {
           method: 'POST',
+          signal: AbortSignal.timeout(8_000),
           headers: {
             'Content-Type': 'application/json',
             Accept: 'application/json',
@@ -125,22 +154,18 @@ export class PushNotificationService {
             const ticket = result.data[i];
             const device = devices[i];
 
-            if (ticket && device && ticket.status === 'error') {
-              this.logger.warn(
-                `Push ticket error for device token [${device.token.slice(0, 15)}...]: ${ticket.message || ''} (${ticket.details?.error || ''})`,
-              );
+            if (!ticket || !device) continue;
+            if (ticket.status === 'ok') {
+              this.logger.debug(`Expo accepted push for device ${device.id}`);
+              continue;
+            }
 
-              // If token is invalid or unregistered, mark INVALID (NOT-09)
-              if (
-                ticket.details?.error === 'DeviceNotRegistered' ||
-                ticket.details?.error === 'InvalidCredentials'
-              ) {
-                await this.prisma.deviceToken.updateMany({
-                  where: { token: device.token },
-                  data: { status: 'INVALID' },
-                });
-                this.logger.log(`Marked dead device token ${device.id} as INVALID`);
-              }
+            this.logger.warn(`Expo rejected push for device ${device.id}: ${ticket.details?.error ?? 'unknown'}`);
+            if (ticket.details?.error === 'DeviceNotRegistered') {
+              await this.prisma.deviceToken.updateMany({
+                where: { token: device.token },
+                data: { status: 'INVALID' },
+              });
             }
           }
         }

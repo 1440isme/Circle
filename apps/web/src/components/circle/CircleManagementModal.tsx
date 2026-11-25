@@ -65,8 +65,11 @@ import {
   useCreateReportMutation,
 } from '@/hooks/use-circle-queries';
 import { useUploadMedia } from '@/hooks/use-upload-media';
-import { MemberRole, PublicUserEntity } from '@circle/types';
+import { apiRequest } from '@/lib/api';
+import { getActiveCircleMute } from '@circle/shared';
+import { CircleNotificationSettings, CircleMuteDuration, UpdateCircleNotificationSettingsInput, MemberRole, PublicUserEntity } from '@circle/types';
 import { MessageBubbleThemes, MessageTheme } from '@circle/shared';
+import { ConfirmModal } from '../ui/ConfirmModal';
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -126,6 +129,7 @@ export const CircleManagementModal: React.FC = () => {
   const [confirmDeleteCircle, setConfirmDeleteCircle] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [themeSuccessNotice, setThemeSuccessNotice] = useState<boolean>(false);
 
   // Tab 1: Chat Info view / edit state
   const [isEditingChatInfo, setIsEditingChatInfo] = useState<boolean>(false);
@@ -143,6 +147,7 @@ export const CircleManagementModal: React.FC = () => {
   const [selectedFriendIds, setSelectedFriendIds] = useState<string[]>([]);
 
   // Tab 3: Section 1 - Thông báo (Notifications)
+  const [notificationBusy, setNotificationBusy] = useState(false);
   const [isChatMuted, setIsChatMuted] = useState<boolean>(false);
   const [muteDuration, setMuteDuration] = useState<string>('8h');
   const [messageNotificationLevel, setMessageNotificationLevel] = useState<'all' | 'mentions' | 'none'>('all');
@@ -176,79 +181,75 @@ export const CircleManagementModal: React.FC = () => {
   const [isCustomCapacity, setIsCustomCapacity] = useState<boolean>(false);
   const [formThemeColor, setFormThemeColor] = useState<MessageTheme>('sage');
 
+  const prevModalOpenRef = useRef(false);
+  const prevCircleIdRef = useRef<string | null>(null);
+
   // Sync tab & form values when opened or activeCircle changes
   useEffect(() => {
     if (isManageModalOpen && activeCircle) {
-      setActiveTab(getInitialTab());
-      if (manageActiveTab === 'requests') {
-        setMembersSubTab('requests');
-      } else {
-        setMembersSubTab('roster');
-      }
-      setErrorMessage(null);
-      setSuccessMessage(null);
-      setIsEditingChatInfo(false);
-      setEditingMemberId(null);
-      setIsAddMemberOpen(false);
-      setSelectedFriendIds([]);
-      setFriendSearch('');
-      setIsReportOpen(false);
-      setCustomReportText('');
-      setReportFieldError(null);
-      setIsReportUserOpen(false);
-      setReportedUserId('');
-      setCustomReportUserText('');
-      setReportUserFieldError(null);
-      setIsHelpOpen(false);
-      setShowAvatarPresets(false);
-      setIsManageMutedMembersOpen(false);
-      setMemberMuteSearch('');
-      setFormName(activeCircle.name || '');
-      setFormAvatar(activeCircle.avatarUrl || '');
-      setFormIsPrivate(Boolean(activeCircle.isPrivate));
-      setFormMaxMembers(activeCircle.maxMembers ?? null);
-      setIsCustomCapacity(activeCircle.maxMembers !== null);
-      setFormThemeColor(((activeCircle as any).themeColor as MessageTheme) || 'sage');
+      const isOpening = !prevModalOpenRef.current || prevCircleIdRef.current !== activeCircle.id;
+      prevModalOpenRef.current = isManageModalOpen;
+      prevCircleIdRef.current = activeCircle.id;
 
-      // Load personal preferences from localStorage if available
-      try {
-        const storedReceipts = localStorage.getItem(`circle_${activeCircle.id}_read_receipts`);
-        if (storedReceipts !== null) setReadReceipts(storedReceipts === 'true');
-
-        const storedTyping = localStorage.getItem(`circle_${activeCircle.id}_typing_indicator`);
-        if (storedTyping !== null) setShowTypingIndicator(storedTyping === 'true');
-
-        const storedAi = localStorage.getItem(`circle_${activeCircle.id}_ai_processing`);
-        if (storedAi !== null) setAllowAiProcessing(storedAi === 'true');
-
-        const storedChatMute = localStorage.getItem(`circle_${activeCircle.id}_chat_muted`);
-        if (storedChatMute !== null) {
-          setIsChatMuted(storedChatMute === 'true');
+      if (isOpening) {
+        setActiveTab(getInitialTab());
+        if (manageActiveTab === 'requests') {
+          setMembersSubTab('requests');
         } else {
-          const legacyMute = localStorage.getItem(`circle_${activeCircle.id}_notification_mute`);
-          setIsChatMuted(legacyMute !== null && legacyMute !== 'all');
+          setMembersSubTab('roster');
         }
+        setErrorMessage(null);
+        setSuccessMessage(null);
+        setThemeSuccessNotice(false);
+        setIsEditingChatInfo(false);
+        setEditingMemberId(null);
+        setIsAddMemberOpen(false);
+        setSelectedFriendIds([]);
+        setFriendSearch('');
+        setIsReportOpen(false);
+        setCustomReportText('');
+        setReportFieldError(null);
+        setIsReportUserOpen(false);
+        setReportedUserId('');
+        setCustomReportUserText('');
+        setReportUserFieldError(null);
+        setIsHelpOpen(false);
+        setShowAvatarPresets(false);
+        setIsManageMutedMembersOpen(false);
+        setMemberMuteSearch('');
+        setFormName(activeCircle.name || '');
+        setFormAvatar(activeCircle.avatarUrl || '');
+        setFormIsPrivate(Boolean(activeCircle.isPrivate));
+        setFormMaxMembers(activeCircle.maxMembers ?? null);
+        setIsCustomCapacity(activeCircle.maxMembers !== null);
+        setFormThemeColor(((activeCircle as any).themeColor as MessageTheme) || 'sage');
 
-        const storedDuration = localStorage.getItem(`circle_${activeCircle.id}_mute_duration`);
-        if (storedDuration) setMuteDuration(storedDuration);
+        // Load personal preferences from localStorage if available
+        try {
+          const storedReceipts = localStorage.getItem(`circle_${activeCircle.id}_read_receipts`);
+          if (storedReceipts !== null) setReadReceipts(storedReceipts === 'true');
 
-        const storedMsgLevel = localStorage.getItem(`circle_${activeCircle.id}_msg_level`);
-        if (storedMsgLevel === 'all' || storedMsgLevel === 'mentions' || storedMsgLevel === 'none') {
-          setMessageNotificationLevel(storedMsgLevel);
+          const storedTyping = localStorage.getItem(`circle_${activeCircle.id}_typing_indicator`);
+          if (storedTyping !== null) setShowTypingIndicator(storedTyping === 'true');
+
+          const storedAi = localStorage.getItem(`circle_${activeCircle.id}_ai_processing`);
+          if (storedAi !== null) setAllowAiProcessing(storedAi === 'true');
+
+          const storedCallsMuted = localStorage.getItem(`circle_${activeCircle.id}_calls_muted`);
+          if (storedCallsMuted !== null) setIsCallsMuted(storedCallsMuted === 'true');
+
+          const storedMutedMembers = localStorage.getItem(`circle_${activeCircle.id}_muted_members`);
+          if (storedMutedMembers) {
+            try {
+              setMutedMemberIds(JSON.parse(storedMutedMembers));
+            } catch {}
+          }
+        } catch {
+          // Ignore localStorage error
         }
-
-        const storedCallsMuted = localStorage.getItem(`circle_${activeCircle.id}_calls_muted`);
-        if (storedCallsMuted !== null) setIsCallsMuted(storedCallsMuted === 'true');
-
-        const storedMutedMembers = localStorage.getItem(`circle_${activeCircle.id}_muted_members`);
-        if (storedMutedMembers) {
-          try {
-            setMutedMemberIds(JSON.parse(storedMutedMembers));
-          } catch {}
-        }
-      } catch {
-        // Ignore localStorage error
       }
+    } else {
+      prevModalOpenRef.current = false;
     }
   }, [isManageModalOpen, manageActiveTab, activeCircle]);
 
@@ -509,8 +510,8 @@ export const CircleManagementModal: React.FC = () => {
       await updateCircleMutation.mutateAsync({
         themeColor: color,
       });
-      setSuccessMessage(t.circle.themeUpdatedToast);
-      setTimeout(() => setSuccessMessage(null), 2500);
+      setThemeSuccessNotice(true);
+      setTimeout(() => setThemeSuccessNotice(false), 2500);
     } catch (err: any) {
       setErrorMessage(err?.message || t.circle.themeUpdateError);
     }
@@ -658,32 +659,55 @@ export const CircleManagementModal: React.FC = () => {
     } catch {}
   };
 
-  const handleToggleChatMute = () => {
-    const next = !isChatMuted;
-    setIsChatMuted(next);
+  useEffect(() => {
+    if (!isManageModalOpen || !circleId) return;
+    let active = true;
+    setNotificationBusy(true);
+    apiRequest<CircleNotificationSettings>(`/notifications/circles/${circleId}/settings`)
+      .then(({ data }) => {
+        if (!active || !data) return;
+        const duration = getActiveCircleMute(data.mutedUntil);
+        setIsChatMuted(Boolean(duration));
+        setMuteDuration(duration ?? '8h');
+        setMessageNotificationLevel(data.notificationLevel === 'MENTIONS' ? 'mentions' : data.notificationLevel === 'NONE' ? 'none' : 'all');
+      })
+      .catch(() => { if (active) setErrorMessage(t.notificationsCenter.settingsError); })
+      .finally(() => { if (active) setNotificationBusy(false); });
+    return () => { active = false; };
+  }, [isManageModalOpen, circleId, t.notificationsCenter.settingsError]);
+
+  const saveNotificationSettings = async (input: UpdateCircleNotificationSettingsInput) => {
+    if (!circleId || notificationBusy) return false;
+    setNotificationBusy(true);
+    setErrorMessage(null);
     try {
-      localStorage.setItem(`circle_${circleId}_chat_muted`, String(next));
-      if (!next) {
-        localStorage.setItem(`circle_${circleId}_notification_mute`, 'all');
-      } else {
-        localStorage.setItem(`circle_${circleId}_notification_mute`, muteDuration);
-      }
-    } catch {}
+      const { data } = await apiRequest<CircleNotificationSettings>(`/notifications/circles/${circleId}/settings`, {
+        method: 'PATCH',
+        body: JSON.stringify(input),
+      });
+      const duration = getActiveCircleMute(data.mutedUntil);
+      setIsChatMuted(Boolean(duration));
+      if (duration) setMuteDuration(duration);
+      setMessageNotificationLevel(data.notificationLevel === 'MENTIONS' ? 'mentions' : data.notificationLevel === 'NONE' ? 'none' : 'all');
+      return true;
+    } catch {
+      setErrorMessage(t.notificationsCenter.settingsError);
+      return false;
+    } finally {
+      setNotificationBusy(false);
+    }
+  };
+
+  const handleToggleChatMute = () => {
+    void saveNotificationSettings({ mute: isChatMuted ? null : muteDuration as CircleMuteDuration });
   };
 
   const handleSelectMuteDuration = (duration: string) => {
-    setMuteDuration(duration);
-    try {
-      localStorage.setItem(`circle_${circleId}_mute_duration`, duration);
-      localStorage.setItem(`circle_${circleId}_notification_mute`, duration);
-    } catch {}
+    void saveNotificationSettings({ mute: duration as CircleMuteDuration });
   };
 
   const handleChangeMessageNotificationLevel = (level: 'all' | 'mentions' | 'none') => {
-    setMessageNotificationLevel(level);
-    try {
-      localStorage.setItem(`circle_${circleId}_msg_level`, level);
-    } catch {}
+    void saveNotificationSettings({ notificationLevel: level === 'mentions' ? 'MENTIONS' : level === 'none' ? 'NONE' : 'ALL' });
   };
 
   const handleToggleCallsMute = () => {
@@ -806,26 +830,42 @@ export const CircleManagementModal: React.FC = () => {
     return name.toLowerCase().includes(term);
   });
 
+  // Nav items definition matching SystemSettingsModal layout
+  const navItems = [
+    { id: 'chatInfo', label: t.circle.chatInfoTab, icon: MessageSquare },
+    {
+      id: 'members',
+      label: t.circle.settingsTabMembers,
+      icon: Users,
+      badge: joinRequests.length > 0 && isOwnerOrAdmin ? joinRequests.length : undefined,
+    },
+    { id: 'privacySupport', label: t.circle.notificationsAndPrivacyTab, icon: Bell },
+    { id: 'circleSettings', label: t.circle.circleSettingsTab, icon: Sliders },
+    { id: 'supportReports', label: t.circle.supportAndReportsTab, icon: HelpCircle },
+  ];
+
   return (
     <div
       onClick={(e) => e.target === e.currentTarget && setManageModalOpen(false)}
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/40 backdrop-blur-sm animate-fadeIn"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-fadeIn"
     >
-      {/* Khung cố định (Liquid Glass Sheet rounded-[28px]) */}
+      {/* 2-Column Desktop Settings Dialog matching SystemSettingsModal */}
       <div
         role="dialog"
         aria-modal="true"
-        className="relative w-full max-w-4xl h-[640px] max-h-[92vh] glass-sheet rounded-[28px] shadow-2xl flex flex-col md:flex-row overflow-hidden text-circle-charcoal dark:text-circle-dark-text"
+        className="relative w-full max-w-4xl h-[620px] max-h-[92vh] rounded-2xl md:rounded-[24px] bg-white dark:bg-circle-dark-canvas border border-circle-hairline dark:border-circle-dark-hairline shadow-2xl flex flex-col md:flex-row overflow-hidden text-circle-charcoal dark:text-white"
       >
         
         {/* =========================================================================
-            CỘT TRÁI CỐ ĐỊNH (FIXED LEFT NAVIGATION FRAME)
+            LEFT COLUMN: Sidebar Navigation matching SystemSettingsModal
            ========================================================================= */}
-        <aside className="w-full md:w-64 shrink-0 flex flex-col justify-between border-b md:border-b-0 md:border-r border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/40 dark:bg-circle-dark-canvas/40 p-4">
-          <div className="space-y-4">
-            {/* Circle Identity Card */}
-            <div className="flex items-center gap-3 pb-3 border-b border-circle-hairline dark:border-circle-dark-hairline">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-circle-primary/10 text-circle-sage dark:text-circle-dark-primary font-bold text-xs uppercase overflow-hidden shadow-2xs">
+        <aside className="w-full md:w-64 shrink-0 flex flex-col border-b md:border-b-0 md:border-r border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas p-3 sm:p-4">
+          <div className="px-2 py-1 mb-3">
+            <h2 className="text-lg sm:text-xl font-bold tracking-tight text-circle-charcoal dark:text-white">
+              {t.nav.circleSettings}
+            </h2>
+            <div className="flex items-center gap-3 mt-3 p-2 rounded-xl bg-white/60 dark:bg-circle-dark-surface border border-circle-hairline dark:border-circle-dark-hairline">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-circle-primary/10 text-circle-sage dark:text-circle-dark-primary font-bold text-xs uppercase overflow-hidden">
                 {formAvatar ? (
                   <img src={formAvatar} alt={activeCircle.name} className="h-full w-full object-cover" />
                 ) : (
@@ -833,139 +873,68 @@ export const CircleManagementModal: React.FC = () => {
                 )}
               </div>
               <div className="min-w-0 flex-1">
-                <h3 className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text truncate">
+                <h3 className="text-xs font-bold text-circle-charcoal dark:text-white truncate">
                   {activeCircle.name}
                 </h3>
+                <p className="text-[10px] text-circle-slate dark:text-white/60 font-mono truncate">
+                  @{activeCircle.handle}
+                </p>
               </div>
             </div>
+          </div>
 
-            {/* Navigation Tabs (Refined Flat Rail - active is rounded-xl) */}
-            <nav className="flex md:flex-col gap-1 overflow-x-auto md:overflow-visible no-scrollbar">
-              {/* Tab 1: Thông tin đoạn chat */}
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTab('chatInfo');
-                  setIsAddMemberOpen(false);
-                }}
-                className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all shrink-0 md:w-full text-left ${
-                  activeTab === 'chatInfo'
-                    ? 'bg-circle-wash dark:bg-circle-dark-wash text-circle-sage dark:text-circle-dark-primary font-bold shadow-xs'
-                    : 'text-circle-slate dark:text-circle-dark-muted hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas hover:text-circle-charcoal dark:hover:text-circle-dark-text'
-                }`}
-              >
-                <MessageSquare className="h-4 w-4 shrink-0" />
-                <span className="truncate">{t.circle.chatInfoTab}</span>
-              </button>
-
-              {/* Tab 2: Thành viên */}
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTab('members');
-                  setIsAddMemberOpen(false);
-                }}
-                className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all shrink-0 md:w-full text-left ${
-                  activeTab === 'members'
-                    ? 'bg-circle-wash dark:bg-circle-dark-wash text-circle-sage dark:text-circle-dark-primary font-bold shadow-xs'
-                    : 'text-circle-slate dark:text-circle-dark-muted hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas hover:text-circle-charcoal dark:hover:text-circle-dark-text'
-                }`}
-              >
-                <div className="flex items-center gap-2.5 truncate">
-                  <Users className="h-4 w-4 shrink-0" />
-                  <span className="truncate">{t.circle.settingsTabMembers}</span>
-                </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <span className="rounded-full px-2 py-0.2 text-[10px] bg-circle-canvas dark:bg-circle-dark-canvas font-bold">
-                    {members.length}
-                  </span>
-                  {joinRequests.length > 0 && isOwnerOrAdmin && (
-                    <span className="rounded-full px-1.5 py-0.2 text-[10px] bg-red-500 text-white font-bold animate-pulse">
-                      {joinRequests.length}
+          {/* Navigation Pill List */}
+          <nav className="space-y-1 flex-1 overflow-y-auto custom-scrollbar">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = activeTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => {
+                    setActiveTab(item.id as TabType);
+                    setIsAddMemberOpen(false);
+                  }}
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all text-left ${
+                    isActive
+                      ? 'bg-circle-wash dark:bg-circle-dark-elevated text-circle-sage dark:text-white border border-circle-hairline dark:border-circle-dark-hairline shadow-xs font-semibold'
+                      : 'text-circle-slate dark:text-white/70 hover:bg-circle-canvas dark:hover:bg-white/5 hover:text-circle-charcoal dark:hover:text-white border border-transparent'
+                  }`}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Icon className={`h-4 w-4 shrink-0 ${isActive ? 'text-circle-sage dark:text-white' : 'text-circle-slate dark:text-white/60'}`} />
+                    <span className="truncate">{item.label}</span>
+                  </div>
+                  {item.badge !== undefined && (
+                    <span className="ml-2 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-circle-primary text-circle-charcoal">
+                      {item.badge}
                     </span>
                   )}
-                </div>
-              </button>
-
-              {/* Tab 3: Thông báo & Quyền riêng tư */}
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTab('privacySupport');
-                  setIsAddMemberOpen(false);
-                }}
-                className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all shrink-0 md:w-full text-left ${
-                  activeTab === 'privacySupport'
-                    ? 'bg-circle-wash dark:bg-circle-dark-wash text-circle-sage dark:text-circle-dark-primary font-bold shadow-xs'
-                    : 'text-circle-slate dark:text-circle-dark-muted hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas hover:text-circle-charcoal dark:hover:text-circle-dark-text'
-                }`}
-              >
-                <Bell className="h-4 w-4 shrink-0" />
-                <span className="truncate">{t.circle.notificationsAndPrivacyTab}</span>
-              </button>
-
-              {/* Tab 4: Thiết lập Vòng tròn */}
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTab('circleSettings');
-                  setIsAddMemberOpen(false);
-                }}
-                className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all shrink-0 md:w-full text-left ${
-                  activeTab === 'circleSettings'
-                    ? 'bg-circle-wash dark:bg-circle-dark-wash text-circle-sage dark:text-circle-dark-primary font-bold shadow-xs'
-                    : 'text-circle-slate dark:text-circle-dark-muted hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas hover:text-circle-charcoal dark:hover:text-circle-dark-text'
-                }`}
-              >
-                <div className="flex items-center gap-2.5 truncate">
-                  <Sliders className="h-4 w-4 shrink-0" />
-                  <span className="truncate">{t.circle.circleSettingsTab}</span>
-                </div>
-              </button>
-
-              {/* Tab 5: Trợ giúp & Báo cáo */}
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTab('supportReports');
-                  setIsAddMemberOpen(false);
-                }}
-                className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all shrink-0 md:w-full text-left ${
-                  activeTab === 'supportReports'
-                    ? 'bg-circle-wash dark:bg-circle-dark-wash text-circle-sage dark:text-circle-dark-primary font-bold shadow-xs'
-                    : 'text-circle-slate dark:text-circle-dark-muted hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas hover:text-circle-charcoal dark:hover:text-circle-dark-text'
-                }`}
-              >
-                <HelpCircle className="h-4 w-4 shrink-0" />
-                <span className="truncate">{t.circle.supportAndReportsTab}</span>
-              </button>
-            </nav>
-          </div>
+                </button>
+              );
+            })}
+          </nav>
         </aside>
 
         {/* =========================================================================
-            KHUNG NỘI DUNG BÊN PHẢI (RIGHT CONTENT PANE)
+            RIGHT COLUMN: Active Content Panel matching SystemSettingsModal
            ========================================================================= */}
-        <main className="flex-1 min-h-0 flex flex-col overflow-hidden bg-transparent">
-          {/* Header Bar with Tab Title & Close Button */}
-          <div className="flex items-center justify-between px-6 py-3.5 border-b border-circle-hairline dark:border-circle-dark-hairline bg-transparent shrink-0">
-            <h3 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
-              {activeTab === 'chatInfo' && t.circle.chatInfoTitle}
-              {activeTab === 'members' && t.circle.settingsTabMembers}
-              {activeTab === 'privacySupport' && t.circle.notificationsAndPrivacyTab}
-              {activeTab === 'circleSettings' && t.circle.circleSettingsTab}
-              {activeTab === 'supportReports' && t.circle.supportAndReportsTab}
+        <main className="flex-1 flex flex-col min-w-0 bg-white dark:bg-circle-dark-canvas">
+          {/* Panel Header */}
+          <header className="flex items-center justify-between px-6 py-4 border-b border-circle-hairline dark:border-circle-dark-hairline shrink-0">
+            <h3 className="text-base sm:text-lg font-bold text-circle-charcoal dark:text-white truncate">
+              {navItems.find((n) => n.id === activeTab)?.label}
             </h3>
             <button
               type="button"
               onClick={() => setManageModalOpen(false)}
               aria-label={t.common.close}
-              title={t.common.close}
-              className="p-2 rounded-full text-circle-slate hover:text-circle-charcoal dark:text-circle-dark-muted dark:hover:text-circle-dark-text hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas transition-colors"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-circle-canvas dark:bg-circle-dark-elevated text-circle-slate dark:text-white/70 hover:bg-circle-wash dark:hover:bg-circle-dark-elevated hover:text-circle-charcoal dark:hover:text-white transition-colors"
             >
-              <X className="h-5 w-5" />
+              <X className="h-4 w-4" />
             </button>
-          </div>
+          </header>
 
           {/* Feedback Banners */}
           {errorMessage && (
@@ -990,202 +959,289 @@ export const CircleManagementModal: React.FC = () => {
             className="hidden"
           />
 
-          {/* Tab Content Container */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          {/* Content Body with clean custom-scrollbar */}
+          <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6 custom-scrollbar">
             {/* =========================================================================
-                TAB 1: THÔNG TIN ĐOẠN CHAT (VIEW MODE VS EDIT MODE WITH PENCIL & AVATAR)
+                TAB 1: THÔNG TIN ĐOẠN CHAT (CLUSTERED CARDS)
                ========================================================================= */}
             {activeTab === 'chatInfo' && (
-              <div className="space-y-6">
-                {!isEditingChatInfo ? (
-                  /* VIEW MODE: Flat Clean Profile Header without nested rounded card */
-                  <div className="space-y-6">
-                    <div className="relative flex flex-col sm:flex-row items-center sm:items-start gap-5 py-2">
-                      {/* Avatar Display */}
-                      <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-circle-charcoal dark:bg-circle-primary text-white dark:text-circle-charcoal font-bold text-xl uppercase overflow-hidden shadow-sm">
-                        {formAvatar ? (
-                          <img src={formAvatar} alt={activeCircle.name} className="h-full w-full object-cover" />
-                        ) : (
-                          activeCircle.name.slice(0, 2).toUpperCase()
-                        )}
-                      </div>
+              <div className="space-y-5">
+                {/* Cụm 1: HỒ SƠ VÒNG TRÒN */}
+                <div className="space-y-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-circle-slate dark:text-white/60 px-1">
+                    {t.circle.chatInfoTitle}
+                  </span>
+                  <div className="rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/30 dark:bg-circle-dark-surface p-4 sm:p-5">
+                    {!isEditingChatInfo ? (
+                      /* VIEW MODE: Clean Profile Header */
+                      <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
+                        {/* Avatar Display */}
+                        <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-circle-charcoal dark:bg-circle-primary text-white dark:text-circle-charcoal font-bold text-xl uppercase overflow-hidden shadow-sm">
+                          {formAvatar ? (
+                            <img src={formAvatar} alt={activeCircle.name} className="h-full w-full object-cover" />
+                          ) : (
+                            activeCircle.name.slice(0, 2).toUpperCase()
+                          )}
+                        </div>
 
-                      {/* Info & Pencil Action */}
-                      <div className="min-w-0 flex-1 text-center sm:text-left space-y-1">
-                        <div className="flex items-center justify-center sm:justify-between gap-3">
-                          <h4 className="text-lg font-bold text-circle-charcoal dark:text-circle-dark-text truncate">
-                            {activeCircle.name}
-                          </h4>
+                        {/* Info & Pencil Action */}
+                        <div className="min-w-0 flex-1 text-center sm:text-left space-y-1">
+                          <div className="flex items-center justify-center sm:justify-between gap-3">
+                            <h4 className="text-lg font-bold text-circle-charcoal dark:text-white truncate">
+                              {activeCircle.name}
+                            </h4>
+                            {isOwner && (
+                              <button
+                                type="button"
+                                onClick={() => setIsEditingChatInfo(true)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline hover:bg-circle-canvas dark:hover:bg-circle-dark-elevated text-xs font-semibold text-circle-charcoal dark:text-white transition-all"
+                                title={t.circle.editChatInfo}
+                              >
+                                <Pencil className="h-3.5 w-3.5 text-circle-sage dark:text-circle-dark-primary" />
+                                <span>{t.circle.editChatInfo}</span>
+                              </button>
+                            )}
+                          </div>
+
+                          <p className="text-xs text-circle-slate dark:text-white/60 font-mono truncate">
+                            @{activeCircle.handle}
+                          </p>
+
+                          <div className="pt-1 flex items-center justify-center sm:justify-start gap-3 text-xs text-circle-slate dark:text-white/60">
+                            <span className="inline-flex items-center gap-1 font-medium">
+                              <Users className="h-3.5 w-3.5 text-circle-sage dark:text-circle-dark-primary" />
+                              {members.length} {t.circle.settingsTabMembers.toLowerCase()}
+                            </span>
+                            <span>•</span>
+                            <span className="font-medium">
+                              {activeCircle.isPrivate
+                                ? t.circle.requireApprovalTitle
+                                : t.circle.privacyPublic}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      /* EDIT MODE: Form to update name and visual avatar */
+                      <form onSubmit={handleSaveChatInfo} className="space-y-4 animate-fade-in">
+                        {/* Visual Avatar Editor */}
+                        <div className="flex flex-col items-center gap-3 p-4 rounded-2xl bg-white/60 dark:bg-circle-dark-canvas/60 border border-circle-hairline dark:border-circle-dark-hairline">
+                          <div className="relative group">
+                            <div className="relative flex h-20 w-20 items-center justify-center rounded-full border-2 border-circle-primary/40 bg-circle-wash dark:bg-circle-dark-elevated shadow-md overflow-hidden">
+                              {formAvatar ? (
+                                <img
+                                  src={formAvatar}
+                                  alt={formName || activeCircle.name}
+                                  className="h-full w-full object-cover"
+                                  onError={() => setFormAvatar('')}
+                                />
+                              ) : (
+                                <span className="text-xl font-bold text-circle-charcoal dark:text-circle-dark-text">
+                                  {getInitials(formName || activeCircle.name)}
+                                </span>
+                              )}
+
+                              {isUploadingMedia && (
+                                <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                                  <Loader2 className="h-5 w-5 animate-spin text-white" />
+                                </div>
+                              )}
+                            </div>
+
+                            <button
+                              type="button"
+                              disabled={isUploadingMedia}
+                              onClick={() => fileInputRef.current?.click()}
+                              className="absolute bottom-0 right-0 p-1.5 rounded-full bg-circle-primary text-circle-charcoal shadow-md hover:scale-110 active:scale-95 transition-all"
+                              title={t.circle.uploadFromDevice}
+                            >
+                              <Camera className="h-3.5 w-3.5 stroke-[2.5]" />
+                            </button>
+                          </div>
+
+                          {/* Quick Avatar Presets */}
+                          <div className="w-full space-y-2 text-center pt-1">
+                            <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                              <button
+                                type="button"
+                                onClick={() => setFormAvatar('')}
+                                className={`flex h-8 w-8 items-center justify-center rounded-full border text-xs font-bold transition-all ${
+                                  !formAvatar
+                                    ? 'border-circle-primary ring-2 ring-circle-primary/30 bg-circle-primary text-circle-charcoal'
+                                    : 'border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface text-circle-slate'
+                                }`}
+                                title={t.circle.defaultInitialsPreset}
+                              >
+                                {getInitials(formName || activeCircle.name)}
+                              </button>
+
+                              {AVATAR_PRESETS.map((preset, idx) => (
+                                <button
+                                  key={idx}
+                                  type="button"
+                                  onClick={() => setFormAvatar(preset)}
+                                  className={`relative h-8 w-8 rounded-full overflow-hidden border transition-all ${
+                                    formAvatar === preset
+                                      ? 'border-circle-primary ring-2 ring-circle-primary/40 scale-105'
+                                      : 'border-circle-hairline dark:border-circle-dark-hairline opacity-75 hover:opacity-100'
+                                  }`}
+                                >
+                                  <img src={preset} alt={`Preset ${idx + 1}`} className="h-full w-full object-cover" />
+                                </button>
+                              ))}
+
+                              <button
+                                type="button"
+                                onClick={() => fileInputRef.current?.click()}
+                                disabled={isUploadingMedia}
+                                className="flex h-8 w-8 items-center justify-center rounded-full border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white transition-all"
+                                title={t.circle.uploadFromDevice}
+                              >
+                                {isUploadingMedia ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin text-circle-sage dark:text-circle-dark-primary" />
+                                ) : (
+                                  <Upload className="h-3.5 w-3.5" />
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Circle Name Field */}
+                        <div>
+                          <label className="block text-xs font-semibold text-circle-charcoal dark:text-white mb-1.5">
+                            {t.circle.nameLabel}
+                          </label>
+                          <input
+                            type="text"
+                            value={formName}
+                            onChange={(e) => setFormName(e.target.value)}
+                            placeholder={t.circle.namePlaceholder}
+                            maxLength={50}
+                            required
+                            className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-canvas px-3.5 py-2.5 text-xs text-circle-charcoal dark:text-white focus:outline-none focus:ring-1 focus:ring-circle-primary shadow-xs"
+                          />
+                        </div>
+
+                        {/* Action buttons */}
+                        <div className="flex items-center justify-end gap-2 pt-1">
                           <button
                             type="button"
-                            onClick={() => setIsEditingChatInfo(true)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text transition-all"
-                            title={t.circle.editChatInfo}
+                            onClick={handleCancelEditChatInfo}
+                            className="px-3.5 py-2 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline text-xs font-semibold text-circle-slate dark:text-white/70 hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas hover:text-circle-charcoal dark:hover:text-white transition-all"
                           >
-                            <Pencil className="h-3.5 w-3.5 text-circle-sage dark:text-circle-dark-primary" />
-                            <span>{t.circle.editChatInfo}</span>
+                            {t.circle.cancelEdit}
+                          </button>
+                          <button
+                            type="submit"
+                            disabled={updateCircleMutation.isPending || isUploadingMedia}
+                            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-circle-primary hover:bg-circle-sage text-circle-charcoal dark:text-circle-dark-canvas hover:text-white dark:hover:text-white text-xs font-bold transition-all shadow-sm disabled:opacity-50"
+                          >
+                            <Save className="h-3.5 w-3.5" />
+                            <span>{updateCircleMutation.isPending ? t.circle.savingChanges : t.circle.saveChanges}</span>
                           </button>
                         </div>
+                      </form>
+                    )}
+                  </div>
+                </div>
 
-                        <div className="pt-1 flex items-center justify-center sm:justify-start gap-3 text-xs text-circle-slate dark:text-circle-dark-muted">
-                          <span className="inline-flex items-center gap-1 font-medium">
-                            <Users className="h-3.5 w-3.5 text-circle-sage dark:text-circle-dark-primary" />
-                            {members.length} {t.circle.settingsTabMembers.toLowerCase()}
-                          </span>
-                        </div>
+                {/* Cụm 2: MÃ MỜI & LIÊN KẾT */}
+                <div className="space-y-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-circle-slate dark:text-white/60 px-1">
+                    {t.circle.inviteCodeAndLink}
+                  </span>
+                  <div className="rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/30 dark:bg-circle-dark-surface p-4 sm:p-5 divide-y divide-circle-hairline dark:divide-circle-dark-hairline">
+                    <div className="flex items-center justify-between pb-3">
+                      <div>
+                        <p className="text-xs font-semibold text-circle-charcoal dark:text-white">
+                          {t.circle.inviteCodeLabel}
+                        </p>
+                        <p className="font-mono text-sm font-bold text-circle-sage dark:text-circle-dark-primary mt-0.5">
+                          {currentInviteCode}
+                        </p>
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyCode(currentInviteCode)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-canvas hover:bg-circle-canvas dark:hover:bg-circle-dark-wash text-xs font-semibold text-circle-charcoal dark:text-white transition-all shadow-xs"
+                      >
+                        {copiedCode === currentInviteCode ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+                        <span>{copiedCode === currentInviteCode ? t.circle.copiedInviteCode : t.circle.copyCodeBtn}</span>
+                      </button>
                     </div>
 
-                    {/* Quick Metadata Info (Flat rows separated by hairline) */}
-                    <div className="pt-4 border-t border-circle-hairline dark:border-circle-dark-hairline divide-y divide-circle-hairline dark:divide-circle-dark-hairline">
-                      <div className="flex items-center justify-between py-3">
-                        <span className="text-xs font-semibold text-circle-slate dark:text-circle-dark-muted">
-                          {t.circle.inviteCodeLabel}
-                        </span>
-                        <span className="font-mono text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
-                          {currentInviteCode}
-                        </span>
+                    <div className="flex items-center justify-between pt-3">
+                      <div className="min-w-0 flex-1 pr-3">
+                        <p className="text-xs font-semibold text-circle-charcoal dark:text-white">
+                          {t.circle.linkTitle}
+                        </p>
+                        <p className="text-xs text-circle-slate dark:text-white/60 truncate font-mono mt-0.5">
+                          {inviteLink}
+                        </p>
                       </div>
-                      <div className="flex items-center justify-between py-3">
-                        <span className="text-xs font-semibold text-circle-slate dark:text-circle-dark-muted">
-                          {t.circle.maxMembersLabel}
-                        </span>
-                        <span className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
-                          {activeCircle.maxMembers
-                            ? t.circle.membersCount.replace('{count}', String(activeCircle.maxMembers))
-                            : t.circle.maxMembersUnlimited}
-                        </span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={handleCopyLink}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-canvas hover:bg-circle-canvas dark:hover:bg-circle-dark-wash text-xs font-semibold text-circle-charcoal dark:text-white transition-all shadow-xs"
+                        >
+                          {copiedLink ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+                          <span>{copiedLink ? t.circle.copiedInviteLink : t.circle.copyLinkBtn}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleShare}
+                          title={t.circle.shareInvite}
+                          className="p-1.5 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-canvas hover:bg-circle-canvas dark:hover:bg-circle-dark-wash text-circle-slate dark:text-white/70 hover:text-circle-charcoal dark:hover:text-white transition-all"
+                        >
+                          {sharedDone ? <Check className="h-4 w-4 text-emerald-500" /> : <Share2 className="h-4 w-4" />}
+                        </button>
                       </div>
                     </div>
                   </div>
-                ) : (
-                  /* EDIT MODE: Form to update name and visual avatar */
-                  <form onSubmit={handleSaveChatInfo} className="space-y-6 animate-fade-in">
-                    {/* Visual Avatar Editor */}
-                    <div className="flex flex-col items-center gap-3 p-5 rounded-3xl bg-circle-canvas/40 dark:bg-circle-dark-canvas/40 border border-circle-hairline dark:border-circle-dark-hairline">
-                      <div className="relative group">
-                        <div className="relative flex h-24 w-24 items-center justify-center rounded-full border-2 border-circle-primary/40 bg-circle-wash dark:bg-circle-dark-surface shadow-md overflow-hidden">
-                          {formAvatar ? (
-                            <img
-                              src={formAvatar}
-                              alt={formName || activeCircle.name}
-                              className="h-full w-full object-cover"
-                              onError={() => setFormAvatar('')}
+                </div>
+
+                {/* Cụm 3: MÀU CHỦ ĐỀ TIN NHẮN (BỎ GIẢI THÍCH TÊN MÀU) */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between px-1">
+                    <span className="text-xs font-bold uppercase tracking-wider text-circle-slate dark:text-white/60">
+                      {t.circle.chatThemeTitle}
+                    </span>
+                    {themeSuccessNotice && (
+                      <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 inline-flex items-center gap-1.5 animate-fadeIn">
+                        <Check className="h-3.5 w-3.5 stroke-[2.5]" />
+                        <span>{t.circle.themeUpdatedToast}</span>
+                      </span>
+                    )}
+                  </div>
+                  <div className="rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/30 dark:bg-circle-dark-surface p-4 sm:p-5">
+                    <div className="flex items-center gap-3 flex-wrap">
+                      {(Object.keys(MessageBubbleThemes) as MessageTheme[]).map((key) => {
+                        const item = MessageBubbleThemes[key];
+                        const isSelected = formThemeColor === key;
+                        return (
+                          <button
+                            key={key}
+                            type="button"
+                            onClick={() => handleThemeColorChange(key)}
+                            title={item.name}
+                            className="relative p-1 rounded-full flex items-center justify-center transition-transform hover:scale-110 active:scale-95 focus:outline-none cursor-pointer"
+                          >
+                            <span
+                              className="h-8 w-8 rounded-full transition-all flex items-center justify-center shadow-xs"
+                              style={{
+                                backgroundColor: item.color,
+                                outline: isSelected ? `2.5px solid ${item.color}` : 'none',
+                                outlineOffset: '2.5px',
+                              }}
                             />
-                          ) : (
-                            <span className="text-2xl font-bold text-circle-charcoal dark:text-circle-dark-text">
-                              {getInitials(formName || activeCircle.name)}
-                            </span>
-                          )}
-
-                          {/* Overlay spinner when uploading */}
-                          {isUploadingMedia && (
-                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                              <Loader2 className="h-6 w-6 animate-spin text-white" />
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Camera trigger icon */}
-                        <button
-                          type="button"
-                          disabled={isUploadingMedia}
-                          onClick={() => fileInputRef.current?.click()}
-                          className="absolute bottom-0 right-0 p-2 rounded-full bg-circle-primary text-circle-charcoal shadow-md hover:scale-110 active:scale-95 transition-all"
-                          title={t.circle.uploadFromDevice}
-                        >
-                          <Camera className="h-4 w-4 stroke-[2.5]" />
-                        </button>
-                      </div>
-
-                      {/* Quick Avatar Presets & Actions */}
-                      <div className="w-full space-y-2 text-center pt-2">
-                        <div className="flex items-center justify-center gap-2 flex-wrap">
-                          {/* Default Initials Option */}
-                          <button
-                            type="button"
-                            onClick={() => setFormAvatar('')}
-                            className={`flex h-9 w-9 items-center justify-center rounded-full border text-xs font-bold transition-all ${
-                              !formAvatar
-                                ? 'border-circle-primary ring-2 ring-circle-primary/30 bg-circle-primary text-circle-charcoal'
-                                : 'border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface text-circle-slate'
-                            }`}
-                            title={t.circle.defaultInitialsPreset}
-                          >
-                            {getInitials(formName || activeCircle.name)}
                           </button>
-
-                          {/* Quick Photo Presets */}
-                          {AVATAR_PRESETS.map((preset, idx) => (
-                            <button
-                              key={idx}
-                              type="button"
-                              onClick={() => setFormAvatar(preset)}
-                              className={`relative h-9 w-9 rounded-full overflow-hidden border transition-all ${
-                                formAvatar === preset
-                                  ? 'border-circle-primary ring-2 ring-circle-primary/40 scale-105'
-                                  : 'border-circle-hairline dark:border-circle-dark-hairline opacity-75 hover:opacity-100'
-                              }`}
-                            >
-                              <img src={preset} alt={`Preset ${idx + 1}`} className="h-full w-full object-cover" />
-                            </button>
-                          ))}
-
-                          {/* Upload from device button */}
-                          <button
-                            type="button"
-                            onClick={() => fileInputRef.current?.click()}
-                            disabled={isUploadingMedia}
-                            className="flex h-9 w-9 items-center justify-center rounded-full border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white hover:bg-circle-canvas dark:hover:bg-circle-dark-wash transition-all"
-                            title={t.circle.uploadFromDevice}
-                          >
-                            {isUploadingMedia ? (
-                              <Loader2 className="h-4 w-4 animate-spin text-circle-sage dark:text-circle-dark-primary" />
-                            ) : (
-                              <Upload className="h-4 w-4" />
-                            )}
-                          </button>
-                        </div>
-                      </div>
+                        );
+                      })}
                     </div>
-
-                    {/* Circle Name Field */}
-                    <div>
-                      <label className="block text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text mb-1.5">
-                        {t.circle.nameLabel}
-                      </label>
-                      <input
-                        type="text"
-                        value={formName}
-                        onChange={(e) => setFormName(e.target.value)}
-                        placeholder={t.circle.namePlaceholder}
-                        maxLength={50}
-                        required
-                        className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface px-3.5 py-2.5 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-none focus:ring-1 focus:ring-circle-primary shadow-xs"
-                      />
-                    </div>
-
-                    {/* Action buttons (Save & Cancel) */}
-                    <div className="flex items-center justify-end gap-2 pt-2">
-                      {/* Cancel & Save */}
-                      <button
-                        type="button"
-                        onClick={handleCancelEditChatInfo}
-                        className="px-4 py-2.5 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline text-xs font-semibold text-circle-slate dark:text-circle-dark-muted hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas hover:text-circle-charcoal dark:hover:text-white transition-all"
-                      >
-                        {t.circle.cancelEdit}
-                      </button>
-                      <button
-                        type="submit"
-                        disabled={updateCircleMutation.isPending || isUploadingMedia}
-                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-circle-primary hover:bg-circle-sage text-circle-charcoal dark:text-circle-dark-canvas hover:text-white dark:hover:text-white text-xs font-bold transition-all shadow-sm disabled:opacity-50"
-                      >
-                        <Save className="h-4 w-4" />
-                        <span>{updateCircleMutation.isPending ? t.circle.savingChanges : t.circle.saveChanges}</span>
-                      </button>
-                    </div>
-                  </form>
-                )}
+                  </div>
+                </div>
               </div>
             )}
 
@@ -1619,89 +1675,88 @@ export const CircleManagementModal: React.FC = () => {
             )}
 
             {/* =========================================================================
-                TAB 3: THÔNG BÁO & QUYỀN RIÊNG TƯ (FLAT SECTIONS DIVIDED BY LINES)
+                TAB 3: THÔNG BÁO & QUYỀN RIÊNG TƯ (CLUSTERED CARDS)
                ========================================================================= */}
             {activeTab === 'privacySupport' && (
-              <div className="space-y-6">
-                {/* -------------------------------------------------------------
-                    PHẦN 1: 🔔 THÔNG BÁO (NOTIFICATIONS - Flat, no bounded boxes)
-                   ------------------------------------------------------------- */}
-                <div className="space-y-3">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-circle-slate dark:text-circle-dark-muted flex items-center gap-1.5 pb-1">
-                    <Bell className="h-3.5 w-3.5 text-circle-sage dark:text-circle-dark-primary" />
-                    <span>{t.circle.notificationsTitle}</span>
-                  </h4>
+              <div className="space-y-5">
+                {/* Cụm 1: CÀI ĐẶT THÔNG BÁO */}
+                <div className="space-y-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-circle-slate dark:text-white/60 px-1">
+                    {t.circle.notificationsTitle}
+                  </span>
+                  <div className="rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/30 dark:bg-circle-dark-surface p-4 sm:p-5 divide-y divide-circle-hairline/60 dark:divide-circle-dark-hairline/60">
+                    {/* 1.1 Tắt thông báo về đoạn chat */}
+                    <div className="pb-3.5 space-y-2">
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-2.5">
+                          {isChatMuted ? (
+                            <BellOff className="h-4 w-4 text-red-500 shrink-0" />
+                          ) : (
+                            <Bell className="h-4 w-4 text-circle-sage dark:text-circle-dark-primary shrink-0" />
+                          )}
+                          <div>
+                            <span className="text-xs font-semibold text-circle-charcoal dark:text-white block">
+                              {t.circle.muteChat}
+                            </span>
+                          </div>
+                        </div>
 
-                  {/* 1.1 Tắt thông báo về đoạn chat (Mute Chat Toggle) */}
-                  <div className="py-2.5 space-y-2">
-                    <div className="flex items-center justify-between gap-4">
-                      <div className="flex items-center gap-2">
-                        {isChatMuted ? (
-                          <BellOff className="h-4 w-4 text-red-500 shrink-0" />
-                        ) : (
-                          <Bell className="h-4 w-4 text-circle-sage dark:text-circle-dark-primary shrink-0" />
-                        )}
-                        <span className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text">
-                          {t.circle.muteChat}
-                        </span>
+                        {/* Switch Toggle */}
+                        <button
+                          type="button"
+                          disabled={notificationBusy}
+                              onClick={handleToggleChatMute}
+                          className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                            isChatMuted ? 'bg-red-500' : 'bg-gray-300 dark:bg-gray-700'
+                          }`}
+                        >
+                          <span
+                            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                              isChatMuted ? 'translate-x-5' : 'translate-x-0'
+                            }`}
+                          />
+                        </button>
                       </div>
 
-                      {/* Switch Toggle */}
-                      <button
-                        type="button"
-                        onClick={handleToggleChatMute}
-                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                          isChatMuted ? 'bg-red-500' : 'bg-gray-300 dark:bg-gray-700'
-                        }`}
-                      >
-                        <span
-                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                            isChatMuted ? 'translate-x-5' : 'translate-x-0'
-                          }`}
-                        />
-                      </button>
+                      {/* Chọn thời gian tắt thông báo */}
+                      {isChatMuted && (
+                        <div className="pt-2 space-y-2 animate-fade-in">
+                          <span className="text-[11px] font-semibold text-circle-slate dark:text-white/60">
+                            {t.circle.muteChatUntil}
+                          </span>
+                          <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5">
+                            {[
+                              { key: '15m', label: t.circle.notificationMute15m },
+                              { key: '1h', label: t.circle.notificationMute1h },
+                              { key: '8h', label: t.circle.notificationMute8h },
+                              { key: '24h', label: t.circle.notificationMute24h },
+                              { key: 'forever', label: t.circle.muteUntilTurnOn },
+                            ].map((item) => (
+                              <button
+                                key={item.key}
+                                type="button"
+                                disabled={notificationBusy}
+                              onClick={() => handleSelectMuteDuration(item.key)}
+                                className={`px-2 py-1.5 rounded-xl text-[11px] font-medium transition-all text-center truncate ${
+                                  muteDuration === item.key
+                                    ? 'bg-red-500 text-white font-bold shadow-xs'
+                                    : 'bg-white dark:bg-circle-dark-canvas border border-circle-hairline dark:border-circle-dark-hairline text-circle-slate dark:text-white/70 hover:bg-circle-canvas dark:hover:bg-circle-dark-wash hover:text-circle-charcoal dark:hover:text-white'
+                                }`}
+                              >
+                                {item.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
 
-                    {/* Chọn thời gian tắt thông báo */}
-                    {isChatMuted && (
-                      <div className="pt-2 space-y-2 animate-fade-in">
-                        <span className="text-[11px] font-semibold text-circle-slate dark:text-circle-dark-muted">
-                          {t.circle.muteChatUntil}
-                        </span>
-                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5">
-                          {[
-                            { key: '15m', label: t.circle.notificationMute15m },
-                            { key: '1h', label: t.circle.notificationMute1h },
-                            { key: '8h', label: t.circle.notificationMute8h },
-                            { key: '24h', label: t.circle.notificationMute24h },
-                            { key: 'forever', label: t.circle.muteUntilTurnOn },
-                          ].map((item) => (
-                            <button
-                              key={item.key}
-                              type="button"
-                              onClick={() => handleSelectMuteDuration(item.key)}
-                              className={`px-2 py-1.5 rounded-xl text-[11px] font-medium transition-all text-center truncate ${
-                                muteDuration === item.key
-                                  ? 'bg-red-500 text-white font-bold shadow-xs'
-                                  : 'bg-white dark:bg-circle-dark-surface border border-circle-hairline dark:border-circle-dark-hairline text-circle-slate dark:text-circle-dark-muted hover:bg-circle-canvas dark:hover:bg-circle-dark-wash hover:text-circle-charcoal dark:hover:text-white'
-                              }`}
-                            >
-                              {item.label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* 1.2 & 1.3: Khi KHÔNG mute toàn bộ đoạn chat */}
-                  {!isChatMuted && (
-                    <>
-                      {/* 1.2 Thông báo về tin nhắn */}
-                      <div className="py-2.5 space-y-2 animate-fade-in border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60">
+                    {/* 1.2 Mức độ thông báo tin nhắn */}
+                    {!isChatMuted && (
+                      <div className="py-3.5 space-y-2 animate-fade-in">
                         <div className="flex items-center gap-2">
                           <MessageSquare className="h-4 w-4 text-circle-sage dark:text-circle-dark-primary shrink-0" />
-                          <span className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text">
+                          <span className="text-xs font-semibold text-circle-charcoal dark:text-white">
                             {t.circle.messageNotifications}
                           </span>
                         </div>
@@ -1719,7 +1774,7 @@ export const CircleManagementModal: React.FC = () => {
                               className={`px-3 py-2 rounded-xl text-xs font-medium transition-all text-center ${
                                 messageNotificationLevel === lvl.key
                                   ? 'bg-circle-primary text-circle-charcoal dark:text-circle-dark-canvas font-bold shadow-xs'
-                                  : 'bg-white dark:bg-circle-dark-surface border border-circle-hairline dark:border-circle-dark-hairline text-circle-slate dark:text-circle-dark-muted hover:bg-circle-canvas dark:hover:bg-circle-dark-wash hover:text-circle-charcoal dark:hover:text-white'
+                                  : 'bg-white dark:bg-circle-dark-canvas border border-circle-hairline dark:border-circle-dark-hairline text-circle-slate dark:text-white/70 hover:bg-circle-canvas dark:hover:bg-circle-dark-wash hover:text-circle-charcoal dark:hover:text-white'
                               }`}
                             >
                               {lvl.label}
@@ -1727,15 +1782,17 @@ export const CircleManagementModal: React.FC = () => {
                           ))}
                         </div>
                       </div>
+                    )}
 
-                      {/* 1.3 Tắt thông báo về cuộc gọi (Uses standard Phone & Video icons from PresenceRail) */}
-                      <div className="flex items-center justify-between gap-4 py-2.5 animate-fade-in border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60">
-                        <div className="flex items-center gap-2">
-                          <div className="flex items-center gap-1">
-                            <Phone className="h-4 w-4 text-circle-slate dark:text-circle-dark-muted shrink-0" />
-                            <Video className="h-4 w-4 text-circle-slate dark:text-circle-dark-muted shrink-0" />
+                    {/* 1.3 Tắt thông báo về cuộc gọi */}
+                    {!isChatMuted && (
+                      <div className="flex items-center justify-between gap-4 py-3.5 animate-fade-in">
+                        <div className="flex items-center gap-2.5">
+                          <div className="flex items-center gap-1 text-circle-slate dark:text-white/60">
+                            <Phone className="h-4 w-4 shrink-0" />
+                            <Video className="h-4 w-4 shrink-0" />
                           </div>
-                          <span className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text">
+                          <span className="text-xs font-semibold text-circle-charcoal dark:text-white">
                             {t.circle.muteCalls}
                           </span>
                         </div>
@@ -1754,664 +1811,640 @@ export const CircleManagementModal: React.FC = () => {
                           />
                         </button>
                       </div>
-                    </>
-                  )}
+                    )}
 
-                  {/* 1.4 Tắt thông báo từ thành viên */}
-                  <div className="py-2.5 space-y-2 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60">
-                    <div className="flex items-center justify-between gap-4">
-                      <div className="flex items-center gap-2">
-                        <VolumeX className="h-4 w-4 text-circle-slate dark:text-circle-dark-muted shrink-0" />
-                        <span className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text">
-                          {t.circle.muteMemberNotificationsTitle}
-                        </span>
+                    {/* 1.4 Âm thanh thông báo & hiệu ứng */}
+                    <div className="flex items-center justify-between gap-4 py-3.5 animate-fade-in">
+                      <div className="flex items-center gap-2.5">
+                        <Volume2 className="h-4 w-4 text-circle-sage dark:text-circle-dark-primary shrink-0" />
+                        <div>
+                          <span className="text-xs font-semibold text-circle-charcoal dark:text-white block">
+                            {t.circle.soundEffectsTitle}
+                          </span>
+                        </div>
                       </div>
 
                       <button
                         type="button"
-                        onClick={() => setIsManageMutedMembersOpen(!isManageMutedMembersOpen)}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface hover:bg-circle-canvas dark:hover:bg-circle-dark-wash text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text shadow-xs transition-all shrink-0"
+                        onClick={toggleSound}
+                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                          soundEnabled ? 'bg-circle-primary' : 'bg-gray-300 dark:bg-gray-700'
+                        }`}
                       >
-                        <span>{isManageMutedMembersOpen ? t.common.collapse : t.circle.manageMutedMembers}</span>
-                        {mutedMemberIds.length > 0 && (
-                          <span className="rounded-full px-1.5 py-0.2 text-[10px] bg-amber-500 text-white font-bold">
-                            {mutedMemberIds.length}
-                          </span>
-                        )}
-                        <ChevronRight className={`h-3.5 w-3.5 transition-transform ${isManageMutedMembersOpen ? 'rotate-90' : ''}`} />
+                        <span
+                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                            soundEnabled ? 'translate-x-5' : 'translate-x-0'
+                          }`}
+                        />
                       </button>
                     </div>
 
-                    {/* Member Mute Selector Panel */}
-                    {isManageMutedMembersOpen && (
-                      <div className="pt-2 space-y-3 animate-fade-in">
-                        {/* Search input */}
-                        <div className="relative">
-                          <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-circle-slate" />
-                          <input
-                            type="text"
-                            value={memberMuteSearch}
-                            onChange={(e) => setMemberMuteSearch(e.target.value)}
-                            placeholder={t.circle.muteMemberPlaceholder}
-                            className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface pl-8 pr-3 py-1.5 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-none focus:ring-1 focus:ring-circle-primary"
-                          />
+                    {/* 1.5 Tắt thông báo từ thành viên cụ thể */}
+                    <div className="pt-3.5 space-y-2">
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-2.5">
+                          <VolumeX className="h-4 w-4 text-circle-slate dark:text-white/60 shrink-0" />
+                          <span className="text-xs font-semibold text-circle-charcoal dark:text-white">
+                            {t.circle.muteMemberNotificationsTitle}
+                          </span>
                         </div>
 
-                        {/* Members list */}
-                        <div className="space-y-1 max-h-44 overflow-y-auto pr-1 divide-y divide-circle-hairline/40 dark:divide-circle-dark-hairline/40">
-                          {filteredMuteMembers.length === 0 ? (
-                            <p className="text-center py-4 text-xs text-circle-slate dark:text-circle-dark-muted">
-                              {memberMuteSearch ? t.circle.noMemberFound : t.circle.noOtherMembersInGroup}
-                            </p>
-                          ) : (
-                            filteredMuteMembers.map((m) => {
-                              const isMuted = mutedMemberIds.includes(m.userId);
-                              const memberName = m.nickname || m.user?.profile?.displayName || m.user?.email?.split('@')[0] || t.auth.member;
-                              const initials = getInitials(memberName);
-
-                              return (
-                                <div key={m.id} className="pt-2 pb-1.5 flex items-center justify-between gap-2">
-                                  <div className="flex items-center gap-2.5 min-w-0">
-                                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-circle-charcoal text-white text-[11px] font-bold overflow-hidden">
-                                      {m.user?.profile?.avatarUrl ? (
-                                        <img src={m.user.profile.avatarUrl} alt={memberName} className="h-full w-full object-cover" />
-                                      ) : (
-                                        initials
-                                      )}
-                                    </div>
-                                    <span className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text truncate">
-                                      {memberName}
-                                    </span>
-                                  </div>
-
-                                  <button
-                                    type="button"
-                                    onClick={() => handleToggleMuteMember(m.userId)}
-                                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all shadow-xs ${
-                                      isMuted
-                                        ? 'bg-red-500 text-white'
-                                        : 'border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white'
-                                    }`}
-                                  >
-                                    {isMuted ? (
-                                      <>
-                                        <VolumeX className="h-3 w-3" />
-                                        <span>{t.circle.unmuteAction}</span>
-                                      </>
-                                    ) : (
-                                      <>
-                                        <Volume2 className="h-3 w-3" />
-                                        <span>{t.circle.muteAction}</span>
-                                      </>
-                                    )}
-                                  </button>
-                                </div>
-                              );
-                            })
+                        <button
+                          type="button"
+                          onClick={() => setIsManageMutedMembersOpen(!isManageMutedMembersOpen)}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-canvas hover:bg-circle-canvas dark:hover:bg-circle-dark-wash text-xs font-semibold text-circle-charcoal dark:text-white shadow-xs transition-all shrink-0"
+                        >
+                          <span>{isManageMutedMembersOpen ? t.common.collapse : t.circle.manageMutedMembers}</span>
+                          {mutedMemberIds.length > 0 && (
+                            <span className="rounded-full px-1.5 py-0.2 text-[10px] bg-amber-500 text-white font-bold">
+                              {mutedMemberIds.length}
+                            </span>
                           )}
-                        </div>
+                          <ChevronRight className={`h-3.5 w-3.5 transition-transform ${isManageMutedMembersOpen ? 'rotate-90' : ''}`} />
+                        </button>
                       </div>
-                    )}
-                  </div>
 
-                  {/* 1.5 Âm thanh thông báo & hiệu ứng */}
-                  <div className="flex items-center justify-between gap-4 py-2.5 animate-fade-in border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60">
-                    <div className="flex items-center gap-2">
-                      <Volume2 className="h-4 w-4 text-circle-sage dark:text-circle-dark-primary shrink-0" />
-                      <span className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text block">
-                        {t.circle.soundEffectsTitle}
-                      </span>
+                      {isManageMutedMembersOpen && (
+                        <div className="pt-2 space-y-3 animate-fade-in">
+                          <div className="relative">
+                            <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-circle-slate" />
+                            <input
+                              type="text"
+                              value={memberMuteSearch}
+                              onChange={(e) => setMemberMuteSearch(e.target.value)}
+                              placeholder={t.circle.muteMemberPlaceholder}
+                              className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-canvas pl-8 pr-3 py-1.5 text-xs text-circle-charcoal dark:text-white focus:outline-none focus:ring-1 focus:ring-circle-primary"
+                            />
+                          </div>
+
+                          <div className="space-y-1 max-h-44 overflow-y-auto pr-1 divide-y divide-circle-hairline/40 dark:divide-circle-dark-hairline/40">
+                            {filteredMuteMembers.length === 0 ? (
+                              <p className="text-center py-4 text-xs text-circle-slate dark:text-white/60">
+                                {memberMuteSearch ? t.circle.noMemberFound : t.circle.noOtherMembersInGroup}
+                              </p>
+                            ) : (
+                              filteredMuteMembers.map((m) => {
+                                const isMuted = mutedMemberIds.includes(m.userId);
+                                const memberName = m.nickname || m.user?.profile?.displayName || m.user?.email?.split('@')[0] || t.auth.member;
+                                const initials = getInitials(memberName);
+
+                                return (
+                                  <div key={m.id} className="pt-2 pb-1.5 flex items-center justify-between gap-2">
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-circle-charcoal text-white text-[11px] font-bold overflow-hidden">
+                                        {m.user?.profile?.avatarUrl ? (
+                                          <img src={m.user.profile.avatarUrl} alt={memberName} className="h-full w-full object-cover" />
+                                        ) : (
+                                          initials
+                                        )}
+                                      </div>
+                                      <span className="text-xs font-semibold text-circle-charcoal dark:text-white truncate">
+                                        {memberName}
+                                      </span>
+                                    </div>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => handleToggleMuteMember(m.userId)}
+                                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all shadow-xs ${
+                                        isMuted
+                                          ? 'bg-red-500 text-white'
+                                          : 'border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-canvas text-circle-slate dark:text-white/70 hover:text-circle-charcoal dark:hover:text-white'
+                                      }`}
+                                    >
+                                      {isMuted ? (
+                                        <>
+                                          <VolumeX className="h-3 w-3" />
+                                          <span>{t.circle.unmuteAction}</span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Volume2 className="h-3 w-3" />
+                                          <span>{t.circle.muteAction}</span>
+                                        </>
+                                      )}
+                                    </button>
+                                  </div>
+                                );
+                              })
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
-
-                    <button
-                      type="button"
-                      onClick={toggleSound}
-                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                        soundEnabled ? 'bg-circle-primary' : 'bg-gray-300 dark:bg-gray-700'
-                      }`}
-                    >
-                      <span
-                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                          soundEnabled ? 'translate-x-5' : 'translate-x-0'
-                        }`}
-                      />
-                    </button>
                   </div>
                 </div>
 
-                {/* -------------------------------------------------------------
-                    PHẦN 2: 🔒 QUYỀN RIÊNG TƯ (PRIVACY - Separated by line, no cards)
-                   ------------------------------------------------------------- */}
-                <div className="pt-5 border-t border-circle-hairline dark:border-circle-dark-hairline space-y-3">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-circle-slate dark:text-circle-dark-muted flex items-center gap-1.5 pb-1">
-                    <Shield className="h-3.5 w-3.5 text-circle-sage dark:text-circle-dark-primary" />
-                    <span>{t.circle.privacySection}</span>
-                  </h4>
+                {/* Cụm 2: QUYỀN RIÊNG TƯ TRONG NHÓM */}
+                <div className="space-y-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-circle-slate dark:text-white/60 px-1">
+                    {t.circle.privacySection}
+                  </span>
+                  <div className="rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/30 dark:bg-circle-dark-surface p-4 sm:p-5 divide-y divide-circle-hairline/60 dark:divide-circle-dark-hairline/60">
+                    {/* 2.1 Thông báo đã đọc */}
+                    <div className="flex items-center justify-between gap-4 pb-3.5">
+                      <div className="flex items-center gap-2.5">
+                        {readReceipts ? (
+                          <Eye className="h-4 w-4 text-circle-sage dark:text-circle-dark-primary shrink-0" />
+                        ) : (
+                          <EyeOff className="h-4 w-4 text-circle-slate dark:text-white/60 shrink-0" />
+                        )}
+                        <div>
+                          <span className="text-xs font-semibold text-circle-charcoal dark:text-white block">
+                            {t.circle.readReceiptsTitle}
+                          </span>
+                          <span className="text-[11px] text-circle-slate dark:text-white/60 block">
+                            {t.circle.readReceiptsDesc}
+                          </span>
+                        </div>
+                      </div>
 
-                  {/* 2.1 Thông báo đã đọc (Read receipts) */}
-                  <div className="flex items-center justify-between gap-4 py-2.5">
-                    <div className="flex items-center gap-2">
-                      {readReceipts ? (
-                        <Eye className="h-4 w-4 text-circle-sage dark:text-circle-dark-primary shrink-0" />
-                      ) : (
-                        <EyeOff className="h-4 w-4 text-circle-slate dark:text-circle-dark-muted shrink-0" />
-                      )}
-                      <span className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text">
-                        {t.circle.readReceiptsTitle}
-                      </span>
+                      <button
+                        type="button"
+                        onClick={handleToggleReadReceipts}
+                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                          readReceipts ? 'bg-circle-primary' : 'bg-gray-300 dark:bg-gray-700'
+                        }`}
+                      >
+                        <span
+                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                            readReceipts ? 'translate-x-5' : 'translate-x-0'
+                          }`}
+                        />
+                      </button>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={handleToggleReadReceipts}
-                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                        readReceipts ? 'bg-circle-primary' : 'bg-gray-300 dark:bg-gray-700'
-                      }`}
-                    >
-                      <span
-                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                          readReceipts ? 'translate-x-5' : 'translate-x-0'
-                        }`}
-                      />
-                    </button>
-                  </div>
+                    {/* 2.2 Chỉ báo đang soạn tin */}
+                    <div className="flex items-center justify-between gap-4 py-3.5">
+                      <div className="flex items-center gap-2.5">
+                        <Keyboard className="h-4 w-4 text-circle-sage dark:text-circle-dark-primary shrink-0" />
+                        <div>
+                          <span className="text-xs font-semibold text-circle-charcoal dark:text-white block">
+                            {t.circle.typingIndicatorTitle}
+                          </span>
+                          <span className="text-[11px] text-circle-slate dark:text-white/60 block">
+                            {t.circle.typingIndicatorDesc}
+                          </span>
+                        </div>
+                      </div>
 
-                  {/* 2.2 Chỉ báo đang nhập (Typing indicator) */}
-                  <div className="flex items-center justify-between gap-4 py-2.5 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60">
-                    <div className="flex items-center gap-2">
-                      <Keyboard className="h-4 w-4 text-circle-sage dark:text-circle-dark-primary shrink-0" />
-                      <span className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text">
-                        {t.circle.typingIndicatorTitle}
-                      </span>
+                      <button
+                        type="button"
+                        onClick={handleToggleTypingIndicator}
+                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                          showTypingIndicator ? 'bg-circle-primary' : 'bg-gray-300 dark:bg-gray-700'
+                        }`}
+                      >
+                        <span
+                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                            showTypingIndicator ? 'translate-x-5' : 'translate-x-0'
+                          }`}
+                        />
+                      </button>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={handleToggleTypingIndicator}
-                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                        showTypingIndicator ? 'bg-circle-primary' : 'bg-gray-300 dark:bg-gray-700'
-                      }`}
-                    >
-                      <span
-                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                          showTypingIndicator ? 'translate-x-5' : 'translate-x-0'
-                        }`}
-                      />
-                    </button>
-                  </div>
+                    {/* 2.3 Cho phép AI xử lý nội dung */}
+                    <div className="flex items-center justify-between gap-4 pt-3.5">
+                      <div className="flex items-center gap-2.5">
+                        <Bot className="h-4 w-4 text-circle-sage dark:text-circle-dark-primary shrink-0" />
+                        <div>
+                          <span className="text-xs font-semibold text-circle-charcoal dark:text-white block">
+                            {t.circle.aiAssistanceTitle}
+                          </span>
+                          <span className="text-[11px] text-circle-slate dark:text-white/60 block">
+                            {t.circle.aiAssistanceDesc}
+                          </span>
+                        </div>
+                      </div>
 
-                  {/* 2.3 Cho phép AI xử lý nội dung tin nhắn (AI Assistant) */}
-                  <div className="flex items-center justify-between gap-4 py-2.5 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60">
-                    <div className="flex items-center gap-2">
-                      <Bot className="h-4 w-4 text-circle-sage dark:text-circle-dark-primary shrink-0" />
-                      <span className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text">
-                        {t.circle.aiAssistanceTitle}
-                      </span>
+                      <button
+                        type="button"
+                        onClick={handleToggleAiProcessing}
+                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                          allowAiProcessing ? 'bg-circle-primary' : 'bg-gray-300 dark:bg-gray-700'
+                        }`}
+                      >
+                        <span
+                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                            allowAiProcessing ? 'translate-x-5' : 'translate-x-0'
+                          }`}
+                        />
+                      </button>
                     </div>
-
-                    <button
-                      type="button"
-                      onClick={handleToggleAiProcessing}
-                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                        allowAiProcessing ? 'bg-circle-primary' : 'bg-gray-300 dark:bg-gray-700'
-                      }`}
-                    >
-                      <span
-                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                          allowAiProcessing ? 'translate-x-5' : 'translate-x-0'
-                        }`}
-                      />
-                    </button>
                   </div>
                 </div>
               </div>
             )}
 
             {/* =========================================================================
-                TAB 4: THIẾT LẬP VÒNG TRÒN (FLAT SECTIONS DIVIDED BY LINES, NO CARDS)
+                TAB 4: THIẾT LẬP VÒNG TRÒN & VÙNG NGUY HIỂM (CLUSTERED CARDS)
                ========================================================================= */}
             {activeTab === 'circleSettings' && (
-              <div className="space-y-6">
-                {/* Section 0: Màu chủ đề đoạn chat */}
-                <div className="space-y-3 pb-5 border-b border-circle-hairline/60 dark:border-circle-dark-hairline/60">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-circle-slate dark:text-circle-dark-muted flex items-center gap-1.5">
-                      <Palette className="h-3.5 w-3.5 text-circle-sage dark:text-circle-dark-primary" />
-                      <span>{t.circle.chatThemeTitle}</span>
-                    </h4>
-                    <span className="text-[11px] font-semibold text-circle-sage dark:text-circle-dark-primary">
-                      {MessageBubbleThemes[formThemeColor]?.name}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-3 py-2 flex-wrap">
-                    {(Object.keys(MessageBubbleThemes) as MessageTheme[]).map((key) => {
-                      const item = MessageBubbleThemes[key];
-                      const isSelected = formThemeColor === key;
-                      return (
-                        <button
-                          key={key}
-                          type="button"
-                          onClick={() => handleThemeColorChange(key)}
-                          title={item.name}
-                          className="relative p-1 rounded-full flex items-center justify-center transition-transform hover:scale-110 active:scale-95 focus:outline-none"
-                        >
-                          <span
-                            className="h-8 w-8 rounded-full transition-all flex items-center justify-center shadow-xs"
-                            style={{
-                              backgroundColor: item.color,
-                              outline: isSelected ? `2.5px solid ${item.color}` : 'none',
-                              outlineOffset: '2.5px',
-                            }}
-                          />
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Section 1: Approval toggle & Capacity Selector */}
-                <div className="space-y-1">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-circle-slate dark:text-circle-dark-muted flex items-center gap-1.5 pb-1">
-                    <Sliders className="h-3.5 w-3.5 text-circle-sage dark:text-circle-dark-primary" />
-                    <span>{t.circle.joinScopeSection}</span>
-                  </h4>
-
-                  {/* Cần trưởng nhóm phê duyệt Toggle Switch */}
-                  <div className="flex items-center justify-between gap-4 py-3">
-                    <span className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text">
-                      {t.circle.requireApprovalTitle}
-                    </span>
-
-                    <button
-                      type="button"
-                      disabled={!isOwner}
-                      onClick={handleToggleApproval}
-                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-50 ${
-                        formIsPrivate ? 'bg-circle-primary' : 'bg-gray-300 dark:bg-gray-700'
-                      }`}
-                    >
-                      <span
-                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                          formIsPrivate ? 'translate-x-5' : 'translate-x-0'
-                        }`}
-                      />
-                    </button>
-                  </div>
-
-                  {/* Số lượng thành viên tối đa */}
-                  <div className="py-3 space-y-2 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <span className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text flex items-center gap-1.5">
-                        <Users className="h-4 w-4 text-circle-sage dark:text-circle-dark-primary" />
-                        <span>{t.circle.maxMembersLabel}</span>
-                      </span>
-
-                      {/* Dropdown Select */}
-                      <div className="relative shrink-0 w-full sm:w-52">
-                        <select
-                          disabled={!isOwner}
-                          value={isCustomCapacity || formMaxMembers !== null ? 'limited' : 'unlimited'}
-                          onChange={(e) => handleCapacityChange(e.target.value)}
-                          className="w-full appearance-none rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface px-3 py-2 pr-8 text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text focus:outline-none focus:ring-1 focus:ring-circle-primary shadow-xs cursor-pointer disabled:opacity-60"
-                        >
-                          <option value="unlimited">{t.circle.unlimited}</option>
-                          <option value="limited">{t.circle.limited}</option>
-                        </select>
-                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-circle-slate dark:text-circle-dark-muted">
-                          <ChevronDown className="h-3.5 w-3.5" />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Input nhập số lượng */}
-                    {(isCustomCapacity || formMaxMembers !== null) && (
-                      <div className="pt-1 animate-fade-in flex items-center gap-2">
-                        <input
-                          type="number"
-                          min={2}
-                          max={100}
-                          value={formMaxMembers ?? ''}
-                          onChange={(e) => handleCustomCapacityChange(e.target.value)}
-                          onBlur={handleCustomCapacityBlur}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
-                              e.currentTarget.blur();
-                            }
-                          }}
-                          disabled={!isOwner}
-                          placeholder={t.circle.maxMembersPlaceholder}
-                          className="flex-1 rounded-xl border border-circle-primary bg-white dark:bg-circle-dark-surface px-3 py-1.5 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-none focus:ring-1 focus:ring-circle-primary shadow-xs"
-                        />
-                        <span className="text-[11px] text-circle-slate dark:text-circle-dark-muted shrink-0">
-                          {t.circle.membersTitle.toLowerCase()}
+              <div className="space-y-5">
+                {/* Cụm 1: QUY MÔ & PHÊ DUYỆT THAM GIA */}
+                <div className="space-y-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-circle-slate dark:text-white/60 px-1">
+                    {t.circle.joinScopeSection}
+                  </span>
+                  <div className="rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/30 dark:bg-circle-dark-surface p-4 sm:p-5 divide-y divide-circle-hairline/60 dark:divide-circle-dark-hairline/60">
+                    {/* Cần trưởng nhóm phê duyệt */}
+                    <div className="flex items-center justify-between gap-4 pb-3.5">
+                      <div>
+                        <span className="text-xs font-semibold text-circle-charcoal dark:text-white block">
+                          {t.circle.requireApprovalTitle}
+                        </span>
+                        <span className="text-[11px] text-circle-slate dark:text-white/60 block">
+                          {formIsPrivate ? t.circle.privacyPrivateDesc : t.circle.privacyPublicDesc}
                         </span>
                       </div>
-                    )}
-                  </div>
-                </div>
 
-                {/* Section 2: Invite Link & Code (Separated by line, no cards) */}
-                <div className="pt-5 border-t border-circle-hairline dark:border-circle-dark-hairline space-y-2">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-circle-slate dark:text-circle-dark-muted flex items-center gap-1.5 pb-1">
-                    <LinkIcon className="h-3.5 w-3.5 text-circle-sage dark:text-circle-dark-primary" />
-                    <span>{t.circle.inviteCodeAndLink}</span>
-                  </h4>
-
-                  {/* 1. Mã mời tham gia & Nút sao chép mã */}
-                  <div className="flex items-center justify-between py-2.5">
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs text-circle-slate dark:text-circle-dark-muted font-medium">
-                        {t.circle.inviteCodeLabel}:
-                      </span>
-                      <span className="font-mono text-sm font-bold tracking-widest text-circle-charcoal dark:text-circle-dark-text">
-                        {currentInviteCode}
-                      </span>
+                      <button
+                        type="button"
+                        disabled={!isOwner}
+                        onClick={handleToggleApproval}
+                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-50 ${
+                          formIsPrivate ? 'bg-circle-primary' : 'bg-gray-300 dark:bg-gray-700'
+                        }`}
+                      >
+                        <span
+                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                            formIsPrivate ? 'translate-x-5' : 'translate-x-0'
+                          }`}
+                        />
+                      </button>
                     </div>
-                    <button
-                      onClick={() => handleCopyCode(currentInviteCode)}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-circle-primary hover:bg-circle-sage text-circle-charcoal dark:text-circle-dark-canvas hover:text-white dark:hover:text-white text-xs font-bold transition-all shadow-xs shrink-0"
-                    >
-                      {copiedCode === currentInviteCode ? (
-                        <>
-                          <Check className="h-3.5 w-3.5" />
-                          <span>{t.circle.copiedInviteCode}</span>
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="h-3.5 w-3.5" />
-                          <span>{t.circle.copyCodeBtn}</span>
-                        </>
+
+                    {/* Số lượng thành viên tối đa */}
+                    <div className="pt-3.5 space-y-2">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <span className="text-xs font-semibold text-circle-charcoal dark:text-white flex items-center gap-1.5">
+                          <Users className="h-4 w-4 text-circle-sage dark:text-circle-dark-primary" />
+                          <span>{t.circle.maxMembersLabel}</span>
+                        </span>
+
+                        <div className="relative shrink-0 w-full sm:w-52">
+                          <select
+                            disabled={!isOwner}
+                            value={isCustomCapacity || formMaxMembers !== null ? 'limited' : 'unlimited'}
+                            onChange={(e) => handleCapacityChange(e.target.value)}
+                            className="w-full appearance-none rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-canvas px-3 py-2 pr-8 text-xs font-semibold text-circle-charcoal dark:text-white focus:outline-none focus:ring-1 focus:ring-circle-primary shadow-xs cursor-pointer disabled:opacity-60"
+                          >
+                            <option value="unlimited">{t.circle.unlimited}</option>
+                            <option value="limited">{t.circle.limited}</option>
+                          </select>
+                          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-circle-slate dark:text-white/60">
+                            <ChevronDown className="h-3.5 w-3.5" />
+                          </div>
+                        </div>
+                      </div>
+
+                      {(isCustomCapacity || formMaxMembers !== null) && (
+                        <div className="pt-1 animate-fade-in flex items-center gap-2">
+                          <input
+                            type="number"
+                            min={2}
+                            max={10000}
+                            value={formMaxMembers ?? ''}
+                            onChange={(e) => handleCustomCapacityChange(e.target.value)}
+                            onBlur={handleCustomCapacityBlur}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                e.currentTarget.blur();
+                              }
+                            }}
+                            disabled={!isOwner}
+                            placeholder={t.circle.maxMembersPlaceholder}
+                            className="flex-1 rounded-xl border border-circle-primary bg-white dark:bg-circle-dark-canvas px-3 py-1.5 text-xs text-circle-charcoal dark:text-white focus:outline-none focus:ring-1 focus:ring-circle-primary shadow-xs"
+                          />
+                          <span className="text-[11px] text-circle-slate dark:text-white/60 shrink-0">
+                            {t.circle.membersTitle.toLowerCase()}
+                          </span>
+                        </div>
                       )}
-                    </button>
-                  </div>
-
-                  {/* 2. Liên kết tham gia & Nút sao chép / chia sẻ */}
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 py-2.5 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60">
-                    <div className="min-w-0 flex-1 flex items-center gap-2">
-                      <span className="text-xs text-circle-slate dark:text-circle-dark-muted font-medium shrink-0">
-                        {t.circle.linkTitle}:
-                      </span>
-                      <span className="text-xs font-mono text-circle-charcoal dark:text-circle-dark-text truncate">
-                        {inviteLink}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <button
-                        onClick={handleCopyLink}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface hover:bg-circle-canvas dark:hover:bg-circle-dark-wash text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text transition-all shadow-xs"
-                      >
-                        {copiedLink ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
-                        <span>{copiedLink ? t.circle.copiedInviteLink : t.circle.copyLinkBtn}</span>
-                      </button>
-                      <button
-                        onClick={handleShare}
-                        title={t.circle.shareInvite}
-                        className="p-1.5 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white transition-all"
-                      >
-                        {sharedDone ? <Check className="h-4 w-4 text-emerald-500" /> : <Share2 className="h-4 w-4" />}
-                      </button>
                     </div>
                   </div>
                 </div>
 
-                {/* Section 3: Vùng nguy hiểm - Giải tán Vòng tròn (Owner Only) */}
-                {isOwner && (
-                  <div className="pt-5 border-t border-red-200 dark:border-red-900/50 space-y-2">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-2">
+                {/* Cụm 2: VÙNG NGUY HIỂM (DANGER ZONE) */}
+                <div className="space-y-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-red-500 dark:text-red-400 px-1">
+                    {t.circle.dangerZone}
+                  </span>
+                  <div className="rounded-2xl border border-red-200 dark:border-red-900/40 bg-red-50/30 dark:bg-red-950/20 p-4 sm:p-5">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       <div className="min-w-0 flex-1">
-                        <h4 className="text-xs font-bold text-red-600 dark:text-red-400 flex items-center gap-1.5">
-                          <AlertTriangle className="h-4 w-4" />
-                          <span>{t.circle.dangerZone}</span>
-                        </h4>
+                        <p className="text-xs font-semibold text-circle-charcoal dark:text-white">
+                          {isOwner ? t.circle.deleteCircle : t.circle.leaveCircle}
+                        </p>
+                        <p className="text-xs text-circle-slate dark:text-white/60 mt-0.5 leading-relaxed">
+                          {isOwner ? t.circle.deleteCircleConfirm : t.circle.confirmLeaveWarning}
+                        </p>
                       </div>
                       <button
                         type="button"
-                        onClick={() => setConfirmDeleteCircle(true)}
-                        className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-all shadow-xs shrink-0 cursor-pointer"
+                        onClick={() => isOwner ? setConfirmDeleteCircle(true) : setConfirmLeave(true)}
+                        className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-all shadow-xs shrink-0 cursor-pointer"
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
-                        <span>{t.circle.deleteCircle}</span>
+                        {isOwner ? <Trash2 className="h-4 w-4" /> : <LogOut className="h-4 w-4" />}
+                        <span>{isOwner ? t.circle.deleteCircle : t.circle.leaveCircle}</span>
                       </button>
                     </div>
                   </div>
-                )}
+                </div>
               </div>
             )}
 
             {/* =========================================================================
-                TAB 5: TRỢ GIÚP & BÁO CÁO (SUPPORT & REPORTS)
+                TAB 5: TRỢ GIÚP & BÁO CÁO (CLUSTERED CARDS)
                ========================================================================= */}
             {activeTab === 'supportReports' && (
-              <div className="space-y-6">
-                {/* 1. Báo cáo vi phạm Vòng tròn */}
-                <div className="flex items-center justify-between py-1">
-                  <div className="min-w-0 flex-1 pr-3">
-                    <h5 className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
-                      {t.circle.reportCircleTitle}
-                    </h5>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsReportOpen(!isReportOpen);
-                      setIsReportUserOpen(false);
-                    }}
-                    className="px-3 py-1.5 rounded-xl border border-amber-300 dark:border-amber-800 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 text-xs font-bold transition-all shrink-0 cursor-pointer"
-                  >
-                    {t.circle.reportCircleBtn}
-                  </button>
-                </div>
+              <div className="space-y-5">
+                {/* Cụm 1: BÁO CÁO VI PHẠM */}
+                <div className="space-y-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-circle-slate dark:text-white/60 px-1">
+                    {t.circle.reportsViolationTitle || 'BÁO CÁO VI PHẠM'}
+                  </span>
+                  <div className="rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/30 dark:bg-circle-dark-surface p-4 sm:p-5 divide-y divide-circle-hairline/60 dark:divide-circle-dark-hairline/60">
+                    {/* Báo cáo vi phạm Vòng tròn */}
+                    <div className="py-2 space-y-3">
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex items-start gap-3 min-w-0">
+                          <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+                          <div>
+                            <h5 className="text-xs font-bold text-circle-charcoal dark:text-white">
+                              {t.circle.reportCircleTitle}
+                            </h5>
+                            <p className="text-xs text-circle-slate dark:text-white/60 mt-0.5">
+                              {t.circle.reportCircleDesc}
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsReportOpen(!isReportOpen);
+                            setIsReportUserOpen(false);
+                          }}
+                          className={`px-3.5 py-1.5 rounded-xl border text-xs font-semibold transition-all shrink-0 cursor-pointer ${
+                            isReportOpen
+                              ? 'border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-300'
+                              : 'border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-canvas text-circle-charcoal dark:text-white hover:border-amber-500/40 hover:bg-amber-500/5'
+                          }`}
+                        >
+                          {isReportOpen ? t.common.collapse : t.circle.reportCircleBtn}
+                        </button>
+                      </div>
 
-                {/* Sub-form Báo cáo vi phạm Vòng tròn */}
-                {isReportOpen && (
-                  <form
-                    onSubmit={handleSubmitReport}
-                    className="p-3.5 rounded-2xl border border-amber-200 dark:border-amber-900/50 bg-amber-50/50 dark:bg-amber-950/20 space-y-3 animate-fade-in"
-                  >
-                    <h5 className="text-xs font-bold text-amber-900 dark:text-amber-300">
-                      {t.circle.reportReasonLabel}
-                    </h5>
-                    <div className="space-y-2">
-                      {[
-                        { key: 'harassment', label: t.circle.reportReasonHarassment },
-                        { key: 'spam', label: t.circle.reportReasonSpam },
-                        { key: 'inappropriate', label: t.circle.reportReasonInappropriate },
-                        { key: 'impersonation', label: t.circle.reportReasonImpersonation },
-                        { key: 'other', label: t.circle.reportReasonOther },
-                      ].map((reason) => (
-                        <label key={reason.key} className="flex items-center gap-2 text-xs text-circle-charcoal dark:text-circle-dark-text cursor-pointer">
-                          <input
-                            type="radio"
-                            name="reportReason"
-                            value={reason.key}
-                            checked={reportReason === reason.key}
-                            onChange={(e) => setReportReason(e.target.value)}
-                            className="text-circle-primary focus:ring-circle-primary"
-                          />
-                          <span>{reason.label}</span>
-                        </label>
-                      ))}
+                      {/* Sub-form Báo cáo vi phạm Vòng tròn */}
+                      {isReportOpen && (
+                        <form
+                          onSubmit={handleSubmitReport}
+                          className="rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/50 dark:bg-circle-dark-canvas/50 p-4 space-y-3.5 animate-fadeIn"
+                        >
+                          <h6 className="text-xs font-bold text-circle-charcoal dark:text-white">
+                            {t.circle.reportReasonLabel}
+                          </h6>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {[
+                              { key: 'harassment', label: t.circle.reportReasonHarassment },
+                              { key: 'spam', label: t.circle.reportReasonSpam },
+                              { key: 'inappropriate', label: t.circle.reportReasonInappropriate },
+                              { key: 'impersonation', label: t.circle.reportReasonImpersonation },
+                              { key: 'other', label: t.circle.reportReasonOther },
+                            ].map((reason) => {
+                              const isChecked = reportReason === reason.key;
+                              return (
+                                <label
+                                  key={reason.key}
+                                  className={`p-2.5 rounded-xl border transition-all cursor-pointer flex items-center gap-2.5 text-xs font-medium ${
+                                    isChecked
+                                      ? 'border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-300'
+                                      : 'border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface text-circle-charcoal dark:text-white hover:bg-circle-wash dark:hover:bg-circle-dark-wash'
+                                  }`}
+                                >
+                                  <input
+                                    type="radio"
+                                    name="reportReason"
+                                    value={reason.key}
+                                    checked={isChecked}
+                                    onChange={(e) => setReportReason(e.target.value)}
+                                    className="accent-amber-600"
+                                  />
+                                  <span>{reason.label}</span>
+                                </label>
+                              );
+                            })}
+                          </div>
+
+                          {reportReason === 'other' && (
+                            <div className="space-y-1">
+                              <textarea
+                                value={customReportText}
+                                onChange={(e) => setCustomReportText(e.target.value)}
+                                placeholder={t.circle.reportReasonOtherPlaceholder}
+                                rows={2}
+                                className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-3 text-xs text-circle-charcoal dark:text-white placeholder:text-circle-slate focus:outline-none focus:ring-1 focus:ring-amber-500"
+                              />
+                              {reportFieldError && (
+                                <p className="text-xs text-red-500">{reportFieldError}</p>
+                              )}
+                            </div>
+                          )}
+
+                          <div className="flex justify-end gap-2 pt-1">
+                            <button
+                              type="button"
+                              onClick={() => setIsReportOpen(false)}
+                              className="px-3.5 py-1.5 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline text-xs font-semibold text-circle-slate dark:text-white/70 hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors"
+                            >
+                              {t.common.cancel}
+                            </button>
+                            <button
+                              type="submit"
+                              className="px-4 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-xs cursor-pointer transition-colors"
+                            >
+                              {t.circle.sendReportBtn}
+                            </button>
+                          </div>
+                        </form>
+                      )}
                     </div>
 
-                    {reportReason === 'other' && (
-                      <div>
-                        <textarea
-                          value={customReportText}
-                          onChange={(e) => setCustomReportText(e.target.value)}
-                          placeholder={t.circle.reportReasonOtherPlaceholder}
-                          rows={2}
-                          className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-2.5 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-none focus:ring-1 focus:ring-circle-primary"
-                        />
-                        {reportFieldError && (
-                          <p className="text-[11px] text-red-500 mt-1">{reportFieldError}</p>
-                        )}
+                    {/* Báo cáo người dùng vi phạm */}
+                    <div className="py-2 space-y-3">
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex items-start gap-3 min-w-0">
+                          <UserX className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+                          <div>
+                            <h5 className="text-xs font-bold text-circle-charcoal dark:text-white">
+                              {t.circle.reportUserTitle}
+                            </h5>
+                            <p className="text-xs text-circle-slate dark:text-white/60 mt-0.5">
+                              {t.circle.reportUserDesc}
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsReportUserOpen(!isReportUserOpen);
+                            setIsReportOpen(false);
+                          }}
+                          className={`px-3.5 py-1.5 rounded-xl border text-xs font-semibold transition-all shrink-0 cursor-pointer ${
+                            isReportUserOpen
+                              ? 'border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-300'
+                              : 'border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-canvas text-circle-charcoal dark:text-white hover:border-amber-500/40 hover:bg-amber-500/5'
+                          }`}
+                        >
+                          {isReportUserOpen ? t.common.collapse : t.circle.reportUserBtn}
+                        </button>
                       </div>
-                    )}
 
-                    <div className="flex justify-end gap-2">
+                      {/* Sub-form Báo cáo người dùng */}
+                      {isReportUserOpen && (
+                        <form
+                          onSubmit={handleSubmitReportUser}
+                          className="rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/50 dark:bg-circle-dark-canvas/50 p-4 space-y-3.5 animate-fadeIn"
+                        >
+                          <div className="space-y-1.5">
+                            <h6 className="text-xs font-bold text-circle-charcoal dark:text-white">
+                              {t.circle.selectReportUserPrompt}
+                            </h6>
+                            <select
+                              value={reportedUserId}
+                              onChange={(e) => setReportedUserId(e.target.value)}
+                              className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface px-3 py-2 text-xs text-circle-charcoal dark:text-white focus:outline-none focus:ring-1 focus:ring-amber-500"
+                            >
+                              <option value="">{t.circle.selectMemberDefaultOption}</option>
+                              {members
+                                .filter((m) => m.userId !== user?.id)
+                                .map((m) => (
+                                  <option key={m.id} value={m.userId}>
+                                    {m.nickname || m.user?.profile?.displayName || m.user?.email || 'Member'}
+                                  </option>
+                                ))}
+                            </select>
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <h6 className="text-xs font-bold text-circle-charcoal dark:text-white">
+                              {t.circle.reportReasonLabel}
+                            </h6>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              {[
+                                { key: 'harassment', label: t.circle.reportReasonHarassment },
+                                { key: 'spam', label: t.circle.reportReasonSpam },
+                                { key: 'inappropriate', label: t.circle.reportReasonInappropriate },
+                                { key: 'impersonation', label: t.circle.reportReasonImpersonation },
+                                { key: 'other', label: t.circle.reportReasonOther },
+                              ].map((reason) => {
+                                const isChecked = reportUserReason === reason.key;
+                                return (
+                                  <label
+                                    key={reason.key}
+                                    className={`p-2.5 rounded-xl border transition-all cursor-pointer flex items-center gap-2.5 text-xs font-medium ${
+                                      isChecked
+                                        ? 'border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-300'
+                                        : 'border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface text-circle-charcoal dark:text-white hover:bg-circle-wash dark:hover:bg-circle-dark-wash'
+                                    }`}
+                                  >
+                                    <input
+                                      type="radio"
+                                      name="reportUserReason"
+                                      value={reason.key}
+                                      checked={isChecked}
+                                      onChange={(e) => setReportUserReason(e.target.value)}
+                                      className="accent-amber-600"
+                                    />
+                                    <span>{reason.label}</span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          {reportUserReason === 'other' && (
+                            <div className="space-y-1">
+                              <textarea
+                                value={customReportUserText}
+                                onChange={(e) => setCustomReportUserText(e.target.value)}
+                                placeholder={t.circle.reportDetailPlaceholder}
+                                rows={2}
+                                className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-3 text-xs text-circle-charcoal dark:text-white placeholder:text-circle-slate focus:outline-none focus:ring-1 focus:ring-amber-500"
+                              />
+                            </div>
+                          )}
+
+                          {reportUserFieldError && (
+                            <p className="text-xs text-red-500">{reportUserFieldError}</p>
+                          )}
+
+                          <div className="flex justify-end gap-2 pt-1">
+                            <button
+                              type="button"
+                              onClick={() => setIsReportUserOpen(false)}
+                              className="px-3.5 py-1.5 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline text-xs font-semibold text-circle-slate dark:text-white/70 hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors"
+                            >
+                              {t.common.cancel}
+                            </button>
+                            <button
+                              type="submit"
+                              className="px-4 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-xs cursor-pointer transition-colors"
+                            >
+                              {t.circle.sendReportBtn}
+                            </button>
+                          </div>
+                        </form>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Cụm 2: HƯỚNG DẪN & TIÊU CHUẨN CỘNG ĐỒNG */}
+                <div className="space-y-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-circle-slate dark:text-white/60 px-1">
+                    {t.circle.communityGuidelinesHeader || 'HỖ TRỢ & HƯỚNG DẪN CỘNG ĐỒNG'}
+                  </span>
+                  <div className="rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/30 dark:bg-circle-dark-surface p-4 sm:p-5 space-y-3">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-start gap-3 min-w-0">
+                        <HelpCircle className="h-4 w-4 text-circle-sage dark:text-circle-dark-primary shrink-0 mt-0.5" />
+                        <div>
+                          <h5 className="text-xs font-bold text-circle-charcoal dark:text-white">
+                            {t.circle.helpCenterTitle}
+                          </h5>
+                          <p className="text-xs text-circle-slate dark:text-white/60 mt-0.5">
+                            {t.circle.safeGuideTitle}
+                          </p>
+                        </div>
+                      </div>
                       <button
                         type="button"
-                        onClick={() => setIsReportOpen(false)}
-                        className="px-3 py-1 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline text-xs font-semibold text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors"
+                        onClick={() => setIsHelpOpen(!isHelpOpen)}
+                        className="px-3.5 py-1.5 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-canvas hover:bg-circle-canvas dark:hover:bg-circle-dark-wash text-xs font-semibold text-circle-charcoal dark:text-white flex items-center gap-1.5 transition-all cursor-pointer shrink-0"
                       >
-                        {t.common.cancel}
-                      </button>
-                      <button
-                        type="submit"
-                        className="px-3.5 py-1 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-xs cursor-pointer"
-                      >
-                        {t.circle.sendReportBtn}
+                        <span>{isHelpOpen ? t.common.collapse : t.common.viewGuide}</span>
+                        <ChevronRight className={`h-3.5 w-3.5 transition-transform ${isHelpOpen ? 'rotate-90' : ''}`} />
                       </button>
                     </div>
-                  </form>
-                )}
 
-                {/* 2. Báo cáo người dùng vi phạm */}
-                <div className="pt-4 border-t border-circle-hairline dark:border-circle-dark-hairline flex items-center justify-between py-1">
-                  <div className="min-w-0 flex-1 pr-3">
-                    <h5 className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
-                      {t.circle.reportUserTitle}
-                    </h5>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsReportUserOpen(!isReportUserOpen);
-                      setIsReportOpen(false);
-                    }}
-                    className="px-3 py-1.5 rounded-xl border border-amber-300 dark:border-amber-800 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 text-xs font-bold transition-all shrink-0 cursor-pointer"
-                  >
-                    {t.circle.reportUserBtn}
-                  </button>
-                </div>
-
-                {/* Sub-form Báo cáo người dùng */}
-                {isReportUserOpen && (
-                  <form
-                    onSubmit={handleSubmitReportUser}
-                    className="p-3.5 rounded-2xl border border-amber-200 dark:border-amber-900/50 bg-amber-50/50 dark:bg-amber-950/20 space-y-3 animate-fade-in"
-                  >
-                    <h5 className="text-xs font-bold text-amber-900 dark:text-amber-300">
-                      {t.circle.selectReportUserPrompt}
-                    </h5>
-
-                    <select
-                      value={reportedUserId}
-                      onChange={(e) => setReportedUserId(e.target.value)}
-                      className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-2 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-none focus:ring-1 focus:ring-circle-primary"
-                    >
-                      <option value="">{t.circle.selectMemberDefaultOption}</option>
-                      {members
-                        .filter((m) => m.userId !== user?.id)
-                        .map((m) => (
-                          <option key={m.id} value={m.userId}>
-                            {m.nickname || m.user?.profile?.displayName || m.user?.email || 'Member'}
-                          </option>
+                    {isHelpOpen && (
+                      <div className="pt-2 grid grid-cols-1 gap-2 animate-fadeIn">
+                        {[t.circle.safeRule1, t.circle.safeRule2, t.circle.safeRule3].map((rule, idx) => (
+                          <div
+                            key={idx}
+                            className="p-3 rounded-xl bg-white dark:bg-circle-dark-canvas border border-circle-hairline dark:border-circle-dark-hairline text-xs text-circle-charcoal dark:text-white/80 flex items-start gap-2.5 leading-relaxed"
+                          >
+                            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-circle-wash dark:bg-circle-dark-wash text-[11px] font-bold text-circle-sage dark:text-circle-dark-primary">
+                              {idx + 1}
+                            </span>
+                            <span className="pt-0.5">{rule}</span>
+                          </div>
                         ))}
-                    </select>
-
-                    <div className="space-y-2 pt-1">
-                      {[
-                        { key: 'harassment', label: t.circle.reportReasonHarassment },
-                        { key: 'spam', label: t.circle.reportReasonSpam },
-                        { key: 'inappropriate', label: t.circle.reportReasonInappropriate },
-                        { key: 'impersonation', label: t.circle.reportReasonImpersonation },
-                        { key: 'other', label: t.circle.reportReasonOther },
-                      ].map((reason) => (
-                        <label key={reason.key} className="flex items-center gap-2 text-xs text-circle-charcoal dark:text-circle-dark-text cursor-pointer">
-                          <input
-                            type="radio"
-                            name="reportUserReason"
-                            value={reason.key}
-                            checked={reportUserReason === reason.key}
-                            onChange={(e) => setReportUserReason(e.target.value)}
-                            className="text-circle-primary focus:ring-circle-primary"
-                          />
-                          <span>{reason.label}</span>
-                        </label>
-                      ))}
-                    </div>
-
-                    {reportUserReason === 'other' && (
-                      <div>
-                        <textarea
-                          value={customReportUserText}
-                          onChange={(e) => setCustomReportUserText(e.target.value)}
-                          placeholder={t.circle.reportDetailPlaceholder}
-                          rows={2}
-                          className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-2.5 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-none focus:ring-1 focus:ring-circle-primary"
-                        />
                       </div>
                     )}
-
-                    {reportUserFieldError && (
-                      <p className="text-[11px] text-red-500">{reportUserFieldError}</p>
-                    )}
-
-                    <div className="flex justify-end gap-2 pt-1">
-                      <button
-                        type="button"
-                        onClick={() => setIsReportUserOpen(false)}
-                        className="px-3 py-1 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline text-xs font-semibold text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors"
-                      >
-                        {t.common.cancel}
-                      </button>
-                      <button
-                        type="submit"
-                        className="px-3.5 py-1 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-xs cursor-pointer"
-                      >
-                        {t.circle.sendReportBtn}
-                      </button>
-                    </div>
-                  </form>
-                )}
-
-                {/* 3. Trung tâm trợ giúp / Hướng dẫn cộng đồng */}
-                <div className="pt-4 border-t border-circle-hairline dark:border-circle-dark-hairline space-y-2">
-                  <div className="flex items-center justify-between">
-                    <h5 className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
-                      {t.circle.helpCenterTitle}
-                    </h5>
-                    <button
-                      type="button"
-                      onClick={() => setIsHelpOpen(!isHelpOpen)}
-                      className="text-xs font-semibold text-circle-sage dark:text-circle-dark-primary hover:underline flex items-center gap-1 cursor-pointer"
-                    >
-                      <span>{isHelpOpen ? t.common.collapse : t.common.viewGuide}</span>
-                      <ChevronRight className={`h-3.5 w-3.5 transition-transform ${isHelpOpen ? 'rotate-90' : ''}`} />
-                    </button>
                   </div>
-
-                  {isHelpOpen && (
-                    <div className="mt-3 p-3.5 rounded-xl bg-circle-canvas/60 dark:bg-circle-dark-canvas/60 border border-circle-hairline dark:border-circle-dark-hairline text-xs space-y-2 text-circle-slate dark:text-circle-dark-muted animate-fade-in">
-                      <p className="font-semibold text-circle-charcoal dark:text-circle-dark-text">
-                        {t.circle.safeGuideTitle}:
-                      </p>
-                      <div className="space-y-1">
-                        <p>{t.circle.safeRule1}</p>
-                        <p>{t.circle.safeRule2}</p>
-                        <p>{t.circle.safeRule3}</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* 4. Rời Vòng tròn */}
-                <div className="pt-4 border-t border-circle-hairline dark:border-circle-dark-hairline flex items-center justify-between py-1">
-                  <div className="min-w-0 flex-1 pr-3">
-                    <h5 className="text-xs font-bold text-red-600 dark:text-red-400">
-                      {t.circle.leaveCirclePersonalTitle}
-                    </h5>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setConfirmLeave(true)}
-                    className="px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-all shrink-0 shadow-sm cursor-pointer"
-                  >
-                    {t.circle.leaveCircle}
-                  </button>
                 </div>
               </div>
             )}
@@ -2419,143 +2452,54 @@ export const CircleManagementModal: React.FC = () => {
         </main>
       </div>
 
-      {/* Confirmation Modals */}
-      {confirmKickMemberId && (
-        <div
-          onClick={(e) => e.target === e.currentTarget && setConfirmKickMemberId(null)}
-          className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
-        >
-          <div className="w-full max-w-sm p-5 rounded-2xl glass-sheet shadow-circle-card space-y-4">
-            <h4 className="text-sm font-bold text-red-600 dark:text-red-400 flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4" />
-              <span>{t.circle.confirmKickTitle}</span>
-            </h4>
-            <p className="text-xs text-circle-slate dark:text-circle-dark-muted">
-              {t.circle.confirmKickWarning}
-            </p>
-            <div className="flex justify-end gap-2 pt-1">
-              <button
-                type="button"
-                onClick={() => setConfirmKickMemberId(null)}
-                className="px-3.5 py-1.5 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline text-xs font-semibold text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors"
-              >
-                {t.common.cancel}
-              </button>
-              <button
-                type="button"
-                disabled={removeMemberMutation.isPending}
-                onClick={() => handleKickMember(confirmKickMemberId)}
-                className="px-3.5 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold disabled:opacity-50"
-              >
-                {t.circle.kickMember}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Unified Confirmation Modals (Rule 9) */}
+      <ConfirmModal
+        isOpen={!!confirmKickMemberId}
+        onClose={() => setConfirmKickMemberId(null)}
+        onConfirm={() => {
+          if (confirmKickMemberId) handleKickMember(confirmKickMemberId);
+        }}
+        title={t.circle.confirmKickTitle}
+        description={t.circle.confirmKickWarning}
+        confirmLabel={t.circle.kickMember}
+        variant="danger"
+        isLoading={removeMemberMutation.isPending}
+      />
 
-      {confirmTransferMemberId && (
-        <div
-          onClick={(e) => e.target === e.currentTarget && setConfirmTransferMemberId(null)}
-          className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
-        >
-          <div className="w-full max-w-sm p-5 rounded-2xl glass-sheet shadow-circle-card space-y-4">
-            <h4 className="text-sm font-bold text-amber-600 dark:text-amber-400 flex items-center gap-2">
-              <Crown className="h-4 w-4" />
-              <span>{t.circle.confirmTransferTitle}</span>
-            </h4>
-            <p className="text-xs text-circle-slate dark:text-circle-dark-muted">
-              {t.circle.confirmTransferWarning}
-            </p>
-            <div className="flex justify-end gap-2 pt-1">
-              <button
-                type="button"
-                onClick={() => setConfirmTransferMemberId(null)}
-                className="px-3.5 py-1.5 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline text-xs font-semibold text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors"
-              >
-                {t.common.cancel}
-              </button>
-              <button
-                type="button"
-                disabled={transferOwnershipMutation.isPending}
-                onClick={() => handleTransferOwnership(confirmTransferMemberId)}
-                className="px-3.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold disabled:opacity-50"
-              >
-                {t.circle.transferOwnership}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmModal
+        isOpen={!!confirmTransferMemberId}
+        onClose={() => setConfirmTransferMemberId(null)}
+        onConfirm={() => {
+          if (confirmTransferMemberId) handleTransferOwnership(confirmTransferMemberId);
+        }}
+        title={t.circle.confirmTransferTitle}
+        description={t.circle.confirmTransferWarning}
+        confirmLabel={t.circle.transferOwnership}
+        variant="warning"
+        isLoading={transferOwnershipMutation.isPending}
+      />
 
-      {confirmLeave && (
-        <div
-          onClick={(e) => e.target === e.currentTarget && setConfirmLeave(false)}
-          className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
-        >
-          <div className="w-full max-w-sm p-5 rounded-2xl glass-sheet shadow-circle-card space-y-4">
-            <h4 className="text-sm font-bold text-red-600 dark:text-red-400 flex items-center gap-2">
-              <LogOut className="h-4 w-4" />
-              <span>{t.circle.confirmLeaveTitle}</span>
-            </h4>
-            <p className="text-xs text-circle-slate dark:text-circle-dark-muted">
-              {t.circle.confirmLeaveWarning}
-            </p>
-            <div className="flex justify-end gap-2 pt-1">
-              <button
-                type="button"
-                onClick={() => setConfirmLeave(false)}
-                className="px-3.5 py-1.5 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline text-xs font-semibold text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors"
-              >
-                {t.common.cancel}
-              </button>
-              <button
-                type="button"
-                disabled={leaveCircleMutation.isPending}
-                onClick={handleLeaveCircle}
-                className="px-3.5 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold disabled:opacity-50"
-              >
-                {t.circle.leaveCircle}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmModal
+        isOpen={confirmLeave}
+        onClose={() => setConfirmLeave(false)}
+        onConfirm={handleLeaveCircle}
+        title={t.circle.confirmLeaveTitle}
+        description={t.circle.confirmLeaveWarning}
+        confirmLabel={t.circle.leaveCircle}
+        variant="danger"
+        isLoading={leaveCircleMutation.isPending}
+      />
 
-      {confirmDeleteCircle && (
-        <div
-          onClick={(e) => e.target === e.currentTarget && setConfirmDeleteCircle(false)}
-          className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
-        >
-          <div className="w-full max-w-sm p-5 rounded-2xl glass-sheet border-red-200 dark:border-red-900/50 shadow-circle-card space-y-4">
-            <h4 className="text-sm font-bold text-red-600 dark:text-red-400 flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4" />
-              <span>{t.circle.deleteCircle}</span>
-            </h4>
-            <p className="text-xs text-circle-slate dark:text-circle-dark-muted">
-              {t.circle.deleteCircleConfirm}
-            </p>
-            <div className="flex justify-end gap-2 pt-1">
-              <button
-                type="button"
-                onClick={() => setConfirmDeleteCircle(false)}
-                className="px-3.5 py-1.5 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline text-xs font-semibold text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors"
-              >
-                {t.common.cancel}
-              </button>
-              <button
-                type="button"
-                disabled={deleteCircleMutation.isPending}
-                onClick={handleDeleteCircle}
-                className="px-3.5 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold disabled:opacity-50 inline-flex items-center gap-1.5"
-              >
-                {deleteCircleMutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                <span>{t.circle.deleteCircle}</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmModal
+        isOpen={confirmDeleteCircle}
+        onClose={() => setConfirmDeleteCircle(false)}
+        onConfirm={handleDeleteCircle}
+        title={t.circle.deleteCircle}
+        description={t.circle.deleteCircleConfirm}
+        confirmLabel={t.circle.deleteCircle}
+        variant="danger"
+        isLoading={deleteCircleMutation.isPending}
+      />
     </div>
   );
 };

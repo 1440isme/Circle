@@ -1,0 +1,100 @@
+import { PlanningTemplateDefinition } from './types';
+
+export const PLANNING_TEMPLATES: Record<string, PlanningTemplateDefinition> = {
+  expense: {
+    type: 'expense',
+    titleKey: 'tools.planning.templates.expense.title',
+    defaultTitle: 'Quỹ nhóm & Chia tiền',
+    descriptionKey: 'tools.planning.templates.expense.desc',
+    iconName: 'wallet',
+    columns: [
+      { columnTitle: 'Khoản chi', columnType: 'text' },
+      { columnTitle: 'Người trả', columnType: 'member' },
+      { columnTitle: 'Số tiền', columnType: 'currency', columnConfig: { currency: 'VND' } },
+      { columnTitle: 'Phân chia', columnType: 'text' },
+      { columnTitle: 'Ghi chú', columnType: 'text' },
+    ],
+    initialRows: [
+      { 0: 'Tiền phòng Homestay (2N1Đ)', 1: 'Tôi', 2: '2400000', 3: 'Tất cả', 4: 'Đã cọc trước 50%' },
+      { 0: 'Tiệc nướng BBQ & Nước uống', 1: 'Bình', 2: '1350000', 3: 'Tất cả', 4: 'Mua ở siêu thị' },
+      { 0: 'Vé tham quan & Thuê xe', 1: 'Hạnh', 2: '750000', 3: 'Tất cả', 4: '3 xe máy 2 ngày' },
+    ],
+  },
+  packing: {
+    type: 'packing',
+    titleKey: 'tools.planning.templates.packing.title',
+    defaultTitle: 'Checklist chuẩn bị đồ',
+    descriptionKey: 'tools.planning.templates.packing.desc',
+    iconName: 'check-square',
+    columns: [
+      { columnTitle: 'Đồ cần mang', columnType: 'text' },
+      { columnTitle: 'Số lượng', columnType: 'text' },
+      { columnTitle: 'Người phụ trách', columnType: 'member' },
+      { columnTitle: 'Đã chuẩn bị', columnType: 'checkbox' },
+      { columnTitle: 'Ghi chú', columnType: 'text' },
+    ],
+    initialRows: [
+      { 0: 'Lều cắm trại 4 người', 1: '2 cái', 2: 'Bình', 3: 'true', 4: 'Kèm bạt lót chống thấm' },
+      { 0: 'Bếp nướng & vỉ inox', 1: '1 bộ', 2: 'Hạnh', 3: 'false', 4: 'Nhớ mang que gắp than' },
+      { 0: 'Than không khói & củi khô', 1: '5 kg', 2: 'Minh', 3: 'true', 4: 'Đã đóng túi zip' },
+      { 0: 'Hộp y tế cá nhân', 1: '1 hộp', 2: 'Tôi', 3: 'false', 4: 'Băng cá nhân, dầu gió, thuốc sốt' },
+    ],
+  },
+  trip: {
+    type: 'trip',
+    titleKey: 'tools.planning.templates.trip.title',
+    defaultTitle: 'Lịch trình Dã ngoại / Du lịch',
+    descriptionKey: 'tools.planning.templates.trip.desc',
+    iconName: 'compass',
+    columns: [
+      { columnTitle: 'Thời gian', columnType: 'text' },
+      { columnTitle: 'Địa điểm', columnType: 'text' },
+      { columnTitle: 'Hoạt động', columnType: 'text' },
+      { columnTitle: 'Người phụ trách', columnType: 'member' },
+      { columnTitle: 'Trạng thái', columnType: 'status' },
+    ],
+    initialRows: [
+      { 0: '06:00 - 08:30', 1: 'TP.HCM ➔ Vũng Tàu', 2: 'Tập trung xuất phát, di chuyển xe máy', 3: 'Bình', 4: 'done' },
+      { 0: '09:00 - 11:30', 1: 'Bãi Sau', 2: 'Check-in, tắm biển, chụp ảnh nhóm', 3: 'Hạnh', 4: 'in_progress' },
+      { 0: '12:00 - 14:00', 1: 'Quán Gành Hào', 2: 'Ăn trưa hải sản, nghỉ ngơi', 3: 'Tất cả', 4: 'todo' },
+      { 0: '14:30 - 17:00', 1: 'Mũi Nghinh Phong', 2: 'Cắm trại đón hoàng hôn, nướng BBQ', 3: 'Minh', 4: 'todo' },
+    ],
+  },
+  task: {
+    type: 'task',
+    titleKey: 'tools.planning.templates.task.title',
+    defaultTitle: 'Phân công Nhiệm vụ / Đồ án',
+    descriptionKey: 'tools.planning.templates.task.desc',
+    iconName: 'layout-list',
+    columns: [
+      { columnTitle: 'Đầu việc', columnType: 'text' },
+      { columnTitle: 'Người thực hiện', columnType: 'member' },
+      { columnTitle: 'Hạn chót', columnType: 'date' },
+      { columnTitle: 'Trạng thái', columnType: 'status' },
+      { columnTitle: 'Ghi chú', columnType: 'text' },
+    ],
+    initialRows: [
+      { 0: 'Thiết kế Mockup UI & Design System', 1: 'Bình', 2: '2026-11-20', 3: 'done', 4: 'Figma bản final' },
+      { 0: 'Xây dựng API Backend & Prisma Schema', 1: 'Hạnh', 2: '2026-11-22', 3: 'in_progress', 4: 'Auth & Circle tools' },
+      { 0: 'Tích hợp Frontend Web & Mobile Parity', 1: 'Tôi', 2: '2026-11-24', 3: 'in_progress', 4: 'Planning & Map' },
+      { 0: 'Kiểm thử E2E & Triển khai Docker', 1: 'Tất cả', 2: '2026-11-26', 3: 'todo', 4: 'DoD Gate 10/10' },
+    ],
+  },
+  custom: {
+    type: 'custom',
+    titleKey: 'tools.planning.templates.custom.title',
+    defaultTitle: 'Bảng trống tùy chỉnh',
+    descriptionKey: 'tools.planning.templates.custom.desc',
+    iconName: 'sparkles',
+    columns: [
+      { columnTitle: 'Hạng mục', columnType: 'text' },
+      { columnTitle: 'Người phụ trách', columnType: 'member' },
+      { columnTitle: 'Trạng thái', columnType: 'status' },
+      { columnTitle: 'Ghi chú', columnType: 'text' },
+    ],
+    initialRows: [
+      { 0: 'Mục công việc 1', 1: 'Tôi', 2: 'todo', 3: '' },
+      { 0: 'Mục công việc 2', 1: 'Tất cả', 2: 'todo', 3: '' },
+    ],
+  },
+};

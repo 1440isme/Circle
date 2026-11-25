@@ -39,7 +39,6 @@ import { useLanguageStore } from '../../stores/language.store';
 import {
   useThemeStore,
   Theme,
-  UIStyle,
 } from '../../stores/theme.store';
 import { useAuthStore } from '../../stores/auth.store';
 import {
@@ -68,8 +67,6 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
   const {
     theme,
     setTheme,
-    uiStyle,
-    setUiStyle,
   } = useThemeStore();
 
   const user = useAuthStore((s) => s.user);
@@ -405,64 +402,6 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
                         <span>{t.common.themeSystem}</span>
                       </button>
                     </div>
-                  </div>
-                </div>
-
-                {/* Section 2: Phong cách thiết kế (Flat Design vs Liquid Glass) */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between px-1">
-                    <span className="text-xs font-bold uppercase tracking-wider text-circle-slate dark:text-white/60">
-                      {t.nav.designStyle}
-                    </span>
-                    <span className="text-xs font-semibold text-circle-sage dark:text-circle-primary">
-                      {uiStyle === 'flat' ? t.nav.flatDesignDefault : t.nav.liquidGlass}
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {/* Flat Design Choice */}
-                    <button
-                      type="button"
-                      onClick={() => setUiStyle('flat')}
-                      className={`p-4 rounded-2xl border text-left transition-all ${uiStyle === 'flat'
-                          ? 'border-circle-sage dark:border-circle-primary bg-circle-wash/50 dark:bg-circle-primary/10 shadow-xs'
-                          : 'border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/30 dark:bg-circle-dark-surface hover:border-circle-slate/40'
-                        }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Layout className="h-4 w-4 text-circle-sage dark:text-circle-primary" />
-                          <span className="text-xs font-bold text-circle-charcoal dark:text-white">{t.nav.flatDesignDefault}</span>
-                        </div>
-                        {uiStyle === 'flat' && (
-                          <div className="h-5 w-5 rounded-full bg-circle-sage dark:bg-circle-primary flex items-center justify-center text-white dark:text-circle-charcoal">
-                            <Check className="h-3 w-3 stroke-[3]" />
-                          </div>
-                        )}
-                      </div>
-                    </button>
-
-                    {/* Liquid Glass Choice */}
-                    <button
-                      type="button"
-                      onClick={() => setUiStyle('glass')}
-                      className={`p-4 rounded-2xl border text-left transition-all ${uiStyle === 'glass'
-                          ? 'border-circle-sage dark:border-circle-primary bg-circle-wash/50 dark:bg-circle-primary/10 shadow-xs'
-                          : 'border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/30 dark:bg-circle-dark-surface hover:border-circle-slate/40'
-                        }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Sparkles className="h-4 w-4 text-circle-sage dark:text-circle-primary" />
-                          <span className="text-xs font-bold text-circle-charcoal dark:text-white">{t.nav.liquidGlass}</span>
-                        </div>
-                        {uiStyle === 'glass' && (
-                          <div className="h-5 w-5 rounded-full bg-circle-sage dark:bg-circle-primary flex items-center justify-center text-white dark:text-circle-charcoal">
-                            <Check className="h-3 w-3 stroke-[3]" />
-                          </div>
-                        )}
-                      </div>
-                    </button>
                   </div>
                 </div>
               </div>

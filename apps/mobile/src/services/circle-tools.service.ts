@@ -24,14 +24,19 @@ import {
   RespondEventRsvpInput,
   PlanningSheetEntity,
   CreatePlanningSheetInput,
+  UpdatePlanningSheetInput,
   AddSheetColumnInput,
+  UpdateSheetColumnInput,
   AddSheetRowInput,
   UpdateSheetCellInput,
   LiveLocationEntity,
   StartLiveLocationInput,
   UpdateLiveLocationInput,
+  CircleMeetingPointEntity,
+  SetMeetingPointInput,
   GroupPollEntity,
   CreatePollInput,
+  UpdatePollInput,
   VotePollInput,
   MediaHubResponse,
 } from '@circle/types';
@@ -529,6 +534,11 @@ export async function shareCalendarEventToChatApi(
 // 5. COLLABORATIVE PLANNING SHEET (UC18)
 // =============================================================================
 
+export async function getCircleMembersApi(circleId: string): Promise<any[]> {
+  const res = await mobileApiRequest<any[]>(`/circles/${circleId}/members`);
+  return res.data || [];
+}
+
 export async function getPlanningSheetsApi(
   circleId: string,
 ): Promise<PlanningSheetEntity[]> {
@@ -608,6 +618,80 @@ export async function updateSheetCellApi(
   return res.data;
 }
 
+export async function updatePlanningSheetApi(
+  circleId: string,
+  sheetId: string,
+  input: UpdatePlanningSheetInput,
+): Promise<PlanningSheetEntity> {
+  const res = await mobileApiRequest<PlanningSheetEntity>(
+    `/circles/${circleId}/planning-sheets/${sheetId}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    },
+  );
+  return res.data;
+}
+
+export async function updateSheetColumnApi(
+  circleId: string,
+  sheetId: string,
+  columnId: string,
+  input: UpdateSheetColumnInput,
+): Promise<PlanningSheetEntity> {
+  const res = await mobileApiRequest<PlanningSheetEntity>(
+    `/circles/${circleId}/planning-sheets/${sheetId}/columns/${columnId}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    },
+  );
+  return res.data;
+}
+
+export async function deleteSheetColumnApi(
+  circleId: string,
+  sheetId: string,
+  columnId: string,
+): Promise<PlanningSheetEntity> {
+  const res = await mobileApiRequest<PlanningSheetEntity>(
+    `/circles/${circleId}/planning-sheets/${sheetId}/columns/${columnId}`,
+    {
+      method: 'DELETE',
+    },
+  );
+  return res.data;
+}
+
+export async function deleteSheetRowApi(
+  circleId: string,
+  sheetId: string,
+  rowId: string,
+): Promise<PlanningSheetEntity> {
+  const res = await mobileApiRequest<PlanningSheetEntity>(
+    `/circles/${circleId}/planning-sheets/${sheetId}/rows/${rowId}`,
+    {
+      method: 'DELETE',
+    },
+  );
+  return res.data;
+}
+
+export async function sharePlanningSheetApi(
+  circleId: string,
+  sheetId: string,
+  channelId?: string,
+): Promise<{ success: boolean; messageId: string }> {
+  const res = await mobileApiRequest<{ success: boolean; messageId: string }>(
+    `/circles/${circleId}/planning-sheets/${sheetId}/share`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ channelId }),
+    },
+  );
+  return res.data;
+}
+
 export async function deletePlanningSheetApi(
   circleId: string,
   sheetId: string,
@@ -620,6 +704,35 @@ export async function deletePlanningSheetApi(
 // =============================================================================
 // 6. LIVE LOCATION SHARING (UC19)
 // =============================================================================
+
+export async function getMeetingPointApi(
+  circleId: string,
+): Promise<CircleMeetingPointEntity | null> {
+  const res = await mobileApiRequest<CircleMeetingPointEntity | null>(
+    `/circles/${circleId}/meeting-point`,
+  );
+  return res.data;
+}
+
+export async function setMeetingPointApi(
+  circleId: string,
+  input: SetMeetingPointInput,
+): Promise<CircleMeetingPointEntity> {
+  const res = await mobileApiRequest<CircleMeetingPointEntity>(
+    `/circles/${circleId}/meeting-point`,
+    {
+      method: 'PUT',
+      body: JSON.stringify(input),
+    },
+  );
+  return res.data;
+}
+
+export async function deleteMeetingPointApi(circleId: string): Promise<void> {
+  await mobileApiRequest(`/circles/${circleId}/meeting-point`, {
+    method: 'DELETE',
+  });
+}
 
 export async function getLiveLocationsApi(
   circleId: string,
@@ -688,6 +801,23 @@ export async function createPollApi(
     body: JSON.stringify(input),
   });
   return res.data;
+}
+
+export async function getPollApi(circleId: string, pollId: string): Promise<GroupPollEntity> {
+  const res = await mobileApiRequest<GroupPollEntity>(`/circles/${circleId}/polls/${pollId}`);
+  return res.data!;
+}
+
+export async function updatePollApi(
+  circleId: string,
+  pollId: string,
+  input: UpdatePollInput,
+): Promise<GroupPollEntity> {
+  const res = await mobileApiRequest<GroupPollEntity>(`/circles/${circleId}/polls/${pollId}`, {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  });
+  return res.data!;
 }
 
 export async function votePollApi(

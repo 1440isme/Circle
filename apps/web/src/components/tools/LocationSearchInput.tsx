@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { MapPin, Search, Map, X, Loader2 } from 'lucide-react';
 import type { SelectedLocationData } from './MapLocationPickerModal';
+import { searchLocationsUnified, sanitizeLocationQuery } from '@circle/shared';
 
 const MapLocationPickerModal = dynamic(
   () => import('./MapLocationPickerModal').then((m) => m.MapLocationPickerModal),
@@ -13,13 +14,17 @@ const MapLocationPickerModal = dynamic(
 interface LocationSearchInputProps {
   value: string;
   onChange: (value: string) => void;
+  onSelectCoords?: (coords: { lat: number; lng: number; title?: string; address?: string }) => void;
   placeholder?: string;
+  showMapButton?: boolean;
 }
 
 export const LocationSearchInput: React.FC<LocationSearchInputProps> = ({
   value,
   onChange,
+  onSelectCoords,
   placeholder = 'Tìm địa điểm trên bản đồ hoặc dán link Google Meet / Google Maps...',
+  showMapButton = true,
 }) => {
   const [isMapModalOpen, setIsMapModalOpen] = useState(false);
   const [suggestions, setSuggestions] = useState<any[]>([]);
@@ -65,17 +70,14 @@ export const LocationSearchInput: React.FC<LocationSearchInputProps> = ({
     const timer = setTimeout(async () => {
       setIsSearching(true);
       try {
-        const res = await fetch(`/api/locations/search?q=${encodeURIComponent(trimmed)}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data) && data.length > 0) {
-            setSuggestions(data);
-            if (isUserTypingRef.current) {
-              setShowSuggestions(true);
-            }
-          } else {
-            setSuggestions([]);
-            setShowSuggestions(false);
+        const data = await searchLocationsUnified(trimmed, {
+          apiProxyUrl: '/api/locations/search',
+          limit: 6,
+        });
+        if (Array.isArray(data) && data.length > 0) {
+          setSuggestions(data);
+          if (isUserTypingRef.current) {
+            setShowSuggestions(true);
           }
         } else {
           setSuggestions([]);
@@ -96,23 +98,31 @@ export const LocationSearchInput: React.FC<LocationSearchInputProps> = ({
   const handleSelectSuggestion = (item: any) => {
     isUserTypingRef.current = false;
     const rawName = item.name || item.display_name?.split(',')?.[0] || 'Địa điểm';
-    const cleanName = rawName
-      .replace(/https?:\/\/[^\s]+/g, '')
-      .trim()
-      .replace(/\s*[-–—:]+\s*$/g, '')
-      .trim();
+    const cleanName = sanitizeLocationQuery(rawName);
     onChange(cleanName);
+    if (onSelectCoords && item.lat && (item.lon || item.lng)) {
+      onSelectCoords({
+        lat: Number(item.lat),
+        lng: Number(item.lon ?? item.lng),
+        title: cleanName,
+        address: item.display_name || cleanName,
+      });
+    }
     setShowSuggestions(false);
   };
 
   const handleSelectFromMap = (data: SelectedLocationData) => {
     isUserTypingRef.current = false;
-    const cleanName = (data.formattedLocation || data.name || data.address || '')
-      .replace(/https?:\/\/[^\s]+/g, '')
-      .trim()
-      .replace(/\s*[-–—:]+\s*$/g, '')
-      .trim();
+    const cleanName = sanitizeLocationQuery(data.formattedLocation || data.name || data.address || '');
     onChange(cleanName);
+    if (onSelectCoords && data.lat && data.lng) {
+      onSelectCoords({
+        lat: data.lat,
+        lng: data.lng,
+        title: cleanName,
+        address: data.address || cleanName,
+      });
+    }
   };
 
   return (
@@ -159,26 +169,28 @@ export const LocationSearchInput: React.FC<LocationSearchInputProps> = ({
         </div>
 
         {/* Button to open interactive Leaflet Map Picker */}
-        <button
-          type="button"
-          onClick={() => {
-            if (typeof document !== 'undefined' && document.activeElement instanceof HTMLElement) {
-              document.activeElement.blur();
-            }
-            setShowSuggestions(false);
-            setIsMapModalOpen(true);
-          }}
-          className="flex items-center gap-1.5 rounded-full border border-circle-primary/30 bg-circle-primary/10 hover:bg-circle-primary/20 px-3.5 py-2 text-xs font-bold text-circle-sage dark:text-circle-dark-primary transition-all shrink-0 active:scale-95 shadow-2xs cursor-pointer"
-          title="Mở bản đồ tìm kiếm và ghim vị trí"
-        >
-          <Map className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">Bản đồ</span>
-        </button>
+        {showMapButton && (
+          <button
+            type="button"
+            onClick={() => {
+              if (typeof document !== 'undefined' && document.activeElement instanceof HTMLElement) {
+                document.activeElement.blur();
+              }
+              setShowSuggestions(false);
+              setIsMapModalOpen(true);
+            }}
+            className="flex items-center gap-1.5 rounded-full border border-circle-primary/30 bg-circle-primary/10 hover:bg-circle-primary/20 px-3.5 py-2 text-xs font-bold text-circle-sage dark:text-circle-dark-primary transition-all shrink-0 active:scale-95 shadow-2xs cursor-pointer"
+            title="Mở bản đồ tìm kiếm và ghim vị trí"
+          >
+            <Map className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Bản đồ</span>
+          </button>
+        )}
       </div>
 
       {/* Autocomplete Dropdown */}
       {showSuggestions && suggestions.length > 0 && (
-        <div className="absolute left-0 right-16 top-full mt-1 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface shadow-2xl overflow-hidden max-h-56 overflow-y-auto z-50 animate-in fade-in duration-100">
+        <div className={`absolute left-0 ${showMapButton ? 'right-16' : 'right-0'} top-full mt-1 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface shadow-2xl overflow-hidden max-h-56 overflow-y-auto z-50 animate-in fade-in duration-100`}>
           <div className="px-3 py-1.5 bg-circle-wash/50 dark:bg-circle-dark-wash/50 border-b border-circle-hairline/40 text-[10px] font-bold text-circle-slate dark:text-circle-dark-muted uppercase tracking-wider">
             Gợi ý địa điểm từ bản đồ
           </div>

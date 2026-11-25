@@ -1,6 +1,7 @@
 import { useAuthStore } from '../../stores/auth.store';
 import { useThemeStore } from '../../stores/theme.store';
 import { useLanguageStore } from '../../stores/language.store';
+import { MobileLocationSearchInput } from './MobileLocationSearchInput';
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   View,
@@ -861,19 +862,24 @@ const MonthPageBlock = React.memo<MonthPageBlockProps>(
 );
 
 interface MobileCalendarViewProps {
+  notificationEventId?: string;
+  notificationEventStart?: string;
   circleId: string;
   onBack?: () => void;
   onRegisterBack?: (handler: (() => boolean) | null) => void;
 }
 
-export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId, onBack, onRegisterBack }) => {
+export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId, onBack, onRegisterBack, notificationEventId, notificationEventStart }) => {
   const insets = useSafeAreaInsets();
   const user = useAuthStore((s) => s.user);
   const { colors, resolvedTheme } = useThemeStore();
   const isDark = resolvedTheme === 'dark';
   const { t } = useLanguageStore();
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [currentDate, setCurrentDate] = useState(() => {
+    const date = notificationEventStart ? new Date(notificationEventStart) : new Date();
+    return Number.isNaN(date.getTime()) ? new Date() : date;
+  });
+  const [selectedDate, setSelectedDate] = useState<Date>(currentDate);
   const [events, setEvents] = useState<CalendarEventEntity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -881,6 +887,15 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CalendarEventEntity | null>(null);
   const [detailEvent, setDetailEvent] = useState<CalendarEventEntity | null>(null);
+  const lastNotificationEventId = useRef<string | null>(null);
+  useEffect(() => {
+    if (!notificationEventId || lastNotificationEventId.current === notificationEventId) return;
+    const target = events.find((event) => event.id === notificationEventId);
+    if (target) {
+      lastNotificationEventId.current = notificationEventId;
+      setDetailEvent(target);
+    }
+  }, [events, notificationEventId]);
   const [detailOccurrenceDate, setDetailOccurrenceDate] = useState<Date | null>(null);
   const [editingOccurrenceDate, setEditingOccurrenceDate] = useState<Date | null>(null);
 
@@ -6163,56 +6178,13 @@ const handleOpenEditModal = (ev: CalendarEventEntity, occDate?: Date) => {
                   onFocus={closeAllPickers}
                 />
                 <View style={styles.hairlineDivider} />
-                <View style={styles.appleLocationRow}>
-                  <MapPin size={16} color="#8E8E93" style={{ marginRight: 8 }} />
-                  <TextInput
-                    style={styles.appleLocationInput}
-                    placeholder="Vị trí hoặc Cuộc gọi video"
-                    placeholderTextColor="#8E8E93"
+                <View style={{ paddingVertical: 4 }}>
+                  <MobileLocationSearchInput
                     value={location}
-                    onChangeText={setLocation}
-                    onFocus={closeAllPickers}
+                    onChange={setLocation}
+                    placeholder="Vị trí hoặc Cuộc gọi video"
                   />
-                  {isSearchingLocation && (
-                    <ActivityIndicator size="small" color="#8E8E93" style={{ marginRight: 8 }} />
-                  )}
-                  {location.length > 0 && !isSearchingLocation && (
-                    <TouchableOpacity
-                      onPress={() => {
-                        setLocation('');
-                        setLocationSuggestions([]);
-                        setShowLocationSuggestions(false);
-                      }}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                      <X size={14} color="#8E8E93" />
-                    </TouchableOpacity>
-                  )}
                 </View>
-
-                {/* Dropdown gợi ý vị trí */}
-                {showLocationSuggestions && locationSuggestions.length > 0 && (
-                  <View style={styles.suggestionsDropdown}>
-                    <Text style={styles.suggestionsHeader}>GỢI Ý TỪ BẢN ĐỒ</Text>
-                    {locationSuggestions.map((item, idx) => (
-                      <TouchableOpacity
-                        key={idx}
-                        style={styles.suggestionItem}
-                        onPress={() => handleSelectLocation(item)}
-                      >
-                        <MapPin size={13} color="#E11D48" style={{ marginTop: 2 }} />
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.suggestionName} numberOfLines={1}>
-                            {item.name}
-                          </Text>
-                          <Text style={styles.suggestionAddress} numberOfLines={1}>
-                            {item.address}
-                          </Text>
-                        </View>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                )}
               </View>
 
               {/* Group 2: Thời gian & Lặp lại (Apple Calendar Style - Đã bỏ Cả ngày) */}

@@ -91,7 +91,7 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
   const [selectedAlbum, setSelectedAlbum] = useState<SharedAlbumEntity | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
-  const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number | null>(null);
+  const [selectedPhotoId, setSelectedPhotoId] = useState<string | null>(null);
 
   // 3 Bottom Tabs: 'media' | 'links' | 'files'
   const [activeTab, setActiveTab] = useState<HubTab>('media');
@@ -104,8 +104,6 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
   const fileItems = mediaHub.files || [];
 
   const [selectedHubPhoto, setSelectedHubPhoto] = useState<any | null>(null);
-  const photos = selectedAlbum?.photos || [];
-  const selectedPhoto = selectedPhotoIndex !== null ? photos[selectedPhotoIndex] : null;
 
   // Inline feedback & notice banner
   const [statusNotice, setStatusNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -184,9 +182,10 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
 
   useEffect(() => {
     if (onRegisterBack) {
-      if (selectedPhotoIndex !== null) {
+      if (selectedPhotoId !== null) {
         onRegisterBack(() => {
-          setSelectedPhotoIndex(null);
+          setIsConfirmingDeletePhoto(false);
+          setSelectedPhotoId(null);
           return true;
         });
       } else if (selectedHubPhoto !== null) {
@@ -226,7 +225,7 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
       onRegisterBack?.(null);
     };
   }, [
-    selectedPhotoIndex,
+    selectedPhotoId,
     selectedHubPhoto,
     isCreateModalOpen,
     isUnifiedFilterModalOpen,
@@ -428,6 +427,13 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
       return true;
     });
   }, [selectedAlbum, selectedAlbumSenderId, albumDateFrom, albumDateTo]);
+  const selectedPhotoIndex = filteredAlbumPhotos.findIndex((photo) => photo.id === selectedPhotoId);
+  const selectedPhoto = filteredAlbumPhotos[selectedPhotoIndex];
+
+  const closePhoto = () => {
+    setIsConfirmingDeletePhoto(false);
+    setSelectedPhotoId(null);
+  };
 
   const showNotice = (message: string, type: 'success' | 'error' = 'success') => {
     if (statusTimerRef.current) clearTimeout(statusTimerRef.current);
@@ -594,8 +600,7 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
     try {
       setIsDeletingPhoto(true);
       await deletePhotoApi(circleId, selectedPhoto.id);
-      setIsConfirmingDeletePhoto(false);
-      setSelectedPhotoIndex(null);
+      closePhoto();
       await loadAlbumDetail(selectedAlbum.id);
       showNotice(t.common.deleteSuccess || 'Đã xóa ảnh', 'success');
       loadAlbums();
@@ -1200,7 +1205,7 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
                 </View>
               </View>
             }
-            renderItem={({ item, index }) => {
+            renderItem={({ item }) => {
               const isSelected = selectedPhotoIds.has(item.id);
               return (
                 <TouchableOpacity
@@ -1209,7 +1214,7 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
                     if (isSelectionMode) {
                       handleToggleSelectPhoto(item.id);
                     } else {
-                      setSelectedPhotoIndex(index);
+                      setSelectedPhotoId(item.id);
                     }
                   }}
                   style={[styles.photoThumbWrapper, isSelected && { borderWidth: 2, borderColor: colors.primary }]}
@@ -1746,27 +1751,59 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
 
         {/* Photo Lightbox */}
         {selectedPhoto && (
-          <Modal visible transparent animationType="fade" onRequestClose={() => setSelectedPhotoIndex(null)}>
+          <Modal visible transparent animationType="fade" onRequestClose={closePhoto}>
             <View style={styles.lightboxBackdrop}>
               <View style={styles.lightboxHeader}>
                 <View style={styles.lightboxCounterBadge}>
                   <Text style={styles.lightboxCounterText}>
-                    {(selectedPhotoIndex ?? 0) + 1} / {photos.length}
+                    {selectedPhotoIndex + 1} / {filteredAlbumPhotos.length}
                   </Text>
                 </View>
                 <TouchableOpacity
                   style={styles.lightboxCloseBtn}
-                  onPress={() => {
-                    setIsConfirmingDeletePhoto(false);
-                    setSelectedPhotoIndex(null);
-                  }}
+                  onPress={closePhoto}
                   accessibilityLabel={t.common.close}
                 >
                   <X size={20} color="#FFFFFF" />
                 </TouchableOpacity>
               </View>
 
-              <Image source={{ uri: selectedPhoto.fileUrl }} style={styles.lightboxImage} resizeMode="contain" />
+              <FlatList
+                horizontal
+                pagingEnabled
+                scrollEnabled={!isDeletingPhoto}
+                showsHorizontalScrollIndicator={false}
+                data={filteredAlbumPhotos}
+                keyExtractor={(photo) => photo.id}
+                initialScrollIndex={selectedPhotoIndex}
+                getItemLayout={(_, index) => ({ length: width, offset: width * index, index })}
+                onMomentumScrollEnd={(event) => {
+                  const index = Math.round(event.nativeEvent.contentOffset.x / width);
+                  const photo = filteredAlbumPhotos[index];
+                  if (photo && photo.id !== selectedPhotoId) {
+                    setIsConfirmingDeletePhoto(false);
+                    setSelectedPhotoId(photo.id);
+                  }
+                }}
+                renderItem={({ item }) => (
+                  <ScrollView
+                    style={{ width }}
+                    maximumZoomScale={3}
+                    minimumZoomScale={1}
+                    centerContent
+                    showsHorizontalScrollIndicator={false}
+                    showsVerticalScrollIndicator={false}
+                    contentContainerStyle={styles.lightboxBackdrop}
+                  >
+                    <Image
+                      source={{ uri: item.fileUrl }}
+                      style={styles.lightboxImage}
+                      resizeMode="contain"
+                      accessibilityLabel={item.caption || t.collab.albumPhotoFallback}
+                    />
+                  </ScrollView>
+                )}
+              />
 
               <View style={[styles.lightboxFooter, { bottom: Math.max(insets.bottom + 20, 30) }]}>
                 {isConfirmingDeletePhoto ? (

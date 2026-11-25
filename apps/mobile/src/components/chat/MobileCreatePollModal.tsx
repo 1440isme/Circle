@@ -10,11 +10,12 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Switch,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { X, Vote, Plus, Trash2, AlertCircle } from 'lucide-react-native';
+import { X, Vote, Plus, Trash2, AlertCircle, Lock, CheckSquare } from 'lucide-react-native';
 import { useThemeStore } from '../../stores/theme.store';
 import { useLanguageStore } from '../../stores/language.store';
 import { getGlassTheme } from '../../constants/glass-theme';
@@ -42,8 +43,17 @@ export const MobileCreatePollModal: React.FC<MobileCreatePollModalProps> = ({
 
   const [question, setQuestion] = useState('');
   const [options, setOptions] = useState<string[]>(['', '']);
+  const [isMultipleChoice, setIsMultipleChoice] = useState(false);
+  const [isAnonymous, setIsAnonymous] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  const handleApplyQuickTemplate = (tpl: { question: string; options: string[] }) => {
+    Haptics.selectionAsync();
+    setFormError(null);
+    setQuestion(tpl.question);
+    setOptions([...tpl.options]);
+  };
 
   const handleClose = () => {
     setFormError(null);
@@ -92,6 +102,8 @@ export const MobileCreatePollModal: React.FC<MobileCreatePollModalProps> = ({
       const created = await createPollApi(circleId, {
         question: trimmedQuestion,
         options: validOptions,
+        isMultipleChoice,
+        isAnonymous,
       });
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -148,6 +160,50 @@ export const MobileCreatePollModal: React.FC<MobileCreatePollModalProps> = ({
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
+        {/* Quick Template Chips */}
+        <View style={{ marginBottom: 14 }}>
+          <Text style={[styles.fieldLabel, { color: colors.subtle, marginBottom: 6 }]}>
+            {t.collab.pollQuickTemplates || 'Mẫu bình chọn nhanh'}
+          </Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+            {[
+              {
+                label: t.collab.pollTemplateFood || '🍜 Trưa nay ăn gì?',
+                question: 'Trưa nay ăn gì cả nhà?',
+                options: ['Cơm tấm', 'Bún bò Huế', 'Phở bò', 'Trà sữa'],
+              },
+              {
+                label: t.collab.pollTemplateOuting || '🏖️ Cuối tuần đi đâu?',
+                question: 'Cuối tuần này đi đâu chơi?',
+                options: ['Cà phê chill', 'Dã ngoại cắm trại', 'Đi xem phim', 'Ở nhà ngủ'],
+              },
+              {
+                label: t.collab.pollTemplateTime || '⏰ Giờ hẹn?',
+                question: 'Mấy giờ hẹn gặp nhau?',
+                options: ['08:00 sáng', '10:30 sáng', '14:00 chiều', '18:30 tối'],
+              },
+            ].map((tpl, i) => (
+              <TouchableOpacity
+                key={i}
+                activeOpacity={0.7}
+                onPress={() => handleApplyQuickTemplate(tpl)}
+                style={{
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                  borderRadius: 16,
+                  backgroundColor: colors.wash,
+                  borderWidth: 1,
+                  borderColor: colors.hairline,
+                }}
+              >
+                <Text style={{ fontSize: 12, fontWeight: '600', color: colors.text }}>
+                  {tpl.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+
         {/* Question */}
         <View style={styles.fieldGroup}>
           <Text style={[styles.fieldLabel, { color: colors.text }]}>
@@ -219,6 +275,49 @@ export const MobileCreatePollModal: React.FC<MobileCreatePollModalProps> = ({
               </Text>
             </TouchableOpacity>
           )}
+        </View>
+
+        {/* Advanced Poll Toggles */}
+        <View style={{ paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.hairline, gap: 14, marginBottom: 16 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View style={{ flex: 1, paddingRight: 12 }}>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: colors.text }}>
+                {t.collab.pollIsMultipleChoice || 'Cho phép chọn nhiều phương án'}
+              </Text>
+            </View>
+            <Switch
+              value={isMultipleChoice}
+              onValueChange={(val) => {
+                Haptics.selectionAsync();
+                setIsMultipleChoice(val);
+              }}
+              trackColor={{ false: colors.wash, true: colors.primary }}
+              thumbColor="#FFFFFF"
+            />
+          </View>
+
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View style={{ flex: 1, paddingRight: 12 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Lock size={14} color="#10b981" />
+                <Text style={{ fontSize: 13, fontWeight: '600', color: colors.text }}>
+                  {t.collab.pollIsAnonymous || 'Bình chọn ẩn danh'}
+                </Text>
+              </View>
+              <Text style={{ fontSize: 11, color: colors.subtle, marginTop: 2 }}>
+                {t.collab.pollAnonymousNotice || 'Danh tính người bỏ phiếu được giữ kín.'}
+              </Text>
+            </View>
+            <Switch
+              value={isAnonymous}
+              onValueChange={(val) => {
+                Haptics.selectionAsync();
+                setIsAnonymous(val);
+              }}
+              trackColor={{ false: colors.wash, true: colors.primary }}
+              thumbColor="#FFFFFF"
+            />
+          </View>
         </View>
       </ScrollView>
 

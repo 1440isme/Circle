@@ -118,6 +118,7 @@ No PR or Issue may be marked **Done** unless:
 - ❌ Never commit mock data, dummy datasets, or fake entities into production UI components (Web & Mobile). When backend data is not yet available, UI must display authentic empty states or loading skeletons (Gate 10 - Academic & Production Integrity).
 - ❌ Never hardcode raw strings for user-facing texts on Web or Mobile (must use shared localization dictionary `t.*`).
 - ❌ Never hardcode raw hex/rgba color values in Web or Mobile UI components (must use design token palette `colors.*` or Tailwind tokens).
+- ❌ Never create a new modal, dialog, or action popup if a similar one already exists; always reuse or extend the shared base component (Rule 9).
 
 ---
 
@@ -128,5 +129,13 @@ No PR or Issue may be marked **Done** unless:
 - **Zero Mock Data in Components:** Components must strictly bind to real data from stores/APIs. Fake sample circles, mock member counts, or simulated entities are strictly banned from UI code. If data is pending or empty, show authentic Empty States.
 - **Seamless Infinite Canvas on Mobile:** Mobile applications (`apps/mobile`) must deliver an organic, fluid native mobile experience without rigid rectangular bounding boxes, artificial card partitions, or abrupt header divides. Content flows continuously on a unified canvas background (`colors.canvas`), guided by typography scale, icon accents, and breathing room (whitespace).
 - **Step-by-Step Native Flow:** Multi-step workflows on mobile (Registration, Forgot Password, Account Setup) must follow an unboxed step-by-step wizard pattern (1 action/question per screen) rather than legacy long form-filling.
+
+---
+
+## 9. Mandatory Component Reuse & Zero Duplicate Modals Invariant (Web & Mobile)
+
+- **Zero Duplicate Modals & Dialogs (Absolute):** TUYỆT ĐỐI CẤM tạo modal, popup hoặc dialog mới nếu trong hệ thống đã có component tương tự về hành vi hoặc cấu trúc tương tác (ví dụ: các modal xác nhận hành động, lựa chọn chế độ xóa/thu hồi, bộ chọn danh sách,...). Bắt buộc phải kế thừa, trừu tượng hóa và tái sử dụng component dùng chung (`ActionChoiceModal`, `ConfirmModal`, `GlassModal`), chỉ tùy biến nội dung thông qua props/configuration (`title`, `description`, `options`, `icon`, `onConfirm`, v.v.).
+- **System-Wide Component Reuse:** Áp dụng triệt để cho toàn bộ tính năng và mọi ngóc ngách của nền tảng (Web & Mobile) nhằm tối ưu hóa bundle size, tốc độ tải trang/khởi động app và loại bỏ triệt để hiện tượng lệch pha giao diện và trải nghiệm người dùng (UX drift).
+
 
 
