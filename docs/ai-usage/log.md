@@ -6282,3 +6282,41 @@
 - **AI Errors / Hallucinations Found:** None.
 - **Commit:** b922846
 - **PR:** #127
+
+---
+
+## AI-0174: Redesign Calendar Event Chat Embed Card to Match Live Wheel Card Style (#120)
+
+- **Date:** 2026-11-25 16:40:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210) & Trương Công Bình (MSSV: 23110184)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120 (Event RSVP & Realtime Delights)
+- **Purpose:** 
+  1. Tái thiết kế toàn bộ thẻ Lịch hẹn / Sự kiện trong khung chat (`CalendarEventChatEmbed.tsx` trên Web và `MobileCalendarEventChatEmbed.tsx` trên Mobile) theo ngôn ngữ thiết kế chuẩn thẻ Vòng quay may mắn (`LiveWheelChatEmbed`):
+     - Container bo cong mềm mại `rounded-3xl` / `borderRadius: 22`, viền và gradient ngọc bích (emerald/teal) sang trọng, đổ bóng mờ nhẹ nhàng tinh tế.
+     - Header gồm Icon Slot tròn `CalendarDays` + Tiêu đề sự kiện nổi bật + Huy hiệu trạng thái (Đang diễn ra / Sắp tới / Đã kết thúc / Đã hủy).
+     - Hàng thông tin Người tạo lịch hẹn (Avatar tròn + Tên người tạo + Huy hiệu số người tham gia).
+     - Khối thông tin sự kiện tinh gọn: Thời gian (Clock), Địa điểm (MapPin), Lặp lại (Repeat) và Ghi chú (FileText).
+     - Hàng Avatar xếp chồng (Avatar stack `-space-x-2` / negative margin) của những người đã xác nhận tham gia kèm chỉ số `+N`.
+     - 3 nút phản hồi nhanh: Tham gia, Có thể, Từ chối tích hợp gọn gàng, 1 chạm.
+     - Nút Action chính nổi bật dạng bo cong rộng: "Xem chi tiết lịch hẹn" kèm icon `CalendarDays` và mũi tên `ArrowRight` (hoặc thông báo "Lịch hẹn đã bị hủy" khi bị hủy).
+- **Prompt Summary:** Thiết kế thẻ sự kiện trong nhóm chat giống như thẻ tham gia vòng xoay cho đẹp.
+- **Files Affected:**
+  - `apps/web/src/components/chat/CalendarEventChatEmbed.tsx`
+  - `apps/mobile/src/components/chat/MobileCalendarEventChatEmbed.tsx`
+  - `docs/ai-usage/log.md`
+  - `agentic/memory/2026-11-25.md`
+- **AI-Generated Portion:** 100% component UI redesign and styling matching Live Wheel card structure.
+- **Human Modifications:** Trực tiếp yêu cầu đồng bộ thiết kế thẻ sự kiện theo form thẻ vòng xoay để tăng tính thẩm mỹ và đồng nhất.
+- **Verification Method:**
+  - `npx tsc --noEmit --project apps/web/tsconfig.json`: 0 errors.
+  - `npx tsc --noEmit --project apps/mobile/tsconfig.json`: 0 errors.
+  - `npm --prefix apps/backend test -- circle-tools.service.spec.ts`: 52/52 tests passed.
+  - `bash ./scripts/check-agent-map.sh`: 137/137 framework files resolve.
+  - `bash ./scripts/check-secrets.sh`: 0 secret leaks.
+- **Official Source Checked:** `agentic/playbooks/05-chat.md`, `agentic/playbooks/07-circle-utilities.md`, `agentic/playbooks/cross-cutting-gate.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secrets.
+- **AI Errors / Hallucinations Found:** None.
+- **Commit:** aab7f66
+- **PR:** #127
